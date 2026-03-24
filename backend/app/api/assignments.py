@@ -97,6 +97,8 @@ def update_assignment(
     if next_character.delegate_id is not None:
         raise HTTPException(status_code=409, detail="Character already assigned")
     current.delegate_id = None
+    # Flush to release the existing unique delegate assignment before moving.
+    db.flush()
     next_character.delegate_id = delegate_id
     try:
         db.commit()

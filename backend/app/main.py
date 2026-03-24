@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.config import settings
@@ -25,8 +26,14 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router)
+
+    # Serve local uploads if Supabase is not used
+    app.mount(
+        settings.upload_base_url,
+        StaticFiles(directory=settings.upload_dir, check_dir=False),
+        name="uploads",
+    )
     return app
 
 
 app = create_app()
-

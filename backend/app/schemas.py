@@ -24,6 +24,7 @@ class CommitteeBase(BaseModel):
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
+    image_url: str | None = Field(default=None, max_length=1024)
 
 
 class CommitteeCreate(CommitteeBase):
@@ -41,6 +42,7 @@ class CommitteeUpdate(BaseModel):
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
+    image_url: str | None = Field(default=None, max_length=1024)
 
 
 class CommitteeOut(CommitteeBase):
@@ -248,4 +250,3 @@ def assignment_from_character(character: Any) -> AssignmentOut:
         character_id=character.id,
         committee_id=character.committee_id,
     )
-
