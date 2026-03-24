@@ -21,7 +21,7 @@ class Character(Base):
         server_default=text("gen_random_uuid()"),
     )
     committee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("committees.id")
+        UUID(as_uuid=True), ForeignKey("committees.id"), unique = True, nullable=False
     )
     delegate_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("delegates.id"), unique=True

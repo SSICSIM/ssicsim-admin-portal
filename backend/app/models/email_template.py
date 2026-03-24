@@ -21,9 +21,9 @@ class EmailTemplate(Base):
         default=uuid.uuid4,
         server_default=text("gen_random_uuid()"),
     )
-    name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    subject_template: Mapped[str] = mapped_column(String(255))
-    body_template: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    subject_template: Mapped[str] = mapped_column(String(255), nullable=False)
+    body_template: Mapped[str] = mapped_column(Text, nullable=False)
     placeholders: Mapped[list[str] | None] = mapped_column(ARRAY(String(255)))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()")

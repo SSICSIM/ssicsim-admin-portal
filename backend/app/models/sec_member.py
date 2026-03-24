@@ -21,10 +21,10 @@ class SecMember(Base):
         default=uuid.uuid4,
         server_default=text("gen_random_uuid()"),
     )
-    first_name: Mapped[str] = mapped_column(String(255))
-    last_name: Mapped[str] = mapped_column(String(255))
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    role: Mapped[str | None] = mapped_column(String(255))
+    first_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    role: Mapped[str | None] = mapped_column(String(255), nullable=False)
     last_logged_in: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
