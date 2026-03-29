@@ -22,6 +22,7 @@ def list_characters(db: Session = Depends(get_db)) -> list[Character]:
 @router.post("", response_model=CharacterOut, status_code=201)
 def create_character(payload: CharacterCreate, db: Session = Depends(get_db)) -> Character:
     character = Character(
+        name=payload.name,
         committee_id=payload.committee_id,
         delegate_id=payload.delegate_id,
     )
@@ -30,7 +31,9 @@ def create_character(payload: CharacterCreate, db: Session = Depends(get_db)) ->
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Character already assigned")
+        if payload.delegate_id is not None:
+            raise HTTPException(status_code=409, detail="Delegate already assigned")
+        raise HTTPException(status_code=409, detail="Character conflict")
     db.refresh(character)
     return character
 
@@ -50,6 +53,8 @@ def update_character(
     character = db.get(Character, character_id)
     if character is None:
         raise HTTPException(status_code=404, detail="Character not found")
+    if payload.name is not None:
+        character.name = payload.name
     if payload.committee_id is not None:
         character.committee_id = payload.committee_id
     if payload.delegate_id is not None:
@@ -58,7 +63,9 @@ def update_character(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Character already assigned")
+        if payload.delegate_id is not None:
+            raise HTTPException(status_code=409, detail="Delegate already assigned")
+        raise HTTPException(status_code=409, detail="Character conflict")
     db.refresh(character)
     return character
 

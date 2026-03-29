@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.character import Character
 from app.models.delegate import Delegate
+from app.models.enums import DelegateStatus
 from app.schemas import (
     AssignmentBulkCreate,
     AssignmentCreate,
@@ -30,13 +31,15 @@ def assign_delegate(payload: AssignmentCreate, db: Session = Depends(get_db)) ->
     character = db.get(Character, payload.character_id)
     if character is None:
         raise HTTPException(status_code=404, detail="Character not found")
-    if db.get(Delegate, payload.delegate_id) is None:
+    delegate = db.get(Delegate, payload.delegate_id)
+    if delegate is None:
         raise HTTPException(status_code=404, detail="Delegate not found")
     if character.delegate_id is not None:
         raise HTTPException(status_code=409, detail="Character already assigned")
     if _delegate_has_assignment(db, payload.delegate_id):
         raise HTTPException(status_code=409, detail="Delegate already assigned")
     character.delegate_id = payload.delegate_id
+    delegate.delegate_status = DelegateStatus.ASSIGNED
     try:
         db.commit()
     except IntegrityError:
@@ -74,6 +77,9 @@ def bulk_assign(payload: AssignmentBulkCreate, db: Session = Depends(get_db)) ->
 
     for character, delegate_id in to_assign:
         character.delegate_id = delegate_id
+        delegate = db.get(Delegate, delegate_id)
+        if delegate is not None:
+            delegate.delegate_status = DelegateStatus.ASSIGNED
         results.append(assignment_from_character(character))
 
     try:
@@ -100,6 +106,9 @@ def update_assignment(
     # Flush to release the existing unique delegate assignment before moving.
     db.flush()
     next_character.delegate_id = delegate_id
+    delegate = db.get(Delegate, delegate_id)
+    if delegate is not None:
+        delegate.delegate_status = DelegateStatus.ASSIGNED
     try:
         db.commit()
     except IntegrityError:
@@ -109,11 +118,16 @@ def update_assignment(
     return assignment_from_character(next_character)
 
 
+
+
 @router.delete("/{delegate_id}", status_code=204, response_model=None, response_class=Response)
 def delete_assignment(delegate_id: UUID, db: Session = Depends(get_db)) -> Response:
     current = db.scalar(select(Character).where(Character.delegate_id == delegate_id))
     if current is None:
         return Response(status_code=204)
     current.delegate_id = None
+    delegate = db.get(Delegate, delegate_id)
+    if delegate is not None:
+        delegate.delegate_status = DelegateStatus.AWAITING_ASSIGNMENT
     db.commit()
     return Response(status_code=204)

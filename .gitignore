@@ -24,4 +24,4 @@ pnpm-debug.log*
 # Editor
 .vscode/
 .idea/
-
+.sfdx/
