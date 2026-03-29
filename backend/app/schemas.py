@@ -82,6 +82,9 @@ class DelegationOut(DelegationBase):
 class DelegateBase(BaseModel):
     first_name: str = Field(min_length=1, max_length=255)
     last_name: str = Field(min_length=1, max_length=255)
+    full_name: str | None = Field(default=None, max_length=255)
+    preferred_name: str | None = Field(default=None, max_length=255)
+    grade: str | None = Field(default=None, max_length=32)
     email: EmailStr
     delegate_experience: DelegateExperience
     first_committee: str | None = Field(default=None, max_length=255)
@@ -90,6 +93,11 @@ class DelegateBase(BaseModel):
     date_applied: datetime | None = None
     delegate_status: DelegateStatus
     delegation_id: UUID | None = None
+    code_of_conduct_url: str | None = Field(default=None, max_length=1024)
+    payment_policy_ack: bool | None = None
+    cancellation_policy_ack: bool | None = None
+    heard_about: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
 
 
 class DelegateCreate(DelegateBase):
@@ -99,6 +107,9 @@ class DelegateCreate(DelegateBase):
 class DelegateUpdate(BaseModel):
     first_name: str | None = Field(default=None, min_length=1, max_length=255)
     last_name: str | None = Field(default=None, min_length=1, max_length=255)
+    full_name: str | None = Field(default=None, max_length=255)
+    preferred_name: str | None = Field(default=None, max_length=255)
+    grade: str | None = Field(default=None, max_length=32)
     email: EmailStr | None = None
     delegate_experience: DelegateExperience | None = None
     first_committee: str | None = Field(default=None, max_length=255)
@@ -107,6 +118,11 @@ class DelegateUpdate(BaseModel):
     date_applied: datetime | None = None
     delegate_status: DelegateStatus | None = None
     delegation_id: UUID | None = None
+    code_of_conduct_url: str | None = Field(default=None, max_length=1024)
+    payment_policy_ack: bool | None = None
+    cancellation_policy_ack: bool | None = None
+    heard_about: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
 
 
 class DelegateOut(DelegateBase):
@@ -117,6 +133,7 @@ class DelegateOut(DelegateBase):
 
 
 class CharacterBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
     committee_id: UUID
     delegate_id: UUID | None = None
 
@@ -126,6 +143,7 @@ class CharacterCreate(CharacterBase):
 
 
 class CharacterUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
     committee_id: UUID | None = None
     delegate_id: UUID | None = None
 

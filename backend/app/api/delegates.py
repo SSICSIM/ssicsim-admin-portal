@@ -26,6 +26,9 @@ def create_delegate(payload: DelegateCreate, db: Session = Depends(get_db)) -> D
     delegate = Delegate(
         first_name=payload.first_name,
         last_name=payload.last_name,
+        full_name=payload.full_name,
+        preferred_name=payload.preferred_name,
+        grade=payload.grade,
         email=str(payload.email),
         delegate_experience=payload.delegate_experience,
         first_committee=payload.first_committee,
@@ -34,6 +37,11 @@ def create_delegate(payload: DelegateCreate, db: Session = Depends(get_db)) -> D
         date_applied=payload.date_applied,
         delegate_status=payload.delegate_status,
         delegation_id=payload.delegation_id,
+        code_of_conduct_url=payload.code_of_conduct_url,
+        payment_policy_ack=payload.payment_policy_ack,
+        cancellation_policy_ack=payload.cancellation_policy_ack,
+        heard_about=payload.heard_about,
+        notes=payload.notes,
     )
     db.add(delegate)
     try:
@@ -64,6 +72,12 @@ def update_delegate(
         delegate.first_name = payload.first_name
     if payload.last_name is not None:
         delegate.last_name = payload.last_name
+    if payload.full_name is not None:
+        delegate.full_name = payload.full_name
+    if payload.preferred_name is not None:
+        delegate.preferred_name = payload.preferred_name
+    if payload.grade is not None:
+        delegate.grade = payload.grade
     if payload.email is not None:
         delegate.email = str(payload.email)
     if payload.delegate_experience is not None:
@@ -80,6 +94,16 @@ def update_delegate(
         delegate.delegate_status = payload.delegate_status
     if payload.delegation_id is not None:
         delegate.delegation_id = payload.delegation_id
+    if payload.code_of_conduct_url is not None:
+        delegate.code_of_conduct_url = payload.code_of_conduct_url
+    if payload.payment_policy_ack is not None:
+        delegate.payment_policy_ack = payload.payment_policy_ack
+    if payload.cancellation_policy_ack is not None:
+        delegate.cancellation_policy_ack = payload.cancellation_policy_ack
+    if payload.heard_about is not None:
+        delegate.heard_about = payload.heard_about
+    if payload.notes is not None:
+        delegate.notes = payload.notes
     try:
         db.commit()
     except IntegrityError:

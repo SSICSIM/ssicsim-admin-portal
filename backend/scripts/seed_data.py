@@ -1,0 +1,238 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from pathlib import Path
+import sys
+
+from sqlalchemy import select
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from app.database import SessionLocal
+from app.models.committee import Committee
+from app.models.delegate import Delegate
+from app.models.delegation import Delegation
+from app.models.enums import DelegateExperience, DelegateStatus
+
+
+COMMITTEES = [
+    {
+        "name": "Security Council",
+        "small_description": "Crisis response, high stakes diplomacy.",
+        "large_description": "A fast-moving crisis committee focused on urgent resolutions.",
+        "director_name": "Avery Chen",
+        "chair_name": "Jordan Malik",
+        "crisis_analysts": ["Priya Rao", "Luis Martinez"],
+        "max_delegates": 30,
+        "background_guide_link": "https://example.com/security-council-bg",
+        "mechanics_guide_link": "https://example.com/security-council-mechanics",
+        "character_guide_link": "https://example.com/security-council-characters",
+    },
+    {
+        "name": "WHO Emergency Session",
+        "small_description": "Global health coordination and policy.",
+        "large_description": "Delegates respond to public health crises with rapid coordination.",
+        "director_name": "Maya Patel",
+        "chair_name": "Samir Hassan",
+        "crisis_analysts": ["Evelyn Zhang"],
+        "max_delegates": 25,
+        "background_guide_link": "https://example.com/who-bg",
+        "mechanics_guide_link": "https://example.com/who-mechanics",
+        "character_guide_link": "https://example.com/who-characters",
+    },
+    {
+        "name": "UN Women Summit",
+        "small_description": "Policy development for gender equity.",
+        "large_description": "Delegates draft policy proposals to advance equity globally.",
+        "director_name": "Talia Brooks",
+        "chair_name": "Renee Alvarez",
+        "crisis_analysts": ["Noah Kim"],
+        "max_delegates": 28,
+        "background_guide_link": "https://example.com/unw-bg",
+        "mechanics_guide_link": "https://example.com/unw-mechanics",
+        "character_guide_link": "https://example.com/unw-characters",
+    },
+]
+
+DELEGATIONS = [
+    {
+        "name": "Independent Delegate",
+        "faculty_advisor_first_name": None,
+        "faculty_advisor_last_name": None,
+        "faculty_advisor_email": None,
+        "head_delegate_id": None,
+    },
+    {
+        "name": "Sentosa",
+        "faculty_advisor_first_name": "Alicia",
+        "faculty_advisor_last_name": "Reed",
+        "faculty_advisor_email": "advisor@sentosa.edu",
+        "head_delegate_id": None,
+    },
+    {
+        "name": "CodeX",
+        "faculty_advisor_first_name": "Marvin",
+        "faculty_advisor_last_name": "Patel",
+        "faculty_advisor_email": "advisor@codex.edu",
+        "head_delegate_id": None,
+    },
+    {
+        "name": "Alexander Mackenzie High School",
+        "faculty_advisor_first_name": "Helen",
+        "faculty_advisor_last_name": "Park",
+        "faculty_advisor_email": "advisor@amhs.edu",
+        "head_delegate_id": None,
+    },
+    {
+        "name": "Westmount Collegiate Institute",
+        "faculty_advisor_first_name": "Jordan",
+        "faculty_advisor_last_name": "Lee",
+        "faculty_advisor_email": "advisor@westmount.edu",
+        "head_delegate_id": None,
+    },
+]
+
+DELEGATES = [
+    {
+        "first_name": "Lina",
+        "last_name": "Morales",
+        "full_name": "Lina Morales",
+        "preferred_name": "Lina",
+        "grade": "Grade 11",
+        "delegation_name": "Independent Delegate",
+        "email": "lina.morales@example.com",
+        "delegate_experience": DelegateExperience.BEGINNER,
+        "first_committee": "Security Council",
+        "second_committee": "WHO Emergency Session",
+        "third_committee": "UN Women Summit",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/lina.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "School announcement",
+        "notes": "Interested in crisis committees."
+    },
+    {
+        "first_name": "Owen",
+        "last_name": "Price",
+        "full_name": "Owen Price",
+        "preferred_name": "Owen",
+        "grade": "Grade 12",
+        "delegation_name": "Sentosa",
+        "email": "owen.price@example.com",
+        "delegate_experience": DelegateExperience.INTERMEDIATE,
+        "first_committee": "WHO Emergency Session",
+        "second_committee": "Security Council",
+        "third_committee": "UN Women Summit",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/owen.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "Friend",
+        "notes": "Wants to work on health policy."
+    },
+    {
+        "first_name": "Mina",
+        "last_name": "Sato",
+        "full_name": "Mina Sato",
+        "preferred_name": "Mina",
+        "grade": "Grade 10",
+        "delegation_name": "CodeX",
+        "email": "mina.sato@example.com",
+        "delegate_experience": DelegateExperience.EXPERTISE,
+        "first_committee": "UN Women Summit",
+        "second_committee": "Security Council",
+        "third_committee": "WHO Emergency Session",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/mina.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "Advisor",
+        "notes": "Advanced delegate."
+    },
+    {
+        "first_name": "Arjun",
+        "last_name": "Kapoor",
+        "full_name": "Arjun Kapoor",
+        "preferred_name": "Arjun",
+        "grade": "Grade 12",
+        "delegation_name": "Alexander Mackenzie High School",
+        "email": "arjun.kapoor@example.com",
+        "delegate_experience": DelegateExperience.INTERMEDIATE,
+        "first_committee": "Security Council",
+        "second_committee": "UN Women Summit",
+        "third_committee": "WHO Emergency Session",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/arjun.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "Instagram",
+        "notes": "Interested in leadership roles."
+    },
+    {
+        "first_name": "Harper",
+        "last_name": "Nguyen",
+        "full_name": "Harper Nguyen",
+        "preferred_name": "Harper",
+        "grade": "Grade 9",
+        "delegation_name": "Westmount Collegiate Institute",
+        "email": "harper.nguyen@example.com",
+        "delegate_experience": DelegateExperience.BEGINNER,
+        "first_committee": "WHO Emergency Session",
+        "second_committee": "UN Women Summit",
+        "third_committee": "Security Council",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/harper.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "Newsletter",
+        "notes": "First time MUN."
+    },
+]
+
+
+def seed_committees(db):
+    existing = set(db.scalars(select(Committee.name)).all())
+    for payload in COMMITTEES:
+        if payload["name"] in existing:
+            continue
+        db.add(Committee(**payload))
+
+
+def seed_delegations(db):
+    existing = set(db.scalars(select(Delegation.name)).all())
+    for payload in DELEGATIONS:
+        if payload["name"] in existing:
+            continue
+        db.add(Delegation(**payload))
+
+
+def seed_delegates(db):
+    existing = set(db.scalars(select(Delegate.email)).all())
+    delegation_map = {row.name: row.id for row in db.scalars(select(Delegation)).all()}
+    for payload in DELEGATES:
+        if payload["email"] in existing:
+            continue
+        delegation_name = payload.pop("delegation_name", None)
+        db.add(
+            Delegate(
+                **payload,
+                delegation_id=delegation_map.get(delegation_name),
+                date_applied=datetime.now(timezone.utc),
+            )
+        )
+
+
+def main() -> None:
+    db = SessionLocal()
+    try:
+        seed_committees(db)
+        seed_delegations(db)
+        seed_delegates(db)
+        db.commit()
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    main()
