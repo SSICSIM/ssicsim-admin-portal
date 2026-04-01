@@ -46,7 +46,7 @@ def _make_delegate(client, email: str = "delegate@example.com", delegation_id=No
         "/api/delegates",
         json={
             "first_name": "Del",
-            "last_name": " Egate",
+            "last_name": "Egate",
             "email": email,
             "delegate_experience": "Beginner",
             "first_committee": "C1",
