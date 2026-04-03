@@ -31,10 +31,14 @@ def _supabase_client() -> Client | None:
 
 
 def _local_upload(file_obj: BinaryIO, key_prefix: str, filename: str | None) -> str:
-    base, ext = os.path.splitext(filename or "upload")
+    safe_name = Path(filename).name if filename else "upload"
+    base, ext = os.path.splitext(safe_name)
     key = f"{base}-{uuid.uuid4()}{ext}"
     rel_path = Path(key_prefix) / key
-    dest = Path(settings.upload_dir) / rel_path
+    base_dir = Path(settings.upload_dir).resolve()
+    dest = (base_dir / rel_path).resolve()
+    if base_dir != dest and base_dir not in dest.parents:
+        raise StorageConfigError("Invalid upload path")
     dest.parent.mkdir(parents=True, exist_ok=True)
     with open(dest, "wb") as f:
         f.write(file_obj.read())

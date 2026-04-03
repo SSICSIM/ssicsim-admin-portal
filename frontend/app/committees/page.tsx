@@ -21,6 +21,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function CommitteesPage() {
+  // Query hooks
   const [filter, setFilter] = useState("");
   const committeesQuery = useCommittees();
   const charactersQuery = useCharacters();
@@ -35,6 +36,7 @@ export default function CommitteesPage() {
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // useMemo: derived counts for display.
   const characterCounts = useMemo(() => {
     const counts = new Map<string, number>();
     (charactersQuery.data ?? []).forEach((character) => {
@@ -47,6 +49,7 @@ export default function CommitteesPage() {
     committee.name.toLowerCase().includes(filter.toLowerCase())
   );
 
+  // Handlers
   const handleCreateCommittee = async () => {
     setCreateMessage(null);
     setCreateError(null);

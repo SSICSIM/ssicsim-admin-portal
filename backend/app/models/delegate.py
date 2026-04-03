@@ -31,9 +31,9 @@ class Delegate(Base):
     delegate_experience: Mapped[DelegateExperience] = mapped_column(
         Enum(DelegateExperience, name="delegate_experience_enum", native_enum=True)
     )
-    first_committee: Mapped[str | None] = mapped_column(String(255), nullable=False)
-    second_committee: Mapped[str | None] = mapped_column(String(255), nullable=False)
-    third_committee: Mapped[str | None] = mapped_column(String(255), nullable=False)
+    first_committee: Mapped[str] = mapped_column(String(255), nullable=False)
+    second_committee: Mapped[str] = mapped_column(String(255), nullable=False)
+    third_committee: Mapped[str] = mapped_column(String(255), nullable=False)
     date_applied: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     delegate_status: Mapped[DelegateStatus] = mapped_column(
         Enum(DelegateStatus, name="delegate_status_enum", native_enum=True)

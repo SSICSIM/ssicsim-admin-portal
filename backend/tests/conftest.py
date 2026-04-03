@@ -1,16 +1,13 @@
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.ext.compiler import compiles
-from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
-from sqlalchemy.sql.elements import TextClause
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -19,41 +16,22 @@ if str(PROJECT_ROOT) not in sys.path:
 from app.config import settings  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
-
-
-@compiles(ARRAY, "sqlite")
-def compile_array(element, compiler, **kw):  # type: ignore[override]
-    # Represent PostgreSQL ARRAY columns as TEXT when testing on SQLite
-    return "TEXT"
-
-
-def _strip_server_defaults_for_sqlite():
-    for table in Base.metadata.tables.values():
-        for column in table.columns:
-            default = column.server_default
-            if default is None:
-                continue
-            arg = getattr(default, "arg", None)
-            if isinstance(arg, TextClause):
-                # SQLite won't know functions like gen_random_uuid() or now()
-                column.server_default = None
+from app.auth import require_admin_token  # noqa: E402
 
 
 @pytest.fixture(scope="session")
 def engine():
-    engine = create_engine(
-        "sqlite+pysqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+    """Create a real database engine for tests (PostgreSQL only)."""
+    test_db_url = os.getenv("TEST_DATABASE_URL", settings.database_url)
 
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_connection, _):  # type: ignore[override]
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON;")
-        cursor.close()
+    if not test_db_url or not test_db_url.startswith("postgresql"):
+        raise RuntimeError(
+            "TEST_DATABASE_URL must be set to a PostgreSQL DSN, "
+            "e.g. postgresql+psycopg2://user:pass@localhost:5432/dbname"
+        )
 
-    _strip_server_defaults_for_sqlite()
+    engine = create_engine(test_db_url)
+
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)
@@ -66,7 +44,6 @@ def upload_dir(tmp_path_factory):
 
 @pytest.fixture()
 def client(engine, upload_dir):
-    _strip_server_defaults_for_sqlite()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -85,5 +62,6 @@ def client(engine, upload_dir):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[require_admin_token] = lambda: None
     with TestClient(app) as test_client:
         yield test_client

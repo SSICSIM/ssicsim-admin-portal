@@ -1,3 +1,6 @@
+// Send all client requests to the Next.js proxy at /api/backend; the proxy enforces
+// NextAuth session checks and forwards to the real FastAPI host with X-Admin-Token.
+// Browser hits http://localhost:3000/api/backend/...; the proxy forwards to BACKEND_BASE_URL (e.g. http://localhost:8000).
 const baseUrl = "/api/backend";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -52,4 +55,3 @@ export const apiClient = {
   upload: <T,>(path: string, formData: FormData) =>
     requestForm<T>(path, { method: "POST", body: formData })
 };
-

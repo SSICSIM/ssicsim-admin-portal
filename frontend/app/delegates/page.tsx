@@ -44,6 +44,7 @@ const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary"> =
 };
 
 export default function DelegatesPage() {
+  // Query hooks
   const committeesQuery = useCommittees();
   const charactersQuery = useCharacters();
   const delegatesQuery = useDelegates();
@@ -60,6 +61,7 @@ export default function DelegatesPage() {
   const updateAssignment = useUpdateAssignment(assignmentDelegateId ?? "");
 
   const [statusFilter, setStatusFilter] = useState<DelegateStatus | "all">("all");
+  const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
   const [committeeId, setCommitteeId] = useState<UUID | "">("");
   const [characterId, setCharacterId] = useState<UUID | "">("");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -70,6 +72,7 @@ export default function DelegatesPage() {
   const [emailerBusy, setEmailerBusy] = useState(false);
 
 
+  // useMemo: derived data for rendering and filtering.
   const committees = committeesQuery.data ?? [];
   const characters = charactersQuery.data ?? [];
   const delegates = delegatesQuery.data ?? [];
@@ -86,7 +89,18 @@ export default function DelegatesPage() {
     () => new Map(delegations.map((delegation) => [delegation.id, delegation])),
     [delegations]
   );
+  const assignedCharacterByDelegateId = useMemo(() => {
+    const map = new Map<UUID, typeof characters[number]>();
+    characters.forEach((character) => {
+      if (character.delegate_id != null) {
+        map.set(character.delegate_id, character);
+      }
+    });
+    return map;
+  }, [characters]);
 
+  // useMemo: filter delegates by search term and status for table rendering.
+  // Primary filtered list drives all downstream groupings to keep counts/messages consistent.
   const filteredDelegates = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     const filtered = term
@@ -104,30 +118,35 @@ export default function DelegatesPage() {
           return haystack.includes(term);
         })
       : delegates;
-    if (statusFilter === "all") return filtered;
-    return filtered.filter((delegate) => delegate.delegate_status === statusFilter);
-  }, [delegates, searchTerm, statusFilter]);
+    const statusFiltered = statusFilter === "all"
+      ? filtered
+      : filtered.filter((delegate) => delegate.delegate_status === statusFilter);
+    if (committeeFilterId === "all") return statusFiltered;
+    return statusFiltered.filter((delegate) => {
+      const assignedCharacter = assignedCharacterByDelegateId.get(delegate.id);
+      return assignedCharacter?.committee_id === committeeFilterId;
+    });
+  }, [delegates, searchTerm, statusFilter, committeeFilterId, assignedCharacterByDelegateId]);
 
-  const needsAssignment = useMemo(
-    () => filteredDelegates.filter((delegate) => delegate.delegate_status === "Awaiting Assignment"),
-    [filteredDelegates]
-  );
-
-  const assignedDelegates = useMemo(() => {
-    const items = filteredDelegates.filter((delegate) => delegate.delegate_status !== "Awaiting Assignment");
+  const { needsAssignment, assignedDelegates, assignedOnly } = useMemo(() => {
     const order: Record<DelegateStatus, number> = {
       "Awaiting Assignment": 2,
       Assigned: 0,
       Confirmed: 1
     };
-    return items.sort((a, b) => order[a.delegate_status] - order[b.delegate_status]);
+    const needs = filteredDelegates.filter(
+      (delegate) => delegate.delegate_status === "Awaiting Assignment"
+    );
+    const assigned = filteredDelegates
+      .filter((delegate) => delegate.delegate_status !== "Awaiting Assignment")
+      .sort((a, b) => order[a.delegate_status] - order[b.delegate_status]);
+    const assignedFiltered = filteredDelegates.filter(
+      (delegate) => delegate.delegate_status === "Assigned"
+    );
+    return { needsAssignment: needs, assignedDelegates: assigned, assignedOnly: assignedFiltered };
   }, [filteredDelegates]);
 
-  const assignedOnly = useMemo(
-    () => delegates.filter((delegate) => delegate.delegate_status === "Assigned"),
-    [delegates]
-  );
-
+  // Characters available for assignment, optionally narrowed to a committee.
   const filteredCharacters = useMemo(() => {
     return characters.filter((character) => {
       if (committeeId && character.committee_id !== committeeId) return false;
@@ -157,6 +176,7 @@ export default function DelegatesPage() {
     return characters.filter((character) => character.delegate_id != null);
   }, [characters]);
 
+  // Handlers
   const handleAssign = async () => {
     if (!assignmentDelegateId || !characterId) return;
     setSubmitMessage(null);
@@ -205,6 +225,7 @@ export default function DelegatesPage() {
   };
 
   const handleMassEmailConfirm = async () => {
+    // TODO: Replace bulk status update with a real email flow.
     if (assignedOnly.length === 0) {
       setEmailerError("No assigned delegates to confirm.");
       return;
@@ -392,6 +413,22 @@ export default function DelegatesPage() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label>Committee filter</Label>
+              <Select value={committeeFilterId} onValueChange={(value) => setCommitteeFilterId(value as UUID | "all")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All committees" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All committees</SelectItem>
+                  {committees.map((committee) => (
+                    <SelectItem key={committee.id} value={committee.id}>
+                      {committee.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Search delegates</Label>
               <Input
                 value={searchTerm}
@@ -399,7 +436,7 @@ export default function DelegatesPage() {
                 placeholder="Search name or email"
               />
             </div>
-            <div className="md:col-span-2 flex items-end justify-end">
+            <div className="md:col-span-1 flex items-end justify-end">
               <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button
                   variant="secondary"
@@ -448,6 +485,8 @@ export default function DelegatesPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Experience</TableHead>
                   <TableHead>Delegation</TableHead>
+                  <TableHead>Committee</TableHead>
+                  <TableHead>Character</TableHead>
                   <TableHead>Preferences</TableHead>
                   <TableHead>Waitlist Info</TableHead>
                   <TableHead></TableHead>
@@ -457,6 +496,10 @@ export default function DelegatesPage() {
                 {needsAssignment.map((delegate) => {
                   const isEditing = editId === delegate.id;
                   const draft = drafts[delegate.id] || {};
+                  const assignedCharacter = assignedCharacterByDelegateId.get(delegate.id);
+                  const assignedCommittee = assignedCharacter
+                    ? committeeMap.get(assignedCharacter.committee_id)?.name
+                    : null;
                   return (
                     <TableRow key={delegate.id}>
                       <TableCell>
@@ -611,6 +654,8 @@ export default function DelegatesPage() {
                           delegationMap.get(delegate.delegation_id ?? "")?.name ?? "Independent Delegate"
                         )}
                       </TableCell>
+                      <TableCell>{assignedCommittee ?? "--"}</TableCell>
+                      <TableCell>{assignedCharacter?.name ?? "--"}</TableCell>
                       <TableCell className="text-xs text-white/70">
                         {isEditing ? (
                           <div className="space-y-2">
@@ -801,6 +846,8 @@ export default function DelegatesPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Experience</TableHead>
                   <TableHead>Delegation</TableHead>
+                  <TableHead>Committee</TableHead>
+                  <TableHead>Character</TableHead>
                   <TableHead>Preferences</TableHead>
                   <TableHead>Waitlist Info</TableHead>
                   <TableHead></TableHead>
@@ -810,6 +857,10 @@ export default function DelegatesPage() {
                 {assignedDelegates.map((delegate) => {
                   const isEditing = editId === delegate.id;
                   const draft = drafts[delegate.id] || {};
+                  const assignedCharacter = assignedCharacterByDelegateId.get(delegate.id);
+                  const assignedCommittee = assignedCharacter
+                    ? committeeMap.get(assignedCharacter.committee_id)?.name
+                    : null;
                   return (
                     <TableRow key={delegate.id}>
                       <TableCell>
@@ -964,6 +1015,8 @@ export default function DelegatesPage() {
                           delegationMap.get(delegate.delegation_id ?? "")?.name ?? "Independent Delegate"
                         )}
                       </TableCell>
+                      <TableCell>{assignedCommittee ?? "--"}</TableCell>
+                      <TableCell>{assignedCharacter?.name ?? "--"}</TableCell>
                       <TableCell className="text-xs text-white/70">
                         {isEditing ? (
                           <div className="space-y-2">

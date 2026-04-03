@@ -13,11 +13,12 @@ class HealthResponse(BaseModel):
     status: str = "ok"
 
 
+# Committee schemas
 class CommitteeBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    small_description: str | None = Field(default=None, max_length=512)
-    large_description: str | None = None
-    director_name: str | None = Field(default=None, max_length=255)
+    small_description: str = Field(min_length=1, max_length=512)
+    large_description: str
+    director_name: str = Field(default="Director", min_length=1, max_length=255)
     chair_name: str | None = Field(default=None, max_length=255)
     crisis_analysts: list[str] | None = None
     max_delegates: int | None = Field(default=None, ge=0)
@@ -52,11 +53,12 @@ class CommitteeOut(CommitteeBase):
         from_attributes = True
 
 
+# Delegation schemas
 class DelegationBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    faculty_advisor_first_name: str | None = Field(default=None, max_length=255)
-    faculty_advisor_last_name: str | None = Field(default=None, max_length=255)
-    faculty_advisor_email: EmailStr | None = None
+    faculty_advisor_first_name: str = Field(min_length=1, max_length=255)
+    faculty_advisor_last_name: str = Field(min_length=1, max_length=255)
+    faculty_advisor_email: EmailStr
     head_delegate_id: UUID | None = None
 
 
@@ -79,6 +81,7 @@ class DelegationOut(DelegationBase):
         from_attributes = True
 
 
+# Delegate schemas
 class DelegateBase(BaseModel):
     first_name: str = Field(min_length=1, max_length=255)
     last_name: str = Field(min_length=1, max_length=255)
@@ -87,9 +90,9 @@ class DelegateBase(BaseModel):
     grade: str | None = Field(default=None, max_length=32)
     email: EmailStr
     delegate_experience: DelegateExperience
-    first_committee: str | None = Field(default=None, max_length=255)
-    second_committee: str | None = Field(default=None, max_length=255)
-    third_committee: str | None = Field(default=None, max_length=255)
+    first_committee: str = Field(min_length=1, max_length=255)
+    second_committee: str = Field(min_length=1, max_length=255)
+    third_committee: str = Field(min_length=1, max_length=255)
     date_applied: datetime | None = None
     delegate_status: DelegateStatus
     delegation_id: UUID | None = None
@@ -132,8 +135,9 @@ class DelegateOut(DelegateBase):
         from_attributes = True
 
 
+# Character schemas
 class CharacterBase(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
+    name: str = Field(default="Character", min_length=1, max_length=255)
     committee_id: UUID
     delegate_id: UUID | None = None
 
@@ -155,11 +159,12 @@ class CharacterOut(CharacterBase):
         from_attributes = True
 
 
+# Sec member schemas
 class SecMemberBase(BaseModel):
     first_name: str = Field(min_length=1, max_length=255)
     last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr
-    role: str | None = Field(default=None, max_length=255)
+    role: str = Field(min_length=1, max_length=255)
     last_logged_in: datetime | None = None
 
 
@@ -182,6 +187,7 @@ class SecMemberOut(SecMemberBase):
         from_attributes = True
 
 
+# Event log schemas
 class EventLogBase(BaseModel):
     sec_member_id: UUID | None = None
     timestamp: datetime | None = None
@@ -211,6 +217,7 @@ class EventLogOut(EventLogBase):
         from_attributes = True
 
 
+# Email template schemas
 class EmailTemplateBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     subject_template: str = Field(min_length=1, max_length=255)
@@ -220,8 +227,11 @@ class EmailTemplateBase(BaseModel):
     updated_at: datetime | None = None
 
 
-class EmailTemplateCreate(EmailTemplateBase):
-    pass
+class EmailTemplateCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    subject_template: str = Field(min_length=1, max_length=255)
+    body_template: str
+    placeholders: list[str] | None = None
 
 
 class EmailTemplateUpdate(BaseModel):
@@ -229,8 +239,6 @@ class EmailTemplateUpdate(BaseModel):
     subject_template: str | None = Field(default=None, min_length=1, max_length=255)
     body_template: str | None = None
     placeholders: list[str] | None = None
-    created_at: datetime | None = None
-    updated_at: datetime | None = None
 
 
 class EmailTemplateOut(EmailTemplateBase):
@@ -261,10 +269,3 @@ class AssignmentOut(BaseModel):
     class Config:
         from_attributes = True
 
-
-def assignment_from_character(character: Any) -> AssignmentOut:
-    return AssignmentOut(
-        delegate_id=character.delegate_id,
-        character_id=character.id,
-        committee_id=character.committee_id,
-    )

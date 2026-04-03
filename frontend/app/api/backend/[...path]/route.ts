@@ -1,3 +1,5 @@
+// Proxy any /api/backend/* calls to the FastAPI service, but only after
+// the user has an authenticated NextAuth session and we inject the admin token.
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
@@ -8,6 +10,7 @@ const backendBaseUrl = process.env.BACKEND_BASE_URL || "http://localhost:8000";
 const adminToken = process.env.ADMIN_API_TOKEN || "";
 
 async function proxy(request: NextRequest) {
+  // Gate backend access behind NextAuth to prevent exposing admin APIs to unauthenticated clients.
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return NextResponse.json({ detail: "Unauthorized" }, { status: 401 });
@@ -30,6 +33,12 @@ async function proxy(request: NextRequest) {
   }
 
   const response = await fetch(url, init);
+  if ([204, 205, 304].includes(response.status)) {
+    return new NextResponse(null, {
+      status: response.status,
+      headers: response.headers
+    });
+  }
   const contentType = response.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {

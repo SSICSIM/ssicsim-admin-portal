@@ -26,7 +26,9 @@ class EventLog(Base):
         UUID(as_uuid=True), ForeignKey("sec_members.id")
     )
     timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=text("now()")
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        server_default=text("now()"),
     )
     event_type: Mapped[EventType] = mapped_column(
         Enum(EventType, name="event_type_enum", native_enum=True)

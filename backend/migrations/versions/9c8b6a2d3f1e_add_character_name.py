@@ -20,12 +20,20 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "characters",
-        sa.Column("name", sa.String(length=255), nullable=False, server_default=""),
-    )
-    op.alter_column("characters", "name", server_default=None)
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column["name"] for column in inspector.get_columns("characters")}
+    if "name" not in columns:
+        op.add_column(
+            "characters",
+            sa.Column("name", sa.String(length=255), nullable=False, server_default=""),
+        )
+        op.alter_column("characters", "name", server_default=None)
 
 
 def downgrade() -> None:
-    op.drop_column("characters", "name")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column["name"] for column in inspector.get_columns("characters")}
+    if "name" in columns:
+        op.drop_column("characters", "name")

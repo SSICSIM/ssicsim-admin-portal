@@ -39,3 +39,7 @@ Notes:
 
 - `docs/DOCKER.md`
 - `backend/db.md`
+
+## Task List
+
+- Enable editing delegate information from the delegates table (inline or modal edit flow).

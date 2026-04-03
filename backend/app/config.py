@@ -3,6 +3,7 @@ from __future__ import annotations
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# TO-DO: Eventually phase out this config class and put in environment variables directly, but for now this is a convenient place to centralize config and validation logic for development
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

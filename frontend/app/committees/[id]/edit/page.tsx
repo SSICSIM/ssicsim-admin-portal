@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-import { apiClient } from "@/lib/apiClient";
+import { adminService } from "@/services/admin";
 import {
   useCharacters,
   useCommittee,
@@ -14,7 +14,7 @@ import {
   useDelegates,
   useUpdateCommittee
 } from "@/hooks/useAdminQueries";
-import type { CharacterCreate, CommitteeUpdate, UUID } from "@/types/api";
+import type { CommitteeUpdate, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { parseCharacterCsv } from "@/utils/csv";
+import { buildDelegateMap, filterCharactersByCommittee } from "@/utils/committee";
 
 const emptyForm: CommitteeUpdate = {
   name: "",
@@ -41,6 +43,8 @@ const emptyForm: CommitteeUpdate = {
 export default function CommitteeEditPage() {
   const params = useParams();
   const committeeId = typeof params.id === "string" ? params.id : params.id?.[0];
+
+  // Query hooks
   const committeeQuery = useCommittee(committeeId);
   const charactersQuery = useCharacters();
   const delegatesQuery = useDelegates();
@@ -49,6 +53,7 @@ export default function CommitteeEditPage() {
   const deleteCharacter = useDeleteCharacter();
   const deleteAssignment = useDeleteAssignment();
 
+  // Local UI state for form editing and feedback (kept explicit instead of a reducer for clarity in this long form).
   const [formState, setFormState] = useState<CommitteeUpdate>(emptyForm);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -62,6 +67,7 @@ export default function CommitteeEditPage() {
   const [characterMessage, setCharacterMessage] = useState<string | null>(null);
   const [characterError, setCharacterError] = useState<string | null>(null);
 
+  // useEffect: sync form state when committee data arrives.
   useEffect(() => {
     if (!committeeQuery.data) return;
     setFormState({
@@ -79,15 +85,18 @@ export default function CommitteeEditPage() {
     });
   }, [committeeQuery.data]);
 
-  const committeeCharacters = useMemo(() => {
-    if (!committeeId) return [];
-    return (charactersQuery.data ?? []).filter((character) => character.committee_id === committeeId);
-  }, [charactersQuery.data, committeeId]);
+  // useMemo: derived data for rendering lists.
+  const committeeCharacters = useMemo(
+    () => filterCharactersByCommittee(charactersQuery.data ?? [], committeeId),
+    [charactersQuery.data, committeeId]
+  );
 
-  const delegateMap = useMemo(() => {
-    return new Map((delegatesQuery.data ?? []).map((delegate) => [delegate.id, delegate]));
-  }, [delegatesQuery.data]);
+  const delegateMap = useMemo(
+    () => buildDelegateMap(delegatesQuery.data ?? []),
+    [delegatesQuery.data]
+  );
 
+  // Handlers
   const handleFormChange = (key: keyof CommitteeUpdate, value: CommitteeUpdate[keyof CommitteeUpdate]) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
   };
@@ -111,7 +120,7 @@ export default function CommitteeEditPage() {
     const formData = new FormData();
     formData.append("file", imageFile);
     try {
-      await apiClient.upload(`/api/committees/${committeeId}/image`, formData);
+      await adminService.uploadCommitteeImage(committeeId, formData);
       setUploadMessage("Committee image updated.");
       setImageFile(null);
     } catch (error) {
@@ -119,35 +128,12 @@ export default function CommitteeEditPage() {
     }
   };
 
-  const parseCsv = async (file: File): Promise<CharacterCreate[]> => {
-    const raw = await file.text();
-    const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
-    if (lines.length === 0) return [];
-    const headers = lines[0].split(",").map((header) => header.trim().toLowerCase());
-    const rows = lines.slice(1);
-
-    const nameIndex = headers.indexOf("character_name");
-    if (nameIndex === -1) {
-      throw new Error("CSV must include a 'character_name' header.");
-    }
-
-    return rows
-      .map((row) => row.split(",").map((cell) => cell.trim()))
-      .map((cells) => cells[nameIndex])
-      .filter((name) => Boolean(name))
-      .map((name) => ({
-        name,
-        committee_id: committeeId ?? "",
-        delegate_id: null
-      }));
-  };
-
   const handleCsvUpload = async () => {
     if (!committeeId || !csvFile) return;
     setCsvError(null);
     setCsvProgress(null);
     try {
-      const entries = await parseCsv(csvFile);
+      const entries = await parseCharacterCsv(csvFile, committeeId);
       if (entries.length === 0) {
         setCsvError("CSV file contained no character names.");
         return;
@@ -181,43 +167,50 @@ export default function CommitteeEditPage() {
     }
   };
 
-  const handleAddCharacter = async () => {
-    if (!committeeId || !newCharacterName.trim()) return;
+  const runCharacterMutation = async (
+    action: () => Promise<unknown>,
+    successMessage: string,
+    failureMessage: string
+  ) => {
     setCharacterMessage(null);
     setCharacterError(null);
     try {
-      await createCharacter.mutateAsync({
-        name: newCharacterName.trim(),
-        committee_id: committeeId,
-        delegate_id: null
-      });
-      setNewCharacterName("");
-      setCharacterMessage("Character added.");
+      await action();
+      setCharacterMessage(successMessage);
     } catch (error) {
-      setCharacterError(error instanceof Error ? error.message : "Unable to add character.");
+      setCharacterError(error instanceof Error ? error.message : failureMessage);
     }
+  };
+
+  const handleAddCharacter = async () => {
+    if (!committeeId || !newCharacterName.trim()) return;
+    await runCharacterMutation(
+      () =>
+        createCharacter.mutateAsync({
+          name: newCharacterName.trim(),
+          committee_id: committeeId,
+          delegate_id: null
+        }),
+      "Character added.",
+      "Unable to add character."
+    );
+    setNewCharacterName("");
   };
 
   const handleRemoveCharacter = async (characterId: UUID) => {
-    setCharacterMessage(null);
-    setCharacterError(null);
-    try {
-      await deleteCharacter.mutateAsync(characterId);
-      setCharacterMessage("Character removed.");
-    } catch (error) {
-      setCharacterError(error instanceof Error ? error.message : "Unable to remove character.");
-    }
+    await runCharacterMutation(
+      () => deleteCharacter.mutateAsync(characterId),
+      "Character removed.",
+      "Unable to remove character."
+    );
   };
 
   const handleUnassign = async (delegateId: UUID) => {
-    setCharacterMessage(null);
-    setCharacterError(null);
-    try {
-      await deleteAssignment.mutateAsync(delegateId);
-      setCharacterMessage("Delegate unassigned.");
-    } catch (error) {
-      setCharacterError(error instanceof Error ? error.message : "Unable to unassign delegate.");
-    }
+    await runCharacterMutation(
+      () => deleteAssignment.mutateAsync(delegateId),
+      "Delegate unassigned.",
+      "Unable to unassign delegate."
+    );
   };
 
 

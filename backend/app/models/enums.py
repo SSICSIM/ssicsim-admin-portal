@@ -18,3 +18,4 @@ class DelegateStatus(str, Enum):
 class EventType(str, Enum):
     ASSIGNMENT = "Assignment"
     EMAIL = "Email"
+    COMMITTEE_UPDATE = "Committee Update"
