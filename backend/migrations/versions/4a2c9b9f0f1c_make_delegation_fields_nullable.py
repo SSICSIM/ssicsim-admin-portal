@@ -19,14 +19,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.alter_column("delegations", "faculty_advisor_first_name", nullable=True)
-    op.alter_column("delegations", "faculty_advisor_last_name", nullable=True)
-    op.alter_column("delegations", "faculty_advisor_email", nullable=True)
-    op.alter_column("delegations", "head_delegate_id", nullable=True)
+    pass
 
 
 def downgrade() -> None:
-    op.alter_column("delegations", "faculty_advisor_first_name", nullable=False)
-    op.alter_column("delegations", "faculty_advisor_last_name", nullable=False)
-    op.alter_column("delegations", "faculty_advisor_email", nullable=False)
-    op.alter_column("delegations", "head_delegate_id", nullable=False)
+    pass

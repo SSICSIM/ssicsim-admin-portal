@@ -7,9 +7,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 export default function SignInPage() {
+  // Query hooks
   const { data: session } = useSession();
   const router = useRouter();
 
+  // useEffect: redirect authenticated users away from sign-in.
   useEffect(() => {
     if (session) {
       router.replace("/");

@@ -20,12 +20,19 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.drop_column("delegates", "address_line1")
-    op.drop_column("delegates", "address_line2")
-    op.drop_column("delegates", "city")
-    op.drop_column("delegates", "state")
-    op.drop_column("delegates", "postal_code")
-    op.drop_column("delegates", "country")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {column["name"] for column in inspector.get_columns("delegates")}
+    for column in [
+        "address_line1",
+        "address_line2",
+        "city",
+        "state",
+        "postal_code",
+        "country",
+    ]:
+        if column in columns:
+            op.drop_column("delegates", column)
 
 
 def downgrade() -> None:

@@ -57,9 +57,9 @@ COMMITTEES = [
 DELEGATIONS = [
     {
         "name": "Independent Delegate",
-        "faculty_advisor_first_name": None,
-        "faculty_advisor_last_name": None,
-        "faculty_advisor_email": None,
+        "faculty_advisor_first_name": "Independent",
+        "faculty_advisor_last_name": "Advisor",
+        "faculty_advisor_email": "independent.advisor@example.com",
         "head_delegate_id": None,
     },
     {
@@ -213,10 +213,11 @@ def seed_delegates(db):
     for payload in DELEGATES:
         if payload["email"] in existing:
             continue
-        delegation_name = payload.pop("delegation_name", None)
+        payload_copy = payload.copy()
+        delegation_name = payload_copy.pop("delegation_name", None)
         db.add(
             Delegate(
-                **payload,
+                **payload_copy,
                 delegation_id=delegation_map.get(delegation_name),
                 date_applied=datetime.now(timezone.utc),
             )

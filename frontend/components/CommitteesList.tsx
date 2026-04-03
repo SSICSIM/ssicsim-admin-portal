@@ -1,15 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { apiClient } from "@/lib/apiClient";
-import type { CommitteeOut } from "@/types/api";
+import { useCommittees } from "@/hooks/useAdminQueries";
 import Link from "next/link";
 
 export function CommitteesList() {
-  const committeesQuery = useQuery({
-    queryKey: ["committees"],
-    queryFn: async () => apiClient.get<CommitteeOut[]>("/api/committees")
-  });
+  const committeesQuery = useCommittees();
 
   if (committeesQuery.isLoading) return <div className="text-sm text-white/70">Loading committees...</div>;
   if (committeesQuery.isError) return <div className="text-sm text-red-300">Failed to load committees.</div>;

@@ -21,9 +21,9 @@ class Committee(Base):
         server_default=text("gen_random_uuid()"),
     )
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    small_description: Mapped[str | None] = mapped_column(String(512), nullable=False)
-    large_description: Mapped[str | None] = mapped_column(Text, nullable=False)
-    director_name: Mapped[str | None] = mapped_column(String(255), nullable=False)
+    small_description: Mapped[str] = mapped_column(String(512), nullable=False)
+    large_description: Mapped[str] = mapped_column(Text, nullable=False)
+    director_name: Mapped[str] = mapped_column(String(255), nullable=False)
     chair_name: Mapped[str | None] = mapped_column(String(255))
     crisis_analysts: Mapped[list[str] | None] = mapped_column(ARRAY(String(255)))
     max_delegates: Mapped[int | None] = mapped_column(Integer)
