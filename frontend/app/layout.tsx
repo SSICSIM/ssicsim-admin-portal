@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
@@ -20,4 +21,3 @@ export default function RootLayout(props: { children: React.ReactNode }) {
     </html>
   );
 }
-

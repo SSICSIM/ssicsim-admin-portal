@@ -1,33 +1,39 @@
 "use client";
 
-import { useCommittees } from "@/hooks/useAdminQueries";
 import Link from "next/link";
+
+import { useCommittees } from "@/hooks/useAdminQueries";
 
 export function CommitteesList() {
   const committeesQuery = useCommittees();
 
-  if (committeesQuery.isLoading) return <div className="text-sm text-white/70">Loading committees...</div>;
-  if (committeesQuery.isError) return <div className="text-sm text-red-300">Failed to load committees.</div>;
+  if (committeesQuery.isLoading) {
+    return <div className="rounded-xl bg-white/70 p-4 text-sm text-[var(--ssicsim-text-muted)]">Loading committees...</div>;
+  }
+
+  if (committeesQuery.isError) {
+    return <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">Failed to load committees.</div>;
+  }
 
   const committees = committeesQuery.data ?? [];
 
   return (
-    <section className="rounded-xl border border-white/10 bg-black/20 p-4">
-      <h2 className="text-sm font-medium text-white/80">Committees</h2>
+    <section className="rounded-2xl border border-[var(--ssicsim-border)] bg-white p-5 shadow-[var(--ssicsim-shadow)]">
+      <h2 className="text-lg font-bold text-[var(--ssicsim-brand-navy)]">Committee Directory</h2>
       {committees.length === 0 ? (
-        <p className="mt-2 text-sm text-white/60">No committees yet. POST one to `/api/committees`.</p>
+        <p className="mt-2 text-sm text-[var(--ssicsim-text-muted)]">No committees created yet.</p>
       ) : (
-        <ul className="mt-2 space-y-2">
-          {committees.map((c) => (
-            <li key={c.id} className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm">
-              <div className="flex items-center justify-between">
+        <ul className="mt-3 grid gap-3 md:grid-cols-2">
+          {committees.map((committee) => (
+            <li key={committee.id} className="rounded-xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-medium text-white">{c.name}</div>
-                  {c.small_description ? (
-                    <p className="text-xs text-white/60">{c.small_description}</p>
+                  <p className="font-semibold text-[var(--ssicsim-brand-navy)]">{committee.name}</p>
+                  {committee.small_description ? (
+                    <p className="mt-1 text-sm text-[var(--ssicsim-text-muted)]">{committee.small_description}</p>
                   ) : null}
                 </div>
-                <Link className="text-xs text-white/70 underline" href={`/committees/${c.id}/edit`}>
+                <Link className="text-xs font-semibold uppercase tracking-wide" href={`/committees/${committee.id}/edit`}>
                   Edit
                 </Link>
               </div>
@@ -38,4 +44,3 @@ export function CommitteesList() {
     </section>
   );
 }
-

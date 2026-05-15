@@ -381,14 +381,14 @@ export default function DelegatesPage() {
 
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
+    <main className="page-shell max-w-6xl space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Delegates</CardTitle>
           <CardDescription>Manage delegate records and status.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ssicsim-text-muted)]">
             <a className="underline" href="#needs-assignment">Needs assignment</a>
             <span>·</span>
             <a className="underline" href="#assigned-confirmed">Assigned / Confirmed</a>
@@ -456,7 +456,7 @@ export default function DelegatesPage() {
           </div>
           {emailerMessage ? <Badge variant="success">{emailerMessage}</Badge> : null}
           {emailerError ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+            <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
               {emailerError}
             </div>
           ) : null}
@@ -471,9 +471,9 @@ export default function DelegatesPage() {
         </CardHeader>
         <CardContent>
           {delegatesQuery.isLoading ? (
-            <p className="text-sm text-white/60">Loading delegates...</p>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading delegates...</p>
           ) : needsAssignment.length === 0 ? (
-            <p className="text-sm text-white/60">No delegates need assignment.</p>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates need assignment.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -656,7 +656,7 @@ export default function DelegatesPage() {
                       </TableCell>
                       <TableCell>{assignedCommittee ?? "--"}</TableCell>
                       <TableCell>{assignedCharacter?.name ?? "--"}</TableCell>
-                      <TableCell className="text-xs text-white/70">
+                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
                         {isEditing ? (
                           <div className="space-y-2">
                             <Input
@@ -696,7 +696,7 @@ export default function DelegatesPage() {
                             .join(" / ") || "--"
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-white/70">
+                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
                         {isEditing ? (
                           <div className="space-y-2">
                             <Input
@@ -832,9 +832,9 @@ export default function DelegatesPage() {
         </CardHeader>
         <CardContent>
           {delegatesQuery.isLoading ? (
-            <p className="text-sm text-white/60">Loading delegates...</p>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading delegates...</p>
           ) : assignedDelegates.length === 0 ? (
-            <p className="text-sm text-white/60">No delegates assigned yet.</p>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates assigned yet.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -1017,7 +1017,7 @@ export default function DelegatesPage() {
                       </TableCell>
                       <TableCell>{assignedCommittee ?? "--"}</TableCell>
                       <TableCell>{assignedCharacter?.name ?? "--"}</TableCell>
-                      <TableCell className="text-xs text-white/70">
+                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
                         {isEditing ? (
                           <div className="space-y-2">
                             <Input
@@ -1057,7 +1057,7 @@ export default function DelegatesPage() {
                             .join(" / ") || "--"
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-white/70">
+                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
                         {isEditing ? (
                           <div className="space-y-2">
                             <Input
@@ -1191,9 +1191,9 @@ export default function DelegatesPage() {
         </CardHeader>
         <CardContent>
           {delegationsQuery.isLoading ? (
-            <p className="text-sm text-white/60">Loading delegations...</p>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading delegations...</p>
           ) : delegations.length === 0 ? (
-            <p className="text-sm text-white/60">No delegations yet.</p>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegations yet.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -1244,20 +1244,20 @@ export default function DelegatesPage() {
           </DialogHeader>
           <div className="space-y-4">
             {selectedDelegate ? (
-              <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
-                <p className="font-medium text-white">
+              <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm">
+                <p className="font-medium text-[var(--ssicsim-brand-navy)]">
                   {selectedDelegate.last_name}, {selectedDelegate.first_name}
                 </p>
-                <p className="text-white/70">
+                <p className="text-[var(--ssicsim-text-muted)]">
                   Preferences: {[selectedDelegate.first_committee, selectedDelegate.second_committee, selectedDelegate.third_committee]
                     .filter(Boolean)
                     .join(" / ") || "--"}
                 </p>
-                <p className="text-white/60">
+                <p className="text-[var(--ssicsim-text-muted)]">
                   Delegation: {delegationMap.get(selectedDelegate.delegation_id ?? "")?.name ?? "Independent Delegate"}
                 </p>
                 {characters.find((character) => character.delegate_id === selectedDelegate.id) ? (
-                  <p className="text-xs text-white/50">This delegate already has an assignment. Selecting a character will reassign them.</p>
+                  <p className="text-xs text-[var(--ssicsim-text-muted)]">This delegate already has an assignment. Selecting a character will reassign them.</p>
                 ) : null}
               </div>
             ) : null}
@@ -1290,7 +1290,7 @@ export default function DelegatesPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-white/50">Only unassigned characters are listed.</p>
+              <p className="text-xs text-[var(--ssicsim-text-muted)]">Only unassigned characters are listed.</p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <Button
@@ -1302,12 +1302,12 @@ export default function DelegatesPage() {
               {submitMessage ? <Badge variant="success">{submitMessage}</Badge> : null}
             </div>
             {committeeId && filteredCharacters.length === 0 ? (
-              <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
                 Selected committee has no remaining characters.
               </div>
             ) : null}
             {submitError ? (
-              <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
                 {submitError}
               </div>
             ) : null}
@@ -1334,8 +1334,8 @@ export default function DelegatesPage() {
             </Alert>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
-                <p className="text-white/70">Committee open seats</p>
+              <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm">
+                <p className="text-[var(--ssicsim-text-muted)]">Committee open seats</p>
                 <div className="mt-2 space-y-1 text-xs">
                   {committeeStats
                     .sort((a, b) => b.openCount - a.openCount)
@@ -1343,26 +1343,26 @@ export default function DelegatesPage() {
                     .map((stat) => (
                       <div key={stat.id} className="flex items-center justify-between gap-2">
                         <span>{stat.name}</span>
-                          <span className="text-white/60">{stat.openCount} open · {stat.occupiedPercent}%</span>
+                          <span className="text-[var(--ssicsim-text-muted)]">{stat.openCount} open · {stat.occupiedPercent}%</span>
                       </div>
                     ))}
                 </div>
               </div>
               {selectedDelegate ? (
-                <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
-                  <p className="font-medium text-white">
+                <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm">
+                  <p className="font-medium text-[var(--ssicsim-brand-navy)]">
                     {selectedDelegate.last_name}, {selectedDelegate.first_name}
                   </p>
-                  <p className="text-white/70">
+                  <p className="text-[var(--ssicsim-text-muted)]">
                     Preferences: {[selectedDelegate.first_committee, selectedDelegate.second_committee, selectedDelegate.third_committee]
                       .filter(Boolean)
                       .join(" / ") || "--"}
                   </p>
-                  <p className="text-white/60">
+                  <p className="text-[var(--ssicsim-text-muted)]">
                     Delegation: {delegationMap.get(selectedDelegate.delegation_id ?? "")?.name ?? "Independent Delegate"}
                   </p>
                   {characters.find((character) => character.delegate_id === selectedDelegate.id) ? (
-                    <p className="text-xs text-white/50">This delegate already has an assignment. Selecting a character will reassign them.</p>
+                    <p className="text-xs text-[var(--ssicsim-text-muted)]">This delegate already has an assignment. Selecting a character will reassign them.</p>
                   ) : null}
                 </div>
               ) : null}
@@ -1395,7 +1395,7 @@ export default function DelegatesPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-white/50">Only unassigned characters are listed.</p>
+                <p className="text-xs text-[var(--ssicsim-text-muted)]">Only unassigned characters are listed.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -1417,16 +1417,16 @@ export default function DelegatesPage() {
                 {submitMessage ? <Badge variant="success">{submitMessage}</Badge> : null}
               </div>
               {committeeId && filteredCharacters.length === 0 ? (
-                <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
                   Selected committee has no remaining characters.
                 </div>
               ) : null}
               {submitError ? (
-                <div className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
                   {submitError}
                 </div>
               ) : null}
-              <p className="text-xs text-white/50">
+              <p className="text-xs text-[var(--ssicsim-text-muted)]">
                 Delegate {flowIndex + 1} of {needsAssignment.length}
               </p>
             </div>

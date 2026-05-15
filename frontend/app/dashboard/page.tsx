@@ -4,22 +4,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function DashboardPage() {
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-6">
-      <header className="rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur">
-        <h1 className="text-2xl font-semibold tracking-tight">Main Dashboard</h1>
-        <p className="mt-2 text-sm text-white/70">
-          Navigate between committee configuration and delegate assignments.
-        </p>
+    <main className="page-shell space-y-6">
+      <header className="rounded-3xl border border-[var(--ssicsim-border)] bg-white p-7 shadow-[var(--ssicsim-shadow)]">
+        <p className="section-eyebrow">Control Center</p>
+        <h1 className="section-title mt-2">Main Dashboard</h1>
+        <p className="section-subtitle mt-2">Jump between committee management and delegate assignments.</p>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Committee Information</CardTitle>
-            <CardDescription>Update committee details, guides, and character matrices.</CardDescription>
+            <CardDescription>Update committee descriptions, resources, and character readiness.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link className="text-sm text-white/80 underline" href="/committees">
+            <Link className="text-sm font-semibold" href="/committees">
               Open committees
             </Link>
           </CardContent>
@@ -27,10 +26,10 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Delegates</CardTitle>
-            <CardDescription>Manage delegate records and assignments.</CardDescription>
+            <CardDescription>Manage delegate records, assignment flow, and confirmation states.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link className="text-sm text-white/80 underline" href="/delegates">
+            <Link className="text-sm font-semibold" href="/delegates">
               Open delegates
             </Link>
           </CardContent>

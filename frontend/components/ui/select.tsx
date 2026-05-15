@@ -15,14 +15,14 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-9 w-full items-center justify-between rounded-md border border-white/15 bg-black/40 px-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/30",
+      "flex h-10 w-full items-center justify-between rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 text-sm text-[var(--ssicsim-text)] focus:outline-none focus:ring-2 focus:ring-[var(--ssicsim-brand-gold)] focus:ring-offset-2",
       className
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 text-white/60" />
+      <ChevronDown className="h-4 w-4 text-slate-500" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -36,7 +36,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-md border border-white/10 bg-[#0c1320] text-white shadow-xl",
+        "z-50 min-w-[8rem] overflow-hidden rounded-lg border border-[var(--ssicsim-border)] bg-white text-[var(--ssicsim-text)] shadow-[var(--ssicsim-shadow)]",
         className
       )}
       {...props}
@@ -54,14 +54,14 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-white/10",
+      "relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-slate-100",
       className
     )}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4 text-white" />
+        <Check className="h-4 w-4 text-[var(--ssicsim-brand-gold)]" />
       </SelectPrimitive.ItemIndicator>
     </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

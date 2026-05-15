@@ -19,14 +19,16 @@ export default function SignInPage() {
   }, [router, session]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center gap-6 p-6 text-center">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">SSICSIM Admin Sign In</h1>
-        <p className="text-sm text-white/70">
+    <main className="page-shell flex min-h-[80vh] max-w-lg flex-col items-center justify-center gap-6 text-center">
+      <div className="space-y-2 rounded-3xl border border-[var(--ssicsim-border)] bg-white p-8 shadow-[var(--ssicsim-shadow)]">
+        <h1 className="text-3xl font-bold text-[var(--ssicsim-brand-navy)]">SSICSIM Admin Sign In</h1>
+        <p className="text-sm text-[var(--ssicsim-text-muted)]">
           Sign in with an approved Google account to access the admin portal.
         </p>
+        <div className="mt-4">
+          <Button onClick={() => signIn("google")}>Sign in with Google</Button>
+        </div>
       </div>
-      <Button onClick={() => signIn("google")}>Sign in with Google</Button>
     </main>
   );
 }

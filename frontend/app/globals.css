@@ -1,6 +1,27 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Darker+Grotesque:wght@300..900&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --font-body: "Nunito Sans", "DM Sans", "Avenir Next", "Segoe UI", sans-serif;
+  --font-heading: "Darker Grotesque", "DM Sans", "Avenir Next", "Segoe UI", sans-serif;
+  --ssicsim-bg: #f9f8f5;
+  --ssicsim-bg-soft: #f7f5ef;
+  --ssicsim-surface: #ffffff;
+  --ssicsim-surface-soft: #fcfbf7;
+  --ssicsim-text: #2e3340;
+  --ssicsim-text-muted: #6f6a60;
+  --ssicsim-border: #e8dcc1;
+  --ssicsim-brand-navy: #233f6d;
+  --ssicsim-brand-blue: #8f7a2b;
+  --ssicsim-brand-sky: #7dc8d9;
+  --ssicsim-brand-gold: #a3841d;
+  --ssicsim-brand-gold-bright: #d3af37;
+  --ssicsim-brand-gold-soft: #f4e8c7;
+  --ssicsim-shadow: 0 10px 30px rgba(77, 55, 0, 0.08);
+}
 
 html,
 body {
@@ -8,7 +29,51 @@ body {
 }
 
 body {
-  background: linear-gradient(180deg, #0b1220, #0a0f1a);
-  color: #e8eefc;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(163, 132, 29, 0.16), transparent 42%),
+    radial-gradient(circle at 88% 2%, rgba(163, 132, 29, 0.12), transparent 38%),
+    linear-gradient(180deg, var(--ssicsim-bg), var(--ssicsim-bg-soft));
+  color: var(--ssicsim-text);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  color: var(--ssicsim-brand-navy);
+}
+
+a {
+  color: var(--ssicsim-brand-gold);
+}
+
+.page-shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1120px;
+  padding: 1.5rem;
+}
+
+.section-eyebrow {
+  color: var(--ssicsim-brand-gold);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.section-title {
+  color: var(--ssicsim-brand-gold);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.section-subtitle {
+  color: var(--ssicsim-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
