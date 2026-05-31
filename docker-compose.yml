@@ -34,7 +34,7 @@ services:
       - ./backend:/app
     command: >
       sh -c "python scripts/wait_for_postgres.py
-      && alembic -c alembic.ini upgrade head
+      && alembic -c alembic.ini upgrade heads
       && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
     container_name: backend
 

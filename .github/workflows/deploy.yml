@@ -1,0 +1,49 @@
+name: Deploy
+
+# Publishing a GitHub Release:
+#   1. Runs Alembic migrations against Supabase (fails fast — deploy is cancelled if migration fails)
+#   2. Triggers Render deploy hooks for backend and worker
+#   Vercel production deploys are handled by Vercel's own Git integration.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  migrate:
+    name: Run database migrations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: alembic upgrade heads
+
+  deploy-backend:
+    name: Deploy backend → Render
+    runs-on: ubuntu-latest
+    needs: migrate          # only deploy if migrations succeed
+    steps:
+      - name: Trigger Render deploy (backend)
+        run: curl -f -X POST "${{ secrets.RENDER_BACKEND_DEPLOY_HOOK }}"
+
+  deploy-worker:
+    name: Deploy worker → Render
+    runs-on: ubuntu-latest
+    needs: migrate          # only deploy if migrations succeed
+    steps:
+      - name: Trigger Render deploy (worker)
+        run: curl -f -X POST "${{ secrets.RENDER_WORKER_DEPLOY_HOOK }}"

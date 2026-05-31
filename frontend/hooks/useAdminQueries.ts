@@ -15,6 +15,8 @@ import type {
   DelegateCreate,
   DelegateOut,
   DelegateUpdate,
+  EmailTemplateCreate,
+  EmailTemplateUpdate,
   UUID
 } from "@/types/api";
 
@@ -163,6 +165,45 @@ export function useDeleteAssignment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.characters });
       queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
+    }
+  });
+}
+
+// Email template hooks
+export function useEmailTemplates() {
+  return useQuery({
+    queryKey: ["emailTemplates"],
+    queryFn: () => adminService.fetchEmailTemplates()
+  });
+}
+
+export function useCreateEmailTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: EmailTemplateCreate) => adminService.createEmailTemplate(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
+    }
+  });
+}
+
+export function useUpdateEmailTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: UUID; data: EmailTemplateUpdate }) =>
+      adminService.updateEmailTemplate(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
+    }
+  });
+}
+
+export function useDeleteEmailTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: UUID) => adminService.deleteEmailTemplate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
     }
   });
 }

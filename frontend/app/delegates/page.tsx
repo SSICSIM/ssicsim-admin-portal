@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import {
   useAssignDelegate,
@@ -12,7 +13,7 @@ import {
   useUpdateAssignment,
   useUpdateDelegate
 } from "@/hooks/useAdminQueries";
-import type { DelegateStatus, DelegateUpdate, UUID } from "@/types/api";
+import type { DelegateOut, DelegateStatus, DelegateUpdate, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,364 +25,508 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+// ─── constants ────────────────────────────────────────────────────────────────
+
 const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
-  { label: "All delegates", value: "all" },
+  { label: "All delegates",       value: "all" },
+  { label: "Awaiting payment",    value: "Awaiting Payment" },
   { label: "Awaiting assignment", value: "Awaiting Assignment" },
-  { label: "Assigned", value: "Assigned" },
-  { label: "Confirmed", value: "Confirmed" }
+  { label: "Assigned",            value: "Assigned" },
+  { label: "Confirmed",           value: "Confirmed" }
 ];
 
-const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary"> = {
+const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive"> = {
+  "Awaiting Payment":    "destructive",
   "Awaiting Assignment": "warning",
-  Assigned: "success",
-  Confirmed: "secondary"
+  Assigned:              "success",
+  Confirmed:             "secondary"
 };
 
+// ─── undo toast ───────────────────────────────────────────────────────────────
+
+const UNDO_WINDOW_MS = 5_000;
+
+type PreviousAssignment = {
+  characterId: UUID;
+  characterName: string;
+  committeeId: UUID;
+  committeeName: string;
+  previousStatus: DelegateStatus;
+};
+
+type PendingUnassign = {
+  uid: string;
+  delegateId: UUID;
+  delegateName: string;
+  characterName: string;
+  committeeName: string;
+  expiresAt: number;
+};
+
+function UnassignToast({ pending, onUndo }: { pending: PendingUnassign; onUndo: () => void }) {
+  const [msLeft, setMsLeft] = useState(() => Math.max(0, pending.expiresAt - Date.now()));
+
+  useEffect(() => {
+    const iv = setInterval(() => setMsLeft(Math.max(0, pending.expiresAt - Date.now())), 80);
+    return () => clearInterval(iv);
+  }, [pending.expiresAt]);
+
+  return (
+    <div className="w-72 overflow-hidden rounded-xl border border-[var(--ssicsim-border)] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+      <div className="px-4 py-3">
+        <p className="text-sm font-semibold text-[var(--ssicsim-brand-navy)]">
+          Unassigned {pending.delegateName}
+        </p>
+        {pending.characterName && (
+          <p className="mt-0.5 text-xs text-[var(--ssicsim-text-muted)]">
+            {pending.committeeName} — {pending.characterName}
+          </p>
+        )}
+        <div className="mt-3">
+          <Button size="sm" variant="secondary" onClick={onUndo}>
+            Undo
+          </Button>
+        </div>
+      </div>
+      {/* Draining progress bar */}
+      <div className="h-1 bg-[var(--ssicsim-bg-soft)]">
+        <div
+          className="h-full bg-[var(--ssicsim-brand-gold)] transition-[width] duration-75"
+          style={{ width: `${(msLeft / UNDO_WINDOW_MS) * 100}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ─── shared table row ─────────────────────────────────────────────────────────
+
+function DelegateRow({
+  delegate,
+  assignedCommittee,
+  assignedCharacter,
+  delegationName,
+  onEdit,
+  onAssign,
+  onUnassign,
+  unassigning,
+  isPendingUnassign
+}: {
+  delegate: DelegateOut;
+  assignedCommittee: string | null;
+  assignedCharacter: string | null;
+  delegationName: string;
+  onEdit: () => void;
+  onAssign: () => void;
+  onUnassign: () => void;
+  unassigning: boolean;
+  isPendingUnassign: boolean;
+}) {
+  const prefs = [delegate.first_committee, delegate.second_committee, delegate.third_committee]
+    .filter(Boolean).join(" / ") || "--";
+
+  return (
+    <TableRow className={isPendingUnassign ? "opacity-40" : undefined}>
+      <TableCell className="font-medium">{delegate.last_name}, {delegate.first_name}</TableCell>
+      <TableCell>{delegate.preferred_name ?? "--"}</TableCell>
+      <TableCell>{delegate.grade ?? "--"}</TableCell>
+      <TableCell className="max-w-[160px] truncate">{delegate.email}</TableCell>
+      <TableCell>
+        <Badge variant={statusBadge[delegate.delegate_status]}>
+          {delegate.delegate_status}
+        </Badge>
+      </TableCell>
+      <TableCell>{delegate.delegate_experience}</TableCell>
+      <TableCell>{delegationName}</TableCell>
+      <TableCell>{assignedCommittee ?? "--"}</TableCell>
+      <TableCell>{assignedCharacter ?? "--"}</TableCell>
+      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">{prefs}</TableCell>
+      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
+        <div className="space-y-0.5">
+          <div>CoC: {delegate.code_of_conduct_url ? "✓" : "--"}</div>
+          <div>Payment: {delegate.payment_policy_ack == null ? "--" : delegate.payment_policy_ack ? "✓" : "✗"}</div>
+          <div>Cancellation: {delegate.cancellation_policy_ack == null ? "--" : delegate.cancellation_policy_ack ? "✓" : "✗"}</div>
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onAssign}
+            disabled={delegate.delegate_status === "Awaiting Payment"}
+            title={delegate.delegate_status === "Awaiting Payment" ? "Payment required before assignment" : undefined}
+          >
+            {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
+          </Button>
+          {(delegate.delegate_status === "Assigned" || delegate.delegate_status === "Confirmed") && (
+            <Button size="sm" variant="ghost" onClick={onUnassign} disabled={unassigning || isPendingUnassign}>
+              {isPendingUnassign ? "Undoing…" : "Unassign"}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={onEdit}>
+            Edit
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+// ─── table head shared ────────────────────────────────────────────────────────
+
+function DelegateTableHead() {
+  return (
+    <TableHeader>
+      <TableRow>
+        <TableHead>Delegate</TableHead>
+        <TableHead>Preferred</TableHead>
+        <TableHead>Grade</TableHead>
+        <TableHead>Email</TableHead>
+        <TableHead>Status</TableHead>
+        <TableHead>Experience</TableHead>
+        <TableHead>Delegation</TableHead>
+        <TableHead>Committee</TableHead>
+        <TableHead>Character</TableHead>
+        <TableHead>Preferences</TableHead>
+        <TableHead>Compliance</TableHead>
+        <TableHead></TableHead>
+      </TableRow>
+    </TableHeader>
+  );
+}
+
+// ─── page ────────────────────────────────────────────────────────────────────
+
 export default function DelegatesPage() {
-  // Query hooks
-  const committeesQuery = useCommittees();
-  const charactersQuery = useCharacters();
-  const delegatesQuery = useDelegates();
+  const committeesQuery  = useCommittees();
+  const charactersQuery  = useCharacters();
+  const delegatesQuery   = useDelegates();
   const delegationsQuery = useDelegations();
-  const assignDelegate = useAssignDelegate();
+  const assignDelegate   = useAssignDelegate();
   const deleteAssignment = useDeleteAssignment();
-  const updateDelegate = useUpdateDelegate();
-  const [editId, setEditId] = useState<UUID | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, DelegateUpdate>>({});
-  const [assignmentOpen, setAssignmentOpen] = useState(false);
+  const updateDelegate   = useUpdateDelegate();
+
+  // ── filters ────────────────────────────────────────────────────────────────
+  const [statusFilter,     setStatusFilter]     = useState<DelegateStatus | "all">("all");
+  const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
+  const [searchTerm,       setSearchTerm]       = useState("");
+
+  // ── assignment flow ────────────────────────────────────────────────────────
+  const [assignmentOpen,       setAssignmentOpen]       = useState(false);
   const [assignmentDelegateId, setAssignmentDelegateId] = useState<UUID | null>(null);
-  const [flowOpen, setFlowOpen] = useState(false);
-  const [flowIndex, setFlowIndex] = useState(0);
+  const [flowOpen,             setFlowOpen]             = useState(false);
+  const [flowIndex,            setFlowIndex]            = useState(0);
+  const [committeeId,          setCommitteeId]          = useState<UUID | "">("");
+  const [characterId,          setCharacterId]          = useState<UUID | "">("");
+  const [submitMessage,        setSubmitMessage]        = useState<string | null>(null);
+  const [submitError,          setSubmitError]          = useState<string | null>(null);
   const updateAssignment = useUpdateAssignment(assignmentDelegateId ?? "");
 
-  const [statusFilter, setStatusFilter] = useState<DelegateStatus | "all">("all");
-  const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
-  const [committeeId, setCommitteeId] = useState<UUID | "">("");
-  const [characterId, setCharacterId] = useState<UUID | "">("");
-  const [submitMessage, setSubmitMessage] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [emailerMessage, setEmailerMessage] = useState<string | null>(null);
-  const [emailerError, setEmailerError] = useState<string | null>(null);
-  const [emailerBusy, setEmailerBusy] = useState(false);
+  // ── undo unassign ──────────────────────────────────────────────────────────
+  const [pendingUnassigns, setPendingUnassigns] = useState<PendingUnassign[]>([]);
+  const timers              = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const previousAssignments = useRef<Map<UUID, PreviousAssignment>>(new Map());
 
+  useEffect(() => {
+    const t = timers.current;
+    return () => { t.forEach(clearTimeout); };
+  }, []);
 
-  // useMemo: derived data for rendering and filtering.
-  const committees = committeesQuery.data ?? [];
-  const characters = charactersQuery.data ?? [];
-  const delegates = delegatesQuery.data ?? [];
+  // ── edit dialog ────────────────────────────────────────────────────────────
+  const [editDelegate, setEditDelegate] = useState<DelegateOut | null>(null);
+  const [editDraft,    setEditDraft]    = useState<DelegateUpdate>({});
+  const [editError,    setEditError]    = useState<string | null>(null);
+
+  // ── derived data ───────────────────────────────────────────────────────────
+  const committees  = committeesQuery.data  ?? [];
+  const characters  = charactersQuery.data  ?? [];
+  const delegates   = delegatesQuery.data   ?? [];
   const delegations = delegationsQuery.data ?? [];
 
-  const availableCharacters = useMemo(
-    () => characters.filter((character) => character.delegate_id == null),
-    [characters]
-  );
+  const committeeMap  = useMemo(() => new Map(committees.map(c => [c.id, c])),  [committees]);
+  const delegateMap   = useMemo(() => new Map(delegates.map(d => [d.id, d])),   [delegates]);
+  const delegationMap = useMemo(() => new Map(delegations.map(d => [d.id, d])), [delegations]);
 
-  const committeeMap = useMemo(() => new Map(committees.map((committee) => [committee.id, committee])), [committees]);
-  const delegateMap = useMemo(() => new Map(delegates.map((delegate) => [delegate.id, delegate])), [delegates]);
-  const delegationMap = useMemo(
-    () => new Map(delegations.map((delegation) => [delegation.id, delegation])),
-    [delegations]
-  );
   const assignedCharacterByDelegateId = useMemo(() => {
     const map = new Map<UUID, typeof characters[number]>();
-    characters.forEach((character) => {
-      if (character.delegate_id != null) {
-        map.set(character.delegate_id, character);
-      }
-    });
+    characters.forEach(c => { if (c.delegate_id) map.set(c.delegate_id, c); });
     return map;
   }, [characters]);
 
-  // useMemo: filter delegates by search term and status for table rendering.
-  // Primary filtered list drives all downstream groupings to keep counts/messages consistent.
   const filteredDelegates = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const filtered = term
-      ? delegates.filter((delegate) => {
-          const haystack = [
-            delegate.first_name,
-            delegate.last_name,
-            delegate.full_name,
-            delegate.preferred_name,
-            delegate.email
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          return haystack.includes(term);
-        })
+    let list = term
+      ? delegates.filter(d =>
+          [d.first_name, d.last_name, d.full_name, d.preferred_name, d.email]
+            .filter(Boolean).join(" ").toLowerCase().includes(term)
+        )
       : delegates;
-    const statusFiltered = statusFilter === "all"
-      ? filtered
-      : filtered.filter((delegate) => delegate.delegate_status === statusFilter);
-    if (committeeFilterId === "all") return statusFiltered;
-    return statusFiltered.filter((delegate) => {
-      const assignedCharacter = assignedCharacterByDelegateId.get(delegate.id);
-      return assignedCharacter?.committee_id === committeeFilterId;
-    });
+    if (statusFilter !== "all") list = list.filter(d => d.delegate_status === statusFilter);
+    if (committeeFilterId !== "all") {
+      list = list.filter(d => {
+        const ch = assignedCharacterByDelegateId.get(d.id);
+        return ch?.committee_id === committeeFilterId;
+      });
+    }
+    return list;
   }, [delegates, searchTerm, statusFilter, committeeFilterId, assignedCharacterByDelegateId]);
 
-  const { needsAssignment, assignedDelegates, assignedOnly } = useMemo(() => {
+  const { awaitingPayment, needsAssignment, assignedDelegates } = useMemo(() => {
     const order: Record<DelegateStatus, number> = {
-      "Awaiting Assignment": 2,
-      Assigned: 0,
-      Confirmed: 1
+      "Awaiting Payment": 3, "Awaiting Assignment": 2, Assigned: 0, Confirmed: 1
     };
-    const needs = filteredDelegates.filter(
-      (delegate) => delegate.delegate_status === "Awaiting Assignment"
-    );
-    const assigned = filteredDelegates
-      .filter((delegate) => delegate.delegate_status !== "Awaiting Assignment")
-      .sort((a, b) => order[a.delegate_status] - order[b.delegate_status]);
-    const assignedFiltered = filteredDelegates.filter(
-      (delegate) => delegate.delegate_status === "Assigned"
-    );
-    return { needsAssignment: needs, assignedDelegates: assigned, assignedOnly: assignedFiltered };
+    return {
+      awaitingPayment:   filteredDelegates.filter(d => d.delegate_status === "Awaiting Payment"),
+      needsAssignment:   filteredDelegates.filter(d => d.delegate_status === "Awaiting Assignment"),
+      assignedDelegates: filteredDelegates
+        .filter(d => d.delegate_status === "Assigned" || d.delegate_status === "Confirmed")
+        .sort((a, b) => order[a.delegate_status] - order[b.delegate_status])
+    };
   }, [filteredDelegates]);
 
-  // Characters available for assignment, optionally narrowed to a committee.
-  const filteredCharacters = useMemo(() => {
-    return characters.filter((character) => {
-      if (committeeId && character.committee_id !== committeeId) return false;
-      return character.delegate_id == null;
+  const filteredCharacters = useMemo(() =>
+    characters.filter(c => (!committeeId || c.committee_id === committeeId) && c.delegate_id == null),
+    [characters, committeeId]
+  );
+
+  const committeeStats = useMemo(() =>
+    committees.map(c => {
+      const cc = characters.filter(ch => ch.committee_id === c.id);
+      const assigned = cc.filter(ch => ch.delegate_id != null).length;
+      return { id: c.id, name: c.name, openCount: cc.length - assigned, occupiedPercent: cc.length ? Math.round(assigned / cc.length * 100) : 0 };
+    }), [committees, characters]
+  );
+
+  // ── helpers ────────────────────────────────────────────────────────────────
+
+  function rowProps(delegate: DelegateOut) {
+    const ch  = assignedCharacterByDelegateId.get(delegate.id);
+    const com = ch ? committeeMap.get(ch.committee_id)?.name ?? null : null;
+    return {
+      delegate,
+      assignedCommittee:  com,
+      assignedCharacter:  ch?.name ?? null,
+      delegationName:     delegationMap.get(delegate.delegation_id ?? "")?.name ?? "Independent Delegate",
+      onEdit:             () => openEdit(delegate),
+      onAssign:           () => openAssignment(delegate.id),
+      onUnassign:         () => startUnassign(delegate.id),
+      unassigning:        false,
+      isPendingUnassign:  pendingUnassigns.some(p => p.delegateId === delegate.id)
+    };
+  }
+
+  // ── unassign with undo ─────────────────────────────────────────────────────
+
+  function startUnassign(delegateId: UUID) {
+    const delegate  = delegateMap.get(delegateId);
+    const ch        = assignedCharacterByDelegateId.get(delegateId);
+    const committee = ch ? committeeMap.get(ch.committee_id) : null;
+    const uid       = crypto.randomUUID();
+
+    // Remember what they were assigned to so we can detect a same-character restore
+    if (ch && delegate) {
+      previousAssignments.current.set(delegateId, {
+        characterId:    ch.id,
+        characterName:  ch.name,
+        committeeId:    ch.committee_id,
+        committeeName:  committee?.name ?? "",
+        previousStatus: delegate.delegate_status
+      });
+    }
+
+    const pending: PendingUnassign = {
+      uid,
+      delegateId,
+      delegateName:  `${delegate?.preferred_name ?? delegate?.first_name ?? ""} ${delegate?.last_name ?? ""}`.trim(),
+      characterName: ch?.name ?? "",
+      committeeName: committee?.name ?? "",
+      expiresAt:     Date.now() + UNDO_WINDOW_MS
+    };
+
+    setPendingUnassigns(prev => [...prev, pending]);
+
+    const timer = setTimeout(async () => {
+      try { await deleteAssignment.mutateAsync(delegateId); } catch { /* ignore */ }
+      setPendingUnassigns(prev => prev.filter(p => p.uid !== uid));
+      timers.current.delete(uid);
+    }, UNDO_WINDOW_MS);
+
+    timers.current.set(uid, timer);
+  }
+
+  function undoUnassign(uid: string) {
+    const pending = pendingUnassigns.find(p => p.uid === uid);
+    if (pending) previousAssignments.current.delete(pending.delegateId);
+    const timer = timers.current.get(uid);
+    if (timer) clearTimeout(timer);
+    timers.current.delete(uid);
+    setPendingUnassigns(prev => prev.filter(p => p.uid !== uid));
+  }
+
+  // ── edit handlers ──────────────────────────────────────────────────────────
+
+  function openEdit(delegate: DelegateOut) {
+    setEditDelegate(delegate);
+    setEditError(null);
+    setEditDraft({
+      first_name:               delegate.first_name,
+      last_name:                delegate.last_name,
+      full_name:                delegate.full_name,
+      preferred_name:           delegate.preferred_name,
+      grade:                    delegate.grade,
+      email:                    delegate.email,
+      delegate_experience:      delegate.delegate_experience,
+      delegate_status:          delegate.delegate_status,
+      first_committee:          delegate.first_committee,
+      second_committee:         delegate.second_committee,
+      third_committee:          delegate.third_committee,
+      delegation_id:            delegate.delegation_id,
+      code_of_conduct_url:      delegate.code_of_conduct_url,
+      payment_policy_ack:       delegate.payment_policy_ack,
+      cancellation_policy_ack:  delegate.cancellation_policy_ack,
+      heard_about:              delegate.heard_about,
+      notes:                    delegate.notes
     });
-  }, [characters, committeeId]);
+  }
 
-  const committeeStats = useMemo(() => {
-    return committees.map((committee) => {
-      const committeeCharacters = characters.filter((character) => character.committee_id === committee.id);
-      const assignedCount = committeeCharacters.filter((character) => character.delegate_id != null).length;
-      const totalCount = committeeCharacters.length;
-      const openCount = totalCount - assignedCount;
-      const occupiedPercent = totalCount === 0 ? 0 : Math.round((assignedCount / totalCount) * 100);
-      return {
-        id: committee.id,
-        name: committee.name,
-        assignedCount,
-        openCount,
-        totalCount,
-        occupiedPercent
-      };
-    });
-  }, [characters, committees]);
+  function closeEdit() {
+    setEditDelegate(null);
+    setEditError(null);
+  }
 
-  const assignments = useMemo(() => {
-    return characters.filter((character) => character.delegate_id != null);
-  }, [characters]);
+  function setField<K extends keyof DelegateUpdate>(key: K, value: DelegateUpdate[K]) {
+    setEditDraft(prev => ({ ...prev, [key]: value }));
+  }
 
-  // Handlers
-  const handleAssign = async () => {
-    if (!assignmentDelegateId || !characterId) return;
-    setSubmitMessage(null);
-    setSubmitError(null);
-    if (committeeId && filteredCharacters.length === 0) {
-      setSubmitError("Selected committee has no remaining characters.");
-      return;
-    }
-    const selectedCharacter = characters.find((character) => character.id === characterId);
-    if (!selectedCharacter) {
-      setSubmitError("Character not found.");
-      return;
-    }
-    if (selectedCharacter.delegate_id != null) {
-      setSubmitError("Character already assigned.");
-      return;
-    }
-    const currentCharacter = characters.find(
-      (character) => character.delegate_id === assignmentDelegateId
-    );
+  async function handleSaveEdit() {
+    if (!editDelegate) return;
+    setEditError(null);
     try {
-      if (currentCharacter) {
-        await updateAssignment.mutateAsync(characterId);
-        setSubmitMessage("Delegate reassigned successfully.");
-      } else {
-        await assignDelegate.mutateAsync({ delegate_id: assignmentDelegateId, character_id: characterId });
-        setSubmitMessage("Delegate assigned successfully.");
-      }
-      setAssignmentOpen(false);
-      setCharacterId("");
-      if (flowOpen) {
-        const nextIndex = Math.min(flowIndex + 1, needsAssignment.length - 1);
-        if (nextIndex !== flowIndex) {
-          setFlowIndex(nextIndex);
-          setAssignmentDelegateId(needsAssignment[nextIndex]?.id ?? null);
-          setSubmitMessage(null);
-          setSubmitError(null);
-          return;
-        }
-        setFlowOpen(false);
-      }
-      setAssignmentDelegateId(null);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Unable to assign delegate.");
+      await updateDelegate.mutateAsync({ delegateId: editDelegate.id, data: editDraft });
+      closeEdit();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Unable to save.");
     }
-  };
+  }
 
-  const handleMassEmailConfirm = async () => {
-    // TODO: Replace bulk status update with a real email flow.
-    if (assignedOnly.length === 0) {
-      setEmailerError("No assigned delegates to confirm.");
-      return;
-    }
-    setEmailerMessage(null);
-    setEmailerError(null);
-    setEmailerBusy(true);
-    try {
-      await Promise.all(
-        assignedOnly.map((delegate) =>
-          updateDelegate.mutateAsync({
-            delegateId: delegate.id,
-            data: { delegate_status: "Confirmed" }
-          })
-        )
-      );
-      setEmailerMessage(`Confirmed ${assignedOnly.length} delegate(s).`);
-    } catch (error) {
-      setEmailerError(error instanceof Error ? error.message : "Unable to confirm delegates.");
-    } finally {
-      setEmailerBusy(false);
-    }
-  };
+  // ── assignment handlers ────────────────────────────────────────────────────
 
-  const startEdit = (delegateId: UUID) => {
-    const delegate = delegateMap.get(delegateId);
-    if (!delegate) return;
-    setEditId(delegateId);
-    setDrafts((prev) => ({
-      ...prev,
-      [delegateId]: {
-        first_name: delegate.first_name,
-        last_name: delegate.last_name,
-        full_name: delegate.full_name,
-        preferred_name: delegate.preferred_name,
-        grade: delegate.grade,
-        email: delegate.email,
-        delegate_experience: delegate.delegate_experience,
-        delegate_status: delegate.delegate_status,
-        first_committee: delegate.first_committee,
-        second_committee: delegate.second_committee,
-        third_committee: delegate.third_committee,
-        delegation_id: delegate.delegation_id,
-        code_of_conduct_url: delegate.code_of_conduct_url,
-        payment_policy_ack: delegate.payment_policy_ack,
-        cancellation_policy_ack: delegate.cancellation_policy_ack,
-        heard_about: delegate.heard_about,
-        notes: delegate.notes
-      }
-    }));
-  };
-
-  const cancelEdit = () => {
-    setEditId(null);
-  };
-
-  const handleSave = async (delegateId: UUID) => {
-    const payload = drafts[delegateId];
-    if (!payload) return;
-    setSubmitMessage(null);
-    setSubmitError(null);
-    try {
-      await updateDelegate.mutateAsync({ delegateId, data: payload });
-      setEditId(null);
-    } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : "Unable to update delegate.");
-    }
-  };
-
-  const openAssignment = (delegateId: UUID) => {
+  function openAssignment(delegateId: UUID) {
     setAssignmentDelegateId(delegateId);
     setCommitteeId("");
     setCharacterId("");
     setSubmitMessage(null);
     setSubmitError(null);
     setAssignmentOpen(true);
-  };
+  }
 
-  const openFlow = () => {
-    const nextIndex = needsAssignment.length ? 0 : -1;
-    setFlowIndex(nextIndex);
+  function openFlow() {
+    setFlowIndex(0);
     setAssignmentDelegateId(needsAssignment[0]?.id ?? null);
     setCommitteeId("");
     setCharacterId("");
     setSubmitMessage(null);
     setSubmitError(null);
     setFlowOpen(true);
-  };
+  }
 
-  const moveFlow = (direction: "next" | "prev") => {
+  function moveFlow(dir: "next" | "prev") {
     if (!needsAssignment.length) return;
-    const delta = direction === "next" ? 1 : -1;
-    const nextIndex = Math.min(Math.max(flowIndex + delta, 0), needsAssignment.length - 1);
-    setFlowIndex(nextIndex);
-    setAssignmentDelegateId(needsAssignment[nextIndex]?.id ?? null);
+    const next = Math.min(Math.max(flowIndex + (dir === "next" ? 1 : -1), 0), needsAssignment.length - 1);
+    setFlowIndex(next);
+    setAssignmentDelegateId(needsAssignment[next]?.id ?? null);
     setCommitteeId("");
     setCharacterId("");
     setSubmitMessage(null);
     setSubmitError(null);
-  };
+  }
+
+  async function handleAssign() {
+    if (!assignmentDelegateId || !characterId) return;
+    setSubmitMessage(null);
+    setSubmitError(null);
+    const selectedChar = characters.find(c => c.id === characterId);
+    if (!selectedChar) { setSubmitError("Character not found."); return; }
+    if (selectedChar.delegate_id != null) { setSubmitError("Character already assigned."); return; }
+    const currentChar = characters.find(c => c.delegate_id === assignmentDelegateId);
+    const prev      = previousAssignments.current.get(assignmentDelegateId);
+    const isRestore = !!prev && characterId === prev.characterId;
+
+    try {
+      if (currentChar) {
+        await updateAssignment.mutateAsync(characterId);
+      } else {
+        await assignDelegate.mutateAsync({ delegate_id: assignmentDelegateId, character_id: characterId });
+      }
+
+      if (isRestore) {
+        // Silently restore the delegate's previous status — no email needed
+        try {
+          await updateDelegate.mutateAsync({
+            delegateId: assignmentDelegateId,
+            data: { delegate_status: prev.previousStatus }
+          });
+        } catch { /* non-critical */ }
+        setSubmitMessage(`Previous assignment restored — status set back to "${prev.previousStatus}". No email needed.`);
+        previousAssignments.current.delete(assignmentDelegateId);
+      } else {
+        setSubmitMessage(currentChar ? "Delegate reassigned." : "Delegate assigned.");
+        if (prev) previousAssignments.current.delete(assignmentDelegateId);
+      }
+
+      setAssignmentOpen(false);
+      setCharacterId("");
+      if (flowOpen) {
+        const nextIndex = Math.min(flowIndex + 1, needsAssignment.length - 1);
+        if (nextIndex !== flowIndex) { setFlowIndex(nextIndex); setAssignmentDelegateId(needsAssignment[nextIndex]?.id ?? null); setSubmitMessage(null); setSubmitError(null); return; }
+        setFlowOpen(false);
+      }
+      setAssignmentDelegateId(null);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Unable to assign.");
+    }
+  }
+
+  // ── export ─────────────────────────────────────────────────────────────────
+
+  function exportDelegates() {
+    const headers = ["id","first_name","last_name","full_name","preferred_name","grade","email","delegate_experience","delegate_status","first_committee","second_committee","third_committee","delegation","code_of_conduct_url","payment_policy_ack","cancellation_policy_ack","heard_about","notes"];
+    const rows = delegates.map(d =>
+      headers.map(k => {
+        if (k === "delegation") {
+          const name = d.delegation_id ? delegationMap.get(d.delegation_id)?.name : "";
+          return `"${(name ?? "").replaceAll('"', '""')}"`;
+        }
+        const v = (d as Record<string, unknown>)[k];
+        return `"${String(v ?? "").replaceAll('"', '""')}"`;
+      }).join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = "delegates-export.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }
 
   const selectedDelegate = assignmentDelegateId ? delegateMap.get(assignmentDelegateId) : null;
+  const prevAssignment   = assignmentDelegateId ? (previousAssignments.current.get(assignmentDelegateId) ?? null) : null;
+  const isSameCharacter  = !!prevAssignment && !!characterId && characterId === prevAssignment.characterId;
 
-  const exportDelegates = () => {
-    const headers = [
-      "id",
-      "first_name",
-      "last_name",
-      "full_name",
-      "preferred_name",
-      "grade",
-      "email",
-      "delegate_experience",
-      "delegate_status",
-      "first_committee",
-      "second_committee",
-      "third_committee",
-      "delegation",
-      "code_of_conduct_url",
-      "payment_policy_ack",
-      "cancellation_policy_ack",
-      "heard_about",
-      "notes"
-    ];
-
-    const rows = delegates.map((delegate) =>
-      headers
-        .map((key) => {
-          if (key === "delegation") {
-            const delegationName = delegate.delegation_id
-              ? delegationMap.get(delegate.delegation_id)?.name
-              : "";
-            return `"${(delegationName ?? "").replaceAll("\"", "\"\"")}"`;
-          }
-          const value = (delegate as Record<string, string | null | boolean | undefined>)[key];
-          const safe = value == null ? "" : String(value);
-          return `"${safe.replaceAll("\"", "\"\"")}"`;
-        })
-        .join(",")
-    );
-
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "delegates-export.csv";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
-
+  // ── render ─────────────────────────────────────────────────────────────────
 
   return (
     <main className="page-shell max-w-6xl space-y-6">
+
+      {/* Page header */}
       <header className="relative overflow-hidden rounded-3xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-8 shadow-[var(--ssicsim-shadow)]">
         <div className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-[var(--ssicsim-brand-gold)] to-[var(--ssicsim-brand-gold-bright)]" />
         <p className="section-eyebrow">Admin</p>
@@ -389,6 +534,7 @@ export default function DelegatesPage() {
         <p className="section-subtitle mt-2">Manage delegate records, assignments, and statuses.</p>
       </header>
 
+      {/* Filters & actions */}
       <Card>
         <CardHeader>
           <CardTitle>Filters &amp; Actions</CardTitle>
@@ -396,6 +542,8 @@ export default function DelegatesPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ssicsim-text-muted)]">
+            <a className="underline" href="#awaiting-payment">Awaiting payment</a>
+            <span>·</span>
             <a className="underline" href="#needs-assignment">Needs assignment</a>
             <span>·</span>
             <a className="underline" href="#assigned-confirmed">Assigned / Confirmed</a>
@@ -404,845 +552,319 @@ export default function DelegatesPage() {
           </div>
           <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
-              <Label>Status filter</Label>
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as DelegateStatus | "all")}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
+              <Label>Status</Label>
+              <Select value={statusFilter} onValueChange={v => setStatusFilter(v as DelegateStatus | "all")}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {statusFilters.map((filter) => (
-                    <SelectItem key={filter.value} value={filter.value}>
-                      {filter.label}
-                    </SelectItem>
-                  ))}
+                  {statusFilters.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Committee filter</Label>
-              <Select value={committeeFilterId} onValueChange={(value) => setCommitteeFilterId(value as UUID | "all")}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All committees" />
-                </SelectTrigger>
+              <Label>Committee</Label>
+              <Select value={committeeFilterId} onValueChange={v => setCommitteeFilterId(v as UUID | "all")}>
+                <SelectTrigger><SelectValue placeholder="All committees" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All committees</SelectItem>
-                  {committees.map((committee) => (
-                    <SelectItem key={committee.id} value={committee.id}>
-                      {committee.name}
-                    </SelectItem>
-                  ))}
+                  {committees.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Search delegates</Label>
-              <Input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search name or email"
-              />
+              <Label>Search</Label>
+              <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or email" />
             </div>
-            <div className="md:col-span-1 flex items-end justify-end">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={handleMassEmailConfirm}
-                  disabled={emailerBusy || assignedOnly.length === 0}
-                >
-                  {emailerBusy ? "Emailing..." : "Emailer"}
-                </Button>
-                <Button variant="secondary" onClick={openFlow}>
-                  Assignment flow
-                </Button>
-                <Button variant="secondary" onClick={exportDelegates}>
-                  Export delegates CSV
-                </Button>
-              </div>
+            <div className="flex items-end justify-end gap-2 flex-wrap">
+              <Button variant="secondary" onClick={openFlow}>Assignment flow</Button>
+              <Button variant="ghost" onClick={exportDelegates}>Export CSV</Button>
             </div>
           </div>
-          {emailerMessage ? <Badge variant="success">{emailerMessage}</Badge> : null}
-          {emailerError ? (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-              {emailerError}
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 
+      {/* Awaiting Payment */}
+      <section id="awaiting-payment">
+        <Card>
+          <CardHeader>
+            <CardTitle>Awaiting Payment</CardTitle>
+            <CardDescription>
+              Delegates who have not yet completed payment. Assignment is blocked until their status is changed to Awaiting Assignment.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {delegatesQuery.isLoading ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
+            ) : awaitingPayment.length === 0 ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates awaiting payment.</p>
+            ) : (
+              <Table>
+                <DelegateTableHead />
+                <TableBody>
+                  {awaitingPayment.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Needs assignment */}
       <section id="needs-assignment">
         <Card>
-        <CardHeader>
-          <CardTitle>Needs Assignment</CardTitle>
-          <CardDescription>Delegates awaiting committee assignment.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {delegatesQuery.isLoading ? (
-            <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading delegates...</p>
-          ) : needsAssignment.length === 0 ? (
-            <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates need assignment.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Delegate</TableHead>
-                  <TableHead>Preferred</TableHead>
-                  <TableHead>Grade</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Experience</TableHead>
-                  <TableHead>Delegation</TableHead>
-                  <TableHead>Committee</TableHead>
-                  <TableHead>Character</TableHead>
-                  <TableHead>Preferences</TableHead>
-                  <TableHead>Waitlist Info</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {needsAssignment.map((delegate) => {
-                  const isEditing = editId === delegate.id;
-                  const draft = drafts[delegate.id] || {};
-                  const assignedCharacter = assignedCharacterByDelegateId.get(delegate.id);
-                  const assignedCommittee = assignedCharacter
-                    ? committeeMap.get(assignedCharacter.committee_id)?.name
-                    : null;
-                  return (
-                    <TableRow key={delegate.id}>
-                      <TableCell>
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <Input
-                              value={draft.first_name ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, first_name: event.target.value }
-                                }))
-                              }
-                              placeholder="First name"
-                            />
-                            <Input
-                              value={draft.last_name ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, last_name: event.target.value }
-                                }))
-                              }
-                              placeholder="Last name"
-                            />
-                          </div>
-                        ) : (
-                          `${delegate.last_name}, ${delegate.first_name}`
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={draft.preferred_name ?? ""}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, preferred_name: event.target.value }
-                              }))
-                            }
-                            placeholder="Preferred name"
-                          />
-                        ) : (
-                          delegate.preferred_name ?? "--"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={draft.grade ?? ""}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, grade: event.target.value }
-                              }))
-                            }
-                            placeholder="Grade"
-                          />
-                        ) : (
-                          delegate.grade ?? "--"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={draft.email ?? ""}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, email: event.target.value }
-                              }))
-                            }
-                          />
-                        ) : (
-                          delegate.email
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Select
-                            value={draft.delegate_status ?? delegate.delegate_status}
-                            onValueChange={(value) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, delegate_status: value as DelegateStatus }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>
-                              <SelectItem value="Assigned">Assigned</SelectItem>
-                              <SelectItem value="Confirmed">Confirmed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Badge variant={statusBadge[delegate.delegate_status]}>
-                            {delegate.delegate_status}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Select
-                            value={draft.delegate_experience ?? delegate.delegate_experience}
-                            onValueChange={(value) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, delegate_experience: value as DelegateUpdate["delegate_experience"] }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Beginner">Beginner</SelectItem>
-                              <SelectItem value="Intermediate">Intermediate</SelectItem>
-                              <SelectItem value="Expertise">Expertise</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          delegate.delegate_experience
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Select
-                            value={draft.delegation_id ?? delegate.delegation_id ?? ""}
-                            onValueChange={(value) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, delegation_id: value || null }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select delegation" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">Independent Delegate</SelectItem>
-                              {delegations.map((delegation) => (
-                                <SelectItem key={delegation.id} value={delegation.id}>
-                                  {delegation.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          delegationMap.get(delegate.delegation_id ?? "")?.name ?? "Independent Delegate"
-                        )}
-                      </TableCell>
-                      <TableCell>{assignedCommittee ?? "--"}</TableCell>
-                      <TableCell>{assignedCharacter?.name ?? "--"}</TableCell>
-                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <Input
-                              value={draft.first_committee ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, first_committee: event.target.value }
-                                }))
-                              }
-                              placeholder="First preference"
-                            />
-                            <Input
-                              value={draft.second_committee ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, second_committee: event.target.value }
-                                }))
-                              }
-                              placeholder="Second preference"
-                            />
-                            <Input
-                              value={draft.third_committee ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, third_committee: event.target.value }
-                                }))
-                              }
-                              placeholder="Third preference"
-                            />
-                          </div>
-                        ) : (
-                          [delegate.first_committee, delegate.second_committee, delegate.third_committee]
-                            .filter(Boolean)
-                            .join(" / ") || "--"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <Input
-                              value={draft.code_of_conduct_url ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, code_of_conduct_url: event.target.value }
-                                }))
-                              }
-                              placeholder="Code of conduct URL"
-                            />
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              <Select
-                                value={draft.payment_policy_ack == null ? "unset" : draft.payment_policy_ack ? "yes" : "no"}
-                                onValueChange={(value) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [delegate.id]: { ...draft, payment_policy_ack: value === "unset" ? null : value === "yes" }
-                                  }))
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Payment policy" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unset">Not set</SelectItem>
-                                  <SelectItem value="yes">Payment policy: Yes</SelectItem>
-                                  <SelectItem value="no">Payment policy: No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Select
-                                value={draft.cancellation_policy_ack == null ? "unset" : draft.cancellation_policy_ack ? "yes" : "no"}
-                                onValueChange={(value) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [delegate.id]: { ...draft, cancellation_policy_ack: value === "unset" ? null : value === "yes" }
-                                  }))
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Cancellation policy" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unset">Not set</SelectItem>
-                                  <SelectItem value="yes">Cancellation policy: Yes</SelectItem>
-                                  <SelectItem value="no">Cancellation policy: No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <Input
-                              value={draft.heard_about ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, heard_about: event.target.value }
-                                }))
-                              }
-                              placeholder="Heard about"
-                            />
-                            <Textarea
-                              value={draft.notes ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, notes: event.target.value }
-                                }))
-                              }
-                              placeholder="Notes"
-                              rows={3}
-                            />
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <div>Code of conduct: {delegate.code_of_conduct_url ?? "--"}</div>
-                            <div>
-                              Payment policy: {delegate.payment_policy_ack == null ? "--" : delegate.payment_policy_ack ? "Yes" : "No"}
-                            </div>
-                            <div>
-                              Cancellation policy: {delegate.cancellation_policy_ack == null ? "--" : delegate.cancellation_policy_ack ? "Yes" : "No"}
-                            </div>
-                            <div>Heard about: {delegate.heard_about ?? "--"}</div>
-                            <div>Notes: {delegate.notes ?? "--"}</div>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button size="sm" variant="secondary" onClick={() => openAssignment(delegate.id)}>
-                            {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
-                          </Button>
-                          {delegate.delegate_status !== "Awaiting Assignment" ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => deleteAssignment.mutateAsync(delegate.id)}
-                              disabled={deleteAssignment.isPending}
-                            >
-                              Unassign
-                            </Button>
-                          ) : null}
-                          {isEditing ? (
-                            <>
-                              <Button size="sm" onClick={() => handleSave(delegate.id)}>
-                                Save
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={cancelEdit}>
-                                Cancel
-                              </Button>
-                            </>
-                          ) : (
-                            <Button size="sm" variant="ghost" onClick={() => startEdit(delegate.id)}>
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
+          <CardHeader>
+            <CardTitle>Needs Assignment</CardTitle>
+            <CardDescription>Delegates awaiting committee assignment.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {delegatesQuery.isLoading ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
+            ) : needsAssignment.length === 0 ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates need assignment.</p>
+            ) : (
+              <Table>
+                <DelegateTableHead />
+                <TableBody>
+                  {needsAssignment.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
         </Card>
       </section>
 
+      {/* Assigned / Confirmed */}
       <section id="assigned-confirmed">
         <Card>
-        <CardHeader>
-          <CardTitle>Assigned / Confirmed</CardTitle>
-          <CardDescription>Delegates with assignments or confirmed status.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {delegatesQuery.isLoading ? (
-            <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading delegates...</p>
-          ) : assignedDelegates.length === 0 ? (
-            <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates assigned yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Delegate</TableHead>
-                  <TableHead>Preferred</TableHead>
-                  <TableHead>Grade</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Experience</TableHead>
-                  <TableHead>Delegation</TableHead>
-                  <TableHead>Committee</TableHead>
-                  <TableHead>Character</TableHead>
-                  <TableHead>Preferences</TableHead>
-                  <TableHead>Waitlist Info</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assignedDelegates.map((delegate) => {
-                  const isEditing = editId === delegate.id;
-                  const draft = drafts[delegate.id] || {};
-                  const assignedCharacter = assignedCharacterByDelegateId.get(delegate.id);
-                  const assignedCommittee = assignedCharacter
-                    ? committeeMap.get(assignedCharacter.committee_id)?.name
-                    : null;
-                  return (
-                    <TableRow key={delegate.id}>
-                      <TableCell>
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <Input
-                              value={draft.first_name ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, first_name: event.target.value }
-                                }))
-                              }
-                              placeholder="First name"
-                            />
-                            <Input
-                              value={draft.last_name ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, last_name: event.target.value }
-                                }))
-                              }
-                              placeholder="Last name"
-                            />
-                          </div>
-                        ) : (
-                          `${delegate.last_name}, ${delegate.first_name}`
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={draft.preferred_name ?? ""}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, preferred_name: event.target.value }
-                              }))
-                            }
-                            placeholder="Preferred name"
-                          />
-                        ) : (
-                          delegate.preferred_name ?? "--"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={draft.grade ?? ""}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, grade: event.target.value }
-                              }))
-                            }
-                            placeholder="Grade"
-                          />
-                        ) : (
-                          delegate.grade ?? "--"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Input
-                            value={draft.email ?? ""}
-                            onChange={(event) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, email: event.target.value }
-                              }))
-                            }
-                          />
-                        ) : (
-                          delegate.email
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Select
-                            value={draft.delegate_status ?? delegate.delegate_status}
-                            onValueChange={(value) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, delegate_status: value as DelegateStatus }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>
-                              <SelectItem value="Assigned">Assigned</SelectItem>
-                              <SelectItem value="Confirmed">Confirmed</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Badge variant={statusBadge[delegate.delegate_status]}>
-                            {delegate.delegate_status}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Select
-                            value={draft.delegate_experience ?? delegate.delegate_experience}
-                            onValueChange={(value) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, delegate_experience: value as DelegateUpdate["delegate_experience"] }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Beginner">Beginner</SelectItem>
-                              <SelectItem value="Intermediate">Intermediate</SelectItem>
-                              <SelectItem value="Expertise">Expertise</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          delegate.delegate_experience
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {isEditing ? (
-                          <Select
-                            value={draft.delegation_id ?? delegate.delegation_id ?? ""}
-                            onValueChange={(value) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [delegate.id]: { ...draft, delegation_id: value || null }
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select delegation" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">Independent Delegate</SelectItem>
-                              {delegations.map((delegation) => (
-                                <SelectItem key={delegation.id} value={delegation.id}>
-                                  {delegation.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          delegationMap.get(delegate.delegation_id ?? "")?.name ?? "Independent Delegate"
-                        )}
-                      </TableCell>
-                      <TableCell>{assignedCommittee ?? "--"}</TableCell>
-                      <TableCell>{assignedCharacter?.name ?? "--"}</TableCell>
-                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <Input
-                              value={draft.first_committee ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, first_committee: event.target.value }
-                                }))
-                              }
-                              placeholder="First preference"
-                            />
-                            <Input
-                              value={draft.second_committee ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, second_committee: event.target.value }
-                                }))
-                              }
-                              placeholder="Second preference"
-                            />
-                            <Input
-                              value={draft.third_committee ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, third_committee: event.target.value }
-                                }))
-                              }
-                              placeholder="Third preference"
-                            />
-                          </div>
-                        ) : (
-                          [delegate.first_committee, delegate.second_committee, delegate.third_committee]
-                            .filter(Boolean)
-                            .join(" / ") || "--"
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <Input
-                              value={draft.code_of_conduct_url ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, code_of_conduct_url: event.target.value }
-                                }))
-                              }
-                              placeholder="Code of conduct URL"
-                            />
-                            <div className="grid gap-2 sm:grid-cols-2">
-                              <Select
-                                value={draft.payment_policy_ack == null ? "unset" : draft.payment_policy_ack ? "yes" : "no"}
-                                onValueChange={(value) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [delegate.id]: { ...draft, payment_policy_ack: value === "unset" ? null : value === "yes" }
-                                  }))
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Payment policy" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unset">Not set</SelectItem>
-                                  <SelectItem value="yes">Payment policy: Yes</SelectItem>
-                                  <SelectItem value="no">Payment policy: No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <Select
-                                value={draft.cancellation_policy_ack == null ? "unset" : draft.cancellation_policy_ack ? "yes" : "no"}
-                                onValueChange={(value) =>
-                                  setDrafts((prev) => ({
-                                    ...prev,
-                                    [delegate.id]: { ...draft, cancellation_policy_ack: value === "unset" ? null : value === "yes" }
-                                  }))
-                                }
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Cancellation policy" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="unset">Not set</SelectItem>
-                                  <SelectItem value="yes">Cancellation policy: Yes</SelectItem>
-                                  <SelectItem value="no">Cancellation policy: No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <Input
-                              value={draft.heard_about ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, heard_about: event.target.value }
-                                }))
-                              }
-                              placeholder="Heard about"
-                            />
-                            <Textarea
-                              value={draft.notes ?? ""}
-                              onChange={(event) =>
-                                setDrafts((prev) => ({
-                                  ...prev,
-                                  [delegate.id]: { ...draft, notes: event.target.value }
-                                }))
-                              }
-                              placeholder="Notes"
-                              rows={3}
-                            />
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <div>Code of conduct: {delegate.code_of_conduct_url ?? "--"}</div>
-                            <div>
-                              Payment policy: {delegate.payment_policy_ack == null ? "--" : delegate.payment_policy_ack ? "Yes" : "No"}
-                            </div>
-                            <div>
-                              Cancellation policy: {delegate.cancellation_policy_ack == null ? "--" : delegate.cancellation_policy_ack ? "Yes" : "No"}
-                            </div>
-                            <div>Heard about: {delegate.heard_about ?? "--"}</div>
-                            <div>Notes: {delegate.notes ?? "--"}</div>
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button size="sm" variant="secondary" onClick={() => openAssignment(delegate.id)}>
-                            {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => deleteAssignment.mutateAsync(delegate.id)}
-                            disabled={deleteAssignment.isPending}
-                          >
-                            Unassign
-                          </Button>
-                          {isEditing ? (
-                            <>
-                              <Button size="sm" onClick={() => handleSave(delegate.id)}>
-                                Save
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={cancelEdit}>
-                                Cancel
-                              </Button>
-                            </>
-                          ) : (
-                            <Button size="sm" variant="ghost" onClick={() => startEdit(delegate.id)}>
-                              Edit
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
+          <CardHeader>
+            <CardTitle>Assigned / Confirmed</CardTitle>
+            <CardDescription>Delegates with assignments or confirmed status.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {delegatesQuery.isLoading ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
+            ) : assignedDelegates.length === 0 ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates assigned yet.</p>
+            ) : (
+              <Table>
+                <DelegateTableHead />
+                <TableBody>
+                  {assignedDelegates.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
         </Card>
       </section>
 
+      {/* Delegations */}
       <section id="delegations">
         <Card>
-        <CardHeader>
-          <CardTitle>Delegations</CardTitle>
-          <CardDescription>Delegation roster and faculty advisors.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {delegationsQuery.isLoading ? (
-            <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading delegations...</p>
-          ) : delegations.length === 0 ? (
-            <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegations yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Delegation</TableHead>
-                  <TableHead>Faculty Advisor</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Head Delegate</TableHead>
-                  <TableHead>Delegates</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {delegations.map((delegation) => {
-                  const head = delegation.head_delegate_id
-                    ? delegateMap.get(delegation.head_delegate_id)
-                    : null;
-                  const delegateCount = delegates.filter(
-                    (delegate) => delegate.delegation_id === delegation.id
-                  ).length;
-                  const advisorName = [
-                    delegation.faculty_advisor_first_name,
-                    delegation.faculty_advisor_last_name
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-                  return (
-                    <TableRow key={delegation.id}>
-                      <TableCell>{delegation.name}</TableCell>
-                      <TableCell>{advisorName || "--"}</TableCell>
-                      <TableCell>{delegation.faculty_advisor_email ?? "--"}</TableCell>
-                      <TableCell>{head ? `${head.last_name}, ${head.first_name}` : "--"}</TableCell>
-                      <TableCell>{delegateCount}</TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
+          <CardHeader>
+            <CardTitle>Delegations</CardTitle>
+            <CardDescription>Delegation roster and faculty advisors.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {delegationsQuery.isLoading ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
+            ) : delegations.length === 0 ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegations yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Delegation</TableHead>
+                    <TableHead>Faculty Advisor</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Head Delegate</TableHead>
+                    <TableHead>Delegates</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {delegations.map(delegation => {
+                    const head = delegation.head_delegate_id ? delegateMap.get(delegation.head_delegate_id) : null;
+                    const count = delegates.filter(d => d.delegation_id === delegation.id).length;
+                    const advisor = [delegation.faculty_advisor_first_name, delegation.faculty_advisor_last_name].filter(Boolean).join(" ");
+                    return (
+                      <TableRow key={delegation.id}>
+                        <TableCell>{delegation.name}</TableCell>
+                        <TableCell>{advisor || "--"}</TableCell>
+                        <TableCell>{delegation.faculty_advisor_email ?? "--"}</TableCell>
+                        <TableCell>{head ? `${head.last_name}, ${head.first_name}` : "--"}</TableCell>
+                        <TableCell>{count}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
         </Card>
       </section>
 
+      {/* ── Edit Dialog ──────────────────────────────────────────────────────── */}
+      <Dialog open={editDelegate !== null} onOpenChange={open => { if (!open) closeEdit(); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editDelegate?.preferred_name ?? editDelegate?.first_name} {editDelegate?.last_name}
+            </DialogTitle>
+            <DialogDescription>Edit delegate record</DialogDescription>
+          </DialogHeader>
+
+          {editDelegate && (
+            <div className="space-y-5 pt-1">
+
+              {/* Personal info */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>First name</Label>
+                  <Input value={editDraft.first_name ?? ""} onChange={e => setField("first_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Last name</Label>
+                  <Input value={editDraft.last_name ?? ""} onChange={e => setField("last_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Preferred name</Label>
+                  <Input value={editDraft.preferred_name ?? ""} onChange={e => setField("preferred_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Grade</Label>
+                  <Input value={editDraft.grade ?? ""} onChange={e => setField("grade", e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Email</Label>
+                  <Input value={editDraft.email ?? ""} onChange={e => setField("email", e.target.value)} />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Status & assignment */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select value={editDraft.delegate_status ?? ""} onValueChange={v => setField("delegate_status", v as DelegateStatus)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Awaiting Payment">Awaiting Payment</SelectItem>
+                      <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>
+                      <SelectItem value="Assigned">Assigned</SelectItem>
+                      <SelectItem value="Confirmed">Confirmed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Experience</Label>
+                  <Select value={editDraft.delegate_experience ?? ""} onValueChange={v => setField("delegate_experience", v as DelegateUpdate["delegate_experience"])}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Beginner">Beginner</SelectItem>
+                      <SelectItem value="Intermediate">Intermediate</SelectItem>
+                      <SelectItem value="Expertise">Expertise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Delegation</Label>
+                  <Select value={editDraft.delegation_id ?? "__none__"} onValueChange={v => setField("delegation_id", v === "__none__" ? null : v)}>
+                    <SelectTrigger><SelectValue placeholder="Independent" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Independent Delegate</SelectItem>
+                      {delegations.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Committee preferences */}
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>1st preference</Label>
+                  <Input value={editDraft.first_committee ?? ""} onChange={e => setField("first_committee", e.target.value)} placeholder="Committee name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>2nd preference</Label>
+                  <Input value={editDraft.second_committee ?? ""} onChange={e => setField("second_committee", e.target.value)} placeholder="Committee name" />
+                </div>
+                <div className="space-y-2">
+                  <Label>3rd preference</Label>
+                  <Input value={editDraft.third_committee ?? ""} onChange={e => setField("third_committee", e.target.value)} placeholder="Committee name" />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Admin notes */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Heard about</Label>
+                  <Input value={editDraft.heard_about ?? ""} onChange={e => setField("heard_about", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Code of conduct URL</Label>
+                  <Input value={editDraft.code_of_conduct_url ?? ""} onChange={e => setField("code_of_conduct_url", e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea value={editDraft.notes ?? ""} onChange={e => setField("notes", e.target.value)} rows={3} />
+              </div>
+
+              <Separator />
+
+              {/* Compliance */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Payment policy</Label>
+                  <Select
+                    value={editDraft.payment_policy_ack == null ? "unset" : editDraft.payment_policy_ack ? "yes" : "no"}
+                    onValueChange={v => setField("payment_policy_ack", v === "unset" ? null : v === "yes")}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      <SelectItem value="yes">Acknowledged</SelectItem>
+                      <SelectItem value="no">Not acknowledged</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Cancellation policy</Label>
+                  <Select
+                    value={editDraft.cancellation_policy_ack == null ? "unset" : editDraft.cancellation_policy_ack ? "yes" : "no"}
+                    onValueChange={v => setField("cancellation_policy_ack", v === "unset" ? null : v === "yes")}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      <SelectItem value="yes">Acknowledged</SelectItem>
+                      <SelectItem value="no">Not acknowledged</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button onClick={handleSaveEdit} disabled={updateDelegate.isPending}>
+                  {updateDelegate.isPending ? "Saving…" : "Save changes"}
+                </Button>
+                <Button variant="ghost" onClick={closeEdit} disabled={updateDelegate.isPending}>
+                  Cancel
+                </Button>
+                {editError && (
+                  <span className="text-xs text-red-600">{editError}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Assignment Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={assignmentOpen} onOpenChange={setAssignmentOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1256,78 +878,111 @@ export default function DelegatesPage() {
                   {selectedDelegate.last_name}, {selectedDelegate.first_name}
                 </p>
                 <p className="text-[var(--ssicsim-text-muted)]">
-                  Preferences: {[selectedDelegate.first_committee, selectedDelegate.second_committee, selectedDelegate.third_committee]
-                    .filter(Boolean)
-                    .join(" / ") || "--"}
+                  Preferences: {[selectedDelegate.first_committee, selectedDelegate.second_committee, selectedDelegate.third_committee].filter(Boolean).join(" / ") || "--"}
                 </p>
                 <p className="text-[var(--ssicsim-text-muted)]">
                   Delegation: {delegationMap.get(selectedDelegate.delegation_id ?? "")?.name ?? "Independent Delegate"}
                 </p>
-                {characters.find((character) => character.delegate_id === selectedDelegate.id) ? (
-                  <p className="text-xs text-[var(--ssicsim-text-muted)]">This delegate already has an assignment. Selecting a character will reassign them.</p>
-                ) : null}
+                {characters.find(c => c.delegate_id === selectedDelegate.id) && (
+                  <p className="text-xs text-[var(--ssicsim-text-muted)]">Already assigned — selecting a character will reassign them.</p>
+                )}
               </div>
             ) : null}
+
+            {/* Committee open seats */}
+            <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)] mb-2">
+                Committee open seats
+              </p>
+              <div className="space-y-1.5">
+                {committeeStats
+                  .sort((a, b) => b.openCount - a.openCount)
+                  .map(s => (
+                    <div key={s.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className={[
+                        "truncate",
+                        committeeId === s.id
+                          ? "font-semibold text-[var(--ssicsim-brand-navy)]"
+                          : "text-[var(--ssicsim-text)]"
+                      ].join(" ")}>
+                        {s.name}
+                      </span>
+                      <span className={[
+                        "shrink-0 tabular-nums",
+                        s.openCount === 0
+                          ? "text-[var(--ssicsim-text-muted)]"
+                          : "text-[var(--ssicsim-brand-navy)] font-medium"
+                      ].join(" ")}>
+                        {s.openCount} open · {s.occupiedPercent}%
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>Committee</Label>
-              <Select value={committeeId} onValueChange={(value) => setCommitteeId(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select committee" />
-                </SelectTrigger>
+              <Select value={committeeId} onValueChange={setCommitteeId}>
+                <SelectTrigger><SelectValue placeholder="Select committee" /></SelectTrigger>
                 <SelectContent>
-                  {committees.map((committee) => (
-                    <SelectItem key={committee.id} value={committee.id}>
-                      {committee.name}
-                    </SelectItem>
-                  ))}
+                  {committees.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Character</Label>
-              <Select value={characterId} onValueChange={(value) => setCharacterId(value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select character" />
-                </SelectTrigger>
+              <Select value={characterId} onValueChange={setCharacterId}>
+                <SelectTrigger><SelectValue placeholder="Select character" /></SelectTrigger>
                 <SelectContent>
-                  {filteredCharacters.map((character) => (
-                    <SelectItem key={character.id} value={character.id}>
-                      {character.name}
+                  {filteredCharacters.map(c => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                      {prevAssignment?.characterId === c.id ? " ↩ previous" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-[var(--ssicsim-text-muted)]">Only unassigned characters are listed.</p>
+              <p className="text-xs text-[var(--ssicsim-text-muted)]">Only unassigned characters shown.</p>
             </div>
+
+            {/* Same-character restore banner */}
+            {isSameCharacter && prevAssignment && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm">
+                <p className="font-semibold text-emerald-800">↩ Restoring previous assignment</p>
+                <p className="mt-0.5 text-xs text-emerald-700">
+                  Status will be set back to <strong>{prevAssignment.previousStatus}</strong> automatically — no confirmation email needed.
+                </p>
+              </div>
+            )}
+            {prevAssignment && characterId && !isSameCharacter && (
+              <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] px-3 py-2 text-xs text-[var(--ssicsim-text-muted)]">
+                Previously: <span className="font-medium text-[var(--ssicsim-text)]">{prevAssignment.committeeName} — {prevAssignment.characterName}</span>.
+                {" "}This is a new assignment — a confirmation email may be needed.
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-3">
-              <Button
-                onClick={handleAssign}
-                disabled={!assignmentDelegateId || !characterId || assignDelegate.isPending}
-              >
-                {assignDelegate.isPending ? "Assigning..." : "Assign delegate"}
+              <Button onClick={handleAssign} disabled={!assignmentDelegateId || !characterId || assignDelegate.isPending}>
+                {assignDelegate.isPending ? "Assigning…" : isSameCharacter ? "Restore assignment" : "Assign delegate"}
               </Button>
-              {submitMessage ? <Badge variant="success">{submitMessage}</Badge> : null}
+              {submitMessage && <Badge variant="success">{submitMessage}</Badge>}
             </div>
-            {committeeId && filteredCharacters.length === 0 ? (
+            {committeeId && filteredCharacters.length === 0 && (
               <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                Selected committee has no remaining characters.
+                No remaining characters in this committee.
               </div>
-            ) : null}
-            {submitError ? (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                {submitError}
-              </div>
-            ) : null}
-            {committees.length === 0 ? (
-              <Alert>
-                <AlertTitle>No committees found</AlertTitle>
-                <AlertDescription>Create committees before assigning delegates.</AlertDescription>
-              </Alert>
-            ) : null}
+            )}
+            {submitError && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{submitError}</div>
+            )}
+            {committees.length === 0 && (
+              <Alert><AlertTitle>No committees</AlertTitle><AlertDescription>Create committees before assigning.</AlertDescription></Alert>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* ── Assignment Flow Dialog ────────────────────────────────────────────── */}
       <Dialog open={flowOpen} onOpenChange={setFlowOpen}>
         <DialogContent>
           <DialogHeader>
@@ -1335,111 +990,78 @@ export default function DelegatesPage() {
             <DialogDescription>Assign delegates one by one in sequence.</DialogDescription>
           </DialogHeader>
           {needsAssignment.length === 0 ? (
-            <Alert>
-              <AlertTitle>No delegates waiting</AlertTitle>
-              <AlertDescription>All delegates already have assignments.</AlertDescription>
-            </Alert>
+            <Alert><AlertTitle>No delegates waiting</AlertTitle><AlertDescription>All delegates have assignments.</AlertDescription></Alert>
           ) : (
             <div className="space-y-4">
               <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm">
                 <p className="text-[var(--ssicsim-text-muted)]">Committee open seats</p>
                 <div className="mt-2 space-y-1 text-xs">
-                  {committeeStats
-                    .sort((a, b) => b.openCount - a.openCount)
-                    .slice(0, 6)
-                    .map((stat) => (
-                      <div key={stat.id} className="flex items-center justify-between gap-2">
-                        <span>{stat.name}</span>
-                          <span className="text-[var(--ssicsim-text-muted)]">{stat.openCount} open · {stat.occupiedPercent}%</span>
-                      </div>
-                    ))}
+                  {committeeStats.sort((a, b) => b.openCount - a.openCount).slice(0, 6).map(s => (
+                    <div key={s.id} className="flex items-center justify-between gap-2">
+                      <span>{s.name}</span>
+                      <span className="text-[var(--ssicsim-text-muted)]">{s.openCount} open · {s.occupiedPercent}%</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-              {selectedDelegate ? (
+              {selectedDelegate && (
                 <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm">
-                  <p className="font-medium text-[var(--ssicsim-brand-navy)]">
-                    {selectedDelegate.last_name}, {selectedDelegate.first_name}
-                  </p>
+                  <p className="font-medium text-[var(--ssicsim-brand-navy)]">{selectedDelegate.last_name}, {selectedDelegate.first_name}</p>
                   <p className="text-[var(--ssicsim-text-muted)]">
-                    Preferences: {[selectedDelegate.first_committee, selectedDelegate.second_committee, selectedDelegate.third_committee]
-                      .filter(Boolean)
-                      .join(" / ") || "--"}
+                    Preferences: {[selectedDelegate.first_committee, selectedDelegate.second_committee, selectedDelegate.third_committee].filter(Boolean).join(" / ") || "--"}
                   </p>
                   <p className="text-[var(--ssicsim-text-muted)]">
                     Delegation: {delegationMap.get(selectedDelegate.delegation_id ?? "")?.name ?? "Independent Delegate"}
                   </p>
-                  {characters.find((character) => character.delegate_id === selectedDelegate.id) ? (
-                    <p className="text-xs text-[var(--ssicsim-text-muted)]">This delegate already has an assignment. Selecting a character will reassign them.</p>
-                  ) : null}
                 </div>
-              ) : null}
+              )}
               <div className="space-y-2">
                 <Label>Committee</Label>
-                <Select value={committeeId} onValueChange={(value) => setCommitteeId(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select committee" />
-                  </SelectTrigger>
+                <Select value={committeeId} onValueChange={setCommitteeId}>
+                  <SelectTrigger><SelectValue placeholder="Select committee" /></SelectTrigger>
                   <SelectContent>
-                    {committees.map((committee) => (
-                      <SelectItem key={committee.id} value={committee.id}>
-                        {committee.name}
-                      </SelectItem>
-                    ))}
+                    {committees.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Character</Label>
-                <Select value={characterId} onValueChange={(value) => setCharacterId(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select character" />
-                  </SelectTrigger>
+                <Select value={characterId} onValueChange={setCharacterId}>
+                  <SelectTrigger><SelectValue placeholder="Select character" /></SelectTrigger>
                   <SelectContent>
-                    {filteredCharacters.map((character) => (
-                      <SelectItem key={character.id} value={character.id}>
-                        {character.name}
-                      </SelectItem>
-                    ))}
+                    {filteredCharacters.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-[var(--ssicsim-text-muted)]">Only unassigned characters are listed.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  onClick={handleAssign}
-                  disabled={!assignmentDelegateId || !characterId || assignDelegate.isPending}
-                >
-                  {assignDelegate.isPending ? "Assigning..." : "Assign delegate"}
+                <Button onClick={handleAssign} disabled={!assignmentDelegateId || !characterId || assignDelegate.isPending}>
+                  {assignDelegate.isPending ? "Assigning…" : "Assign delegate"}
                 </Button>
-                <Button variant="ghost" onClick={() => moveFlow("prev")} disabled={flowIndex <= 0}>
-                  Previous
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => moveFlow("next")}
-                  disabled={flowIndex >= needsAssignment.length - 1}
-                >
-                  Next
-                </Button>
-                {submitMessage ? <Badge variant="success">{submitMessage}</Badge> : null}
+                <Button variant="ghost" onClick={() => moveFlow("prev")} disabled={flowIndex <= 0}>Previous</Button>
+                <Button variant="secondary" onClick={() => moveFlow("next")} disabled={flowIndex >= needsAssignment.length - 1}>Next</Button>
+                {submitMessage && <Badge variant="success">{submitMessage}</Badge>}
               </div>
-              {committeeId && filteredCharacters.length === 0 ? (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  Selected committee has no remaining characters.
-                </div>
-              ) : null}
-              {submitError ? (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {submitError}
-                </div>
-              ) : null}
-              <p className="text-xs text-[var(--ssicsim-text-muted)]">
-                Delegate {flowIndex + 1} of {needsAssignment.length}
-              </p>
+              {committeeId && filteredCharacters.length === 0 && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">No remaining characters.</div>
+              )}
+              {submitError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{submitError}</div>
+              )}
+              <p className="text-xs text-[var(--ssicsim-text-muted)]">Delegate {flowIndex + 1} of {needsAssignment.length}</p>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Undo toast stack ──────────────────────────────────────────────── */}
+      {pendingUnassigns.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+          {pendingUnassigns.map(p => (
+            <UnassignToast key={p.uid} pending={p} onUndo={() => undoUnassign(p.uid)} />
+          ))}
+        </div>
+      )}
+
     </main>
   );
 }

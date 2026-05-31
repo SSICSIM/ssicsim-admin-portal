@@ -8,9 +8,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard" },
+  { href: "/dashboard",  label: "Dashboard" },
   { href: "/committees", label: "Committees" },
-  { href: "/delegates", label: "Delegates" }
+  { href: "/delegates",  label: "Delegates" },
+  { href: "/emailer",    label: "Emailer" }
 ];
 
 export function Navbar() {

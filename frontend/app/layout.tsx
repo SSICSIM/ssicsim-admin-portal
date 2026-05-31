@@ -6,7 +6,12 @@ import { NavbarWrapper } from "@/components/NavbarWrapper";
 
 export const metadata: Metadata = {
   title: "SSICSIM Admin Portal",
-  description: "Administrative dashboard for SSICSIM conference operations."
+  description: "Administrative dashboard for SSICSIM conference operations.",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false }
+  }
 };
 
 export default function RootLayout(props: { children: React.ReactNode }) {

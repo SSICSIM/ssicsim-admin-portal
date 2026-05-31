@@ -11,6 +11,9 @@ import type {
   DelegateCreate,
   DelegateOut,
   DelegateUpdate,
+  EmailTemplateCreate,
+  EmailTemplateOut,
+  EmailTemplateUpdate,
   UUID
 } from "@/types/api";
 
@@ -33,5 +36,29 @@ export const adminService = {
     apiClient.patch<AssignmentOut>(`/api/assignments/${delegateId}`, { character_id: characterId }),
   deleteAssignment: (delegateId: UUID) => apiClient.deleteEmpty(`/api/assignments/${delegateId}`),
   uploadCommitteeImage: (committeeId: UUID, formData: FormData) =>
-    apiClient.upload(`/api/committees/${committeeId}/image`, formData)
+    apiClient.upload(`/api/committees/${committeeId}/image`, formData),
+
+  // Email sending (queued via RQ worker)
+  queueEmails: (payload: { recipients: Record<string, string>[]; subject: string; body: string }) =>
+    apiClient.post<{ job_id: string; queued: number; status: string; error?: string }>(
+      "/api/email/queue",
+      payload
+    ),
+
+  // Email validation — syntax + DNS MX check
+  validateEmails: (emails: string[]) =>
+    apiClient.post<{ email: string; valid: boolean; normalized?: string; reason?: string }[]>(
+      "/api/email/validate",
+      { emails }
+    ),
+
+  // Email templates
+  fetchEmailTemplates: () =>
+    apiClient.get<EmailTemplateOut[]>("/api/email-templates"),
+  createEmailTemplate: (payload: EmailTemplateCreate) =>
+    apiClient.post<EmailTemplateOut>("/api/email-templates", payload),
+  updateEmailTemplate: (id: UUID, payload: EmailTemplateUpdate) =>
+    apiClient.patch<EmailTemplateOut>(`/api/email-templates/${id}`, payload),
+  deleteEmailTemplate: (id: UUID) =>
+    apiClient.deleteEmpty(`/api/email-templates/${id}`)
 };

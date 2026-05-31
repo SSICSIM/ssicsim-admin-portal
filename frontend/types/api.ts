@@ -22,7 +22,7 @@ export type CommitteeCreate = Omit<CommitteeOut, "id" | "image_url"> & {
 };
 
 export type DelegateExperience = "Beginner" | "Intermediate" | "Expertise";
-export type DelegateStatus = "Awaiting Assignment" | "Assigned" | "Confirmed";
+export type DelegateStatus = "Awaiting Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
 
 export type DelegateOut = {
   id: UUID;
@@ -84,4 +84,25 @@ export type AssignmentOut = {
   character_id: UUID;
   committee_id: UUID;
 };
+
+export type EmailTemplateOut = {
+  id: UUID;
+  name: string;
+  subject_template: string;
+  body_template: string;
+  placeholders: string[] | null;
+  confirms_assigned: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailTemplateCreate = {
+  name: string;
+  subject_template: string;
+  body_template: string;
+  placeholders?: string[] | null;
+  confirms_assigned?: boolean;
+};
+
+export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 
