@@ -7,6 +7,10 @@ import { NavbarWrapper } from "@/components/NavbarWrapper";
 export const metadata: Metadata = {
   title: "SSICSIM Admin Portal",
   description: "Administrative dashboard for SSICSIM conference operations.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/Favicon.png"
+  },
   robots: {
     index: false,
     follow: false,

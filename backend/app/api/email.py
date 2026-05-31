@@ -31,6 +31,8 @@ def queue_email_job(payload: EmailQueueRequest) -> dict:
     redis_conn = Redis.from_url(settings.redis_url)
     q = Queue(connection=redis_conn)
 
+    logo_url = f"{settings.frontend_url.rstrip('/')}/branding/WhiteLogo.png"
+
     job = q.enqueue(
         send_emails,
         payload.recipients,
@@ -38,6 +40,7 @@ def queue_email_job(payload: EmailQueueRequest) -> dict:
         payload.body,
         settings.gmail_user,
         settings.gmail_app_password,
+        logo_url,
         job_timeout=300,
     )
 

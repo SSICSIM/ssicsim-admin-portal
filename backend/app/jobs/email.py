@@ -11,7 +11,7 @@ def _replace_placeholders(template: str, data: dict[str, str]) -> str:
     return re.sub(r"\{(\w+)\}", lambda m: data.get(m.group(1), m.group(0)), template)
 
 
-def _render_html(body_text: str) -> str:
+def _render_html(body_text: str, logo_url: str = "") -> str:
     paragraphs = []
     for line in body_text.split("\n"):
         stripped = line.strip()
@@ -40,14 +40,11 @@ def _render_html(body_text: str) -> str:
 
           <!-- Header -->
           <tr>
-            <td style="background-color:#3d2b00;padding:28px 40px;
+            <td style="background-color:#3d2b00;padding:24px 40px;
                        border-radius:12px 12px 0 0;text-align:center;">
-              <p style="margin:0;font-size:24px;font-weight:700;
-                        color:#d3af37;letter-spacing:0.06em;">SSICSIM</p>
-              <p style="margin:4px 0 0;font-size:10px;letter-spacing:0.18em;
-                        text-transform:uppercase;color:rgba(255,255,255,0.45);">
-                Admin Portal
-              </p>
+              {f'<img src="{logo_url}" alt="SSICSIM" width="180" style="height:auto;max-height:48px;display:block;margin:0 auto;" />'
+               if logo_url else
+               '<p style="margin:0;font-size:24px;font-weight:700;color:#d3af37;letter-spacing:0.06em;">SSICSIM</p>'}
             </td>
           </tr>
 
@@ -89,6 +86,7 @@ def send_emails(
     body_template: str,
     gmail_user: str,
     gmail_pass: str,
+    logo_url: str = "",
 ) -> list[dict]:
     results: list[dict] = []
 
@@ -103,7 +101,7 @@ def send_emails(
                 try:
                     subject = _replace_placeholders(subject_template, recipient)
                     plain = _replace_placeholders(body_template, recipient)
-                    html = _render_html(plain)
+                    html = _render_html(plain, logo_url=logo_url)
 
                     msg = MIMEMultipart("alternative")
                     msg["From"] = f"SSICSIM <{gmail_user}>"

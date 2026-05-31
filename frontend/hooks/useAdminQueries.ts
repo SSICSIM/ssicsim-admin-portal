@@ -12,6 +12,7 @@ import type {
   CommitteeOut,
   CommitteeUpdate,
   DelegationOut,
+  DelegationUpdate,
   DelegateCreate,
   DelegateOut,
   DelegateUpdate,
@@ -97,6 +98,17 @@ export function useDeleteCharacter() {
   });
 }
 
+export function useUpdateDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: UUID; data: DelegationUpdate }) =>
+      adminService.updateDelegation(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.delegations });
+    }
+  });
+}
+
 // Query hooks
 export function useDelegates() {
   return useQuery({
@@ -131,6 +143,17 @@ export function useUpdateDelegate() {
       adminService.updateDelegate(payload.delegateId, payload.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
+    }
+  });
+}
+
+export function useDeleteDelegate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (delegateId: UUID) => adminService.deleteDelegate(delegateId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
+      queryClient.invalidateQueries({ queryKey: queryKeys.characters });
     }
   });
 }

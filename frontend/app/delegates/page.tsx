@@ -8,12 +8,14 @@ import {
   useCharacters,
   useCommittees,
   useDeleteAssignment,
+  useDeleteDelegate,
   useDelegates,
   useDelegations,
   useUpdateAssignment,
-  useUpdateDelegate
+  useUpdateDelegate,
+  useUpdateDelegation
 } from "@/hooks/useAdminQueries";
-import type { DelegateOut, DelegateStatus, DelegateUpdate, UUID } from "@/types/api";
+import type { DelegateOut, DelegateStatus, DelegateUpdate, DelegationOut, DelegationUpdate, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,6 +118,7 @@ function DelegateRow({
   onEdit,
   onAssign,
   onUnassign,
+  onDelete,
   unassigning,
   isPendingUnassign
 }: {
@@ -126,6 +129,7 @@ function DelegateRow({
   onEdit: () => void;
   onAssign: () => void;
   onUnassign: () => void;
+  onDelete: () => void;
   unassigning: boolean;
   isPendingUnassign: boolean;
 }) {
@@ -174,6 +178,9 @@ function DelegateRow({
           <Button size="sm" variant="ghost" onClick={onEdit}>
             Edit
           </Button>
+          <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={onDelete}>
+            Delete
+          </Button>
         </div>
       </TableCell>
     </TableRow>
@@ -209,10 +216,12 @@ export default function DelegatesPage() {
   const committeesQuery  = useCommittees();
   const charactersQuery  = useCharacters();
   const delegatesQuery   = useDelegates();
-  const delegationsQuery = useDelegations();
-  const assignDelegate   = useAssignDelegate();
-  const deleteAssignment = useDeleteAssignment();
-  const updateDelegate   = useUpdateDelegate();
+  const delegationsQuery  = useDelegations();
+  const assignDelegate    = useAssignDelegate();
+  const deleteAssignment  = useDeleteAssignment();
+  const updateDelegate    = useUpdateDelegate();
+  const deleteDelegate    = useDeleteDelegate();
+  const updateDelegation  = useUpdateDelegation();
 
   // ── filters ────────────────────────────────────────────────────────────────
   const [statusFilter,     setStatusFilter]     = useState<DelegateStatus | "all">("all");
@@ -240,10 +249,19 @@ export default function DelegatesPage() {
     return () => { t.forEach(clearTimeout); };
   }, []);
 
-  // ── edit dialog ────────────────────────────────────────────────────────────
+  // ── delegate edit dialog ───────────────────────────────────────────────────
   const [editDelegate, setEditDelegate] = useState<DelegateOut | null>(null);
   const [editDraft,    setEditDraft]    = useState<DelegateUpdate>({});
   const [editError,    setEditError]    = useState<string | null>(null);
+
+  // ── delete confirm dialog ──────────────────────────────────────────────────
+  const [deleteConfirmDelegate, setDeleteConfirmDelegate] = useState<DelegateOut | null>(null);
+  const [deleteError,           setDeleteError]           = useState<string | null>(null);
+
+  // ── delegation edit dialog ─────────────────────────────────────────────────
+  const [editDelegation,      setEditDelegation]      = useState<DelegationOut | null>(null);
+  const [editDelegationDraft, setEditDelegationDraft] = useState<DelegationUpdate>({});
+  const [editDelegationError, setEditDelegationError] = useState<string | null>(null);
 
   // ── derived data ───────────────────────────────────────────────────────────
   const committees  = committeesQuery.data  ?? [];
@@ -318,6 +336,7 @@ export default function DelegatesPage() {
       onEdit:             () => openEdit(delegate),
       onAssign:           () => openAssignment(delegate.id),
       onUnassign:         () => startUnassign(delegate.id),
+      onDelete:           () => { setDeleteConfirmDelegate(delegate); setDeleteError(null); },
       unassigning:        false,
       isPendingUnassign:  pendingUnassigns.some(p => p.delegateId === delegate.id)
     };
@@ -414,6 +433,52 @@ export default function DelegatesPage() {
       closeEdit();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Unable to save.");
+    }
+  }
+
+  // ── delegation edit handlers ───────────────────────────────────────────────
+
+  function openEditDelegation(delegation: DelegationOut) {
+    setEditDelegation(delegation);
+    setEditDelegationError(null);
+    setEditDelegationDraft({
+      name:                        delegation.name,
+      faculty_advisor_first_name:  delegation.faculty_advisor_first_name,
+      faculty_advisor_last_name:   delegation.faculty_advisor_last_name,
+      faculty_advisor_email:       delegation.faculty_advisor_email,
+      contact_role:                delegation.contact_role,
+      school_address:              delegation.school_address,
+      delegation_size:             delegation.delegation_size,
+      attended_before:             delegation.attended_before,
+      payment_process:             delegation.payment_process,
+      policy_ack_registration:     delegation.policy_ack_registration,
+      policy_ack_payment:          delegation.policy_ack_payment,
+      policy_ack_cancellation:     delegation.policy_ack_cancellation,
+      policy_ack_conduct:          delegation.policy_ack_conduct,
+      policy_ack_photography:      delegation.policy_ack_photography,
+      heard_about:                 delegation.heard_about,
+      notes:                       delegation.notes,
+      head_delegate_id:            delegation.head_delegate_id
+    });
+  }
+
+  function closeDelegationEdit() {
+    setEditDelegation(null);
+    setEditDelegationError(null);
+  }
+
+  function setDelegationField<K extends keyof DelegationUpdate>(key: K, value: DelegationUpdate[K]) {
+    setEditDelegationDraft(prev => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSaveDelegation() {
+    if (!editDelegation) return;
+    setEditDelegationError(null);
+    try {
+      await updateDelegation.mutateAsync({ id: editDelegation.id, data: editDelegationDraft });
+      closeDelegationEdit();
+    } catch (err) {
+      setEditDelegationError(err instanceof Error ? err.message : "Unable to save.");
     }
   }
 
@@ -674,23 +739,50 @@ export default function DelegatesPage() {
                   <TableRow>
                     <TableHead>Delegation</TableHead>
                     <TableHead>Faculty Advisor</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Head Delegate</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Attended Before</TableHead>
+                    <TableHead>Policies</TableHead>
                     <TableHead>Delegates</TableHead>
+                    <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {delegations.map(delegation => {
-                    const head = delegation.head_delegate_id ? delegateMap.get(delegation.head_delegate_id) : null;
                     const count = delegates.filter(d => d.delegation_id === delegation.id).length;
                     const advisor = [delegation.faculty_advisor_first_name, delegation.faculty_advisor_last_name].filter(Boolean).join(" ");
+                    const policies = [
+                      delegation.policy_ack_registration,
+                      delegation.policy_ack_payment,
+                      delegation.policy_ack_cancellation,
+                      delegation.policy_ack_conduct,
+                      delegation.policy_ack_photography
+                    ];
+                    const ackedCount = policies.filter(Boolean).length;
+                    const totalPolicies = policies.length;
                     return (
                       <TableRow key={delegation.id}>
-                        <TableCell>{delegation.name}</TableCell>
-                        <TableCell>{advisor || "--"}</TableCell>
-                        <TableCell>{delegation.faculty_advisor_email ?? "--"}</TableCell>
-                        <TableCell>{head ? `${head.last_name}, ${head.first_name}` : "--"}</TableCell>
+                        <TableCell className="font-medium">{delegation.name}</TableCell>
+                        <TableCell>
+                          <div>{advisor || "--"}</div>
+                          <div className="text-xs text-[var(--ssicsim-text-muted)]">{delegation.faculty_advisor_email ?? ""}</div>
+                        </TableCell>
+                        <TableCell>{delegation.contact_role ?? "--"}</TableCell>
+                        <TableCell>{delegation.delegation_size ?? "--"}</TableCell>
+                        <TableCell>
+                          {delegation.attended_before == null ? "--" : delegation.attended_before ? "Yes" : "No"}
+                        </TableCell>
+                        <TableCell>
+                          <span className={ackedCount === totalPolicies ? "text-emerald-600 font-medium" : "text-amber-600"}>
+                            {ackedCount}/{totalPolicies}
+                          </span>
+                        </TableCell>
                         <TableCell>{count}</TableCell>
+                        <TableCell>
+                          <Button size="sm" variant="ghost" onClick={() => openEditDelegation(delegation)}>
+                            Edit
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -700,6 +792,133 @@ export default function DelegatesPage() {
           </CardContent>
         </Card>
       </section>
+
+      {/* ── Delegation Edit Dialog ───────────────────────────────────────────── */}
+      <Dialog open={editDelegation !== null} onOpenChange={open => { if (!open) closeDelegationEdit(); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editDelegation?.name}</DialogTitle>
+            <DialogDescription>Edit delegation details</DialogDescription>
+          </DialogHeader>
+
+          {editDelegation && (
+            <div className="space-y-5 pt-1">
+
+              {/* Contact info */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Advisor first name</Label>
+                  <Input value={editDelegationDraft.faculty_advisor_first_name ?? ""} onChange={e => setDelegationField("faculty_advisor_first_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Advisor last name</Label>
+                  <Input value={editDelegationDraft.faculty_advisor_last_name ?? ""} onChange={e => setDelegationField("faculty_advisor_last_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Advisor email</Label>
+                  <Input value={editDelegationDraft.faculty_advisor_email ?? ""} onChange={e => setDelegationField("faculty_advisor_email", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contact role</Label>
+                  <Input value={editDelegationDraft.contact_role ?? ""} onChange={e => setDelegationField("contact_role", e.target.value)} />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Delegation details */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>School address</Label>
+                  <Textarea value={editDelegationDraft.school_address ?? ""} onChange={e => setDelegationField("school_address", e.target.value)} rows={2} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment process</Label>
+                  <Input value={editDelegationDraft.payment_process ?? ""} onChange={e => setDelegationField("payment_process", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delegation size</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editDelegationDraft.delegation_size ?? ""}
+                    onChange={e => setDelegationField("delegation_size", e.target.value ? Number(e.target.value) : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Attended before</Label>
+                  <Select
+                    value={editDelegationDraft.attended_before == null ? "unset" : editDelegationDraft.attended_before ? "yes" : "no"}
+                    onValueChange={v => setDelegationField("attended_before", v === "unset" ? null : v === "yes")}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      <SelectItem value="yes">Yes</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Heard about</Label>
+                  <Input value={editDelegationDraft.heard_about ?? ""} onChange={e => setDelegationField("heard_about", e.target.value)} />
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Policy acknowledgments */}
+              <div>
+                <p className="text-sm font-semibold text-[var(--ssicsim-brand-navy)] mb-3">Policy Acknowledgments</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {([
+                    { key: "policy_ack_registration", label: "Registration policy" },
+                    { key: "policy_ack_payment",      label: "Payment policy" },
+                    { key: "policy_ack_cancellation", label: "Cancellation policy" },
+                    { key: "policy_ack_conduct",      label: "Code of conduct" },
+                    { key: "policy_ack_photography",  label: "Photography / media release" }
+                  ] as { key: keyof DelegationUpdate; label: string }[]).map(({ key, label }) => (
+                    <div key={key} className="space-y-1.5">
+                      <Label>{label}</Label>
+                      <Select
+                        value={editDelegationDraft[key] == null ? "unset" : editDelegationDraft[key] ? "yes" : "no"}
+                        onValueChange={v => setDelegationField(key, v === "unset" ? null : v === "yes")}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unset">Not set</SelectItem>
+                          <SelectItem value="yes">Acknowledged</SelectItem>
+                          <SelectItem value="no">Not acknowledged</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea value={editDelegationDraft.notes ?? ""} onChange={e => setDelegationField("notes", e.target.value)} rows={3} />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button onClick={handleSaveDelegation} disabled={updateDelegation.isPending}>
+                  {updateDelegation.isPending ? "Saving…" : "Save changes"}
+                </Button>
+                <Button variant="ghost" onClick={closeDelegationEdit} disabled={updateDelegation.isPending}>
+                  Cancel
+                </Button>
+                {editDelegationError && (
+                  <span className="text-xs text-red-600">{editDelegationError}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit Dialog ──────────────────────────────────────────────────────── */}
       <Dialog open={editDelegate !== null} onOpenChange={open => { if (!open) closeEdit(); }}>
@@ -783,15 +1002,15 @@ export default function DelegatesPage() {
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>1st preference</Label>
-                  <Input value={editDraft.first_committee ?? ""} onChange={e => setField("first_committee", e.target.value)} placeholder="Committee name" />
+                  <Input value={editDraft.first_committee ?? ""} onChange={e => setField("first_committee", e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>2nd preference</Label>
-                  <Input value={editDraft.second_committee ?? ""} onChange={e => setField("second_committee", e.target.value)} placeholder="Committee name" />
+                  <Input value={editDraft.second_committee ?? ""} onChange={e => setField("second_committee", e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>3rd preference</Label>
-                  <Input value={editDraft.third_committee ?? ""} onChange={e => setField("third_committee", e.target.value)} placeholder="Committee name" />
+                  <Input value={editDraft.third_committee ?? ""} onChange={e => setField("third_committee", e.target.value)} />
                 </div>
               </div>
 
@@ -807,6 +1026,20 @@ export default function DelegatesPage() {
                   <Label>Code of conduct URL</Label>
                   <Input value={editDraft.code_of_conduct_url ?? ""} onChange={e => setField("code_of_conduct_url", e.target.value)} />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Code of conduct signed</Label>
+                <Select
+                  value={editDraft.code_of_conduct_signed == null ? "unset" : editDraft.code_of_conduct_signed ? "yes" : "no"}
+                  onValueChange={v => setField("code_of_conduct_signed", v === "unset" ? null : v === "yes")}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unset">Not set</SelectItem>
+                    <SelectItem value="yes">Signed</SelectItem>
+                    <SelectItem value="no">Not signed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Notes</Label>
@@ -1050,6 +1283,51 @@ export default function DelegatesPage() {
               <p className="text-xs text-[var(--ssicsim-text-muted)]">Delegate {flowIndex + 1} of {needsAssignment.length}</p>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Confirm Dialog ─────────────────────────────────────────── */}
+      <Dialog open={deleteConfirmDelegate !== null} onOpenChange={open => { if (!open) { setDeleteConfirmDelegate(null); setDeleteError(null); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete delegate?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete{" "}
+              <strong>
+                {deleteConfirmDelegate?.preferred_name ?? deleteConfirmDelegate?.first_name}{" "}
+                {deleteConfirmDelegate?.last_name}
+              </strong>{" "}
+              and cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteError && (
+            <p className="text-xs text-red-600">{deleteError}</p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => { setDeleteConfirmDelegate(null); setDeleteError(null); }}
+              disabled={deleteDelegate.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={deleteDelegate.isPending}
+              onClick={async () => {
+                if (!deleteConfirmDelegate) return;
+                setDeleteError(null);
+                try {
+                  await deleteDelegate.mutateAsync(deleteConfirmDelegate.id);
+                  setDeleteConfirmDelegate(null);
+                } catch (err) {
+                  setDeleteError(err instanceof Error ? err.message : "Unable to delete.");
+                }
+              }}
+            >
+              {deleteDelegate.isPending ? "Deleting…" : "Delete"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

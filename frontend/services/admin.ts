@@ -8,6 +8,7 @@ import type {
   CommitteeOut,
   CommitteeUpdate,
   DelegationOut,
+  DelegationUpdate,
   DelegateCreate,
   DelegateOut,
   DelegateUpdate,
@@ -28,9 +29,13 @@ export const adminService = {
   deleteCharacter: (characterId: UUID) => apiClient.deleteEmpty(`/api/characters/${characterId}`),
   fetchDelegates: () => apiClient.get<DelegateOut[]>("/api/delegates"),
   fetchDelegations: () => apiClient.get<DelegationOut[]>("/api/delegations"),
+  updateDelegation: (id: UUID, payload: DelegationUpdate) =>
+    apiClient.patch<DelegationOut>(`/api/delegations/${id}`, payload),
   createDelegate: (payload: DelegateCreate) => apiClient.post<DelegateOut>("/api/delegates", payload),
   updateDelegate: (delegateId: UUID, payload: DelegateUpdate) =>
     apiClient.patch<DelegateOut>(`/api/delegates/${delegateId}`, payload),
+  deleteDelegate: (delegateId: UUID) =>
+    apiClient.deleteEmpty(`/api/delegates/${delegateId}`),
   createAssignment: (payload: AssignmentCreate) => apiClient.post<AssignmentOut>("/api/assignments", payload),
   updateAssignment: (delegateId: UUID, characterId: UUID) =>
     apiClient.patch<AssignmentOut>(`/api/assignments/${delegateId}`, { character_id: characterId }),

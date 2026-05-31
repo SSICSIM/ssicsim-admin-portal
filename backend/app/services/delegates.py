@@ -47,6 +47,7 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         delegate_status=payload.delegate_status,
         delegation_id=payload.delegation_id,
         code_of_conduct_url=payload.code_of_conduct_url,
+        code_of_conduct_signed=payload.code_of_conduct_signed,
         payment_policy_ack=payload.payment_policy_ack,
         cancellation_policy_ack=payload.cancellation_policy_ack,
         heard_about=payload.heard_about,

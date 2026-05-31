@@ -40,6 +40,7 @@ class Delegate(Base):
     )
     delegation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("delegations.id"))
     code_of_conduct_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    code_of_conduct_signed: Mapped[bool | None] = mapped_column(nullable=True)
     payment_policy_ack: Mapped[bool | None] = mapped_column(nullable=True)
     cancellation_policy_ack: Mapped[bool | None] = mapped_column(nullable=True)
     heard_about: Mapped[str | None] = mapped_column(String(255), nullable=True)

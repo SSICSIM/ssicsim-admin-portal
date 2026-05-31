@@ -40,6 +40,7 @@ export type DelegateOut = {
   delegate_status: DelegateStatus;
   delegation_id: UUID | null;
   code_of_conduct_url: string | null;
+  code_of_conduct_signed: boolean | null;
   payment_policy_ack: boolean | null;
   cancellation_policy_ack: boolean | null;
   heard_about: string | null;
@@ -52,8 +53,22 @@ export type DelegationOut = {
   faculty_advisor_first_name: string | null;
   faculty_advisor_last_name: string | null;
   faculty_advisor_email: string | null;
+  contact_role: string | null;
+  school_address: string | null;
+  delegation_size: number | null;
+  attended_before: boolean | null;
+  payment_process: string | null;
+  policy_ack_registration: boolean | null;
+  policy_ack_payment: boolean | null;
+  policy_ack_cancellation: boolean | null;
+  policy_ack_conduct: boolean | null;
+  policy_ack_photography: boolean | null;
+  heard_about: string | null;
+  notes: string | null;
   head_delegate_id: UUID | null;
 };
+
+export type DelegationUpdate = Partial<Omit<DelegationOut, "id">>;
 
 export type DelegateUpdate = Partial<Omit<DelegateOut, "id">>;
 

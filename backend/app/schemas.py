@@ -58,6 +58,18 @@ class DelegationBase(BaseModel):
     faculty_advisor_first_name: str = Field(min_length=1, max_length=255)
     faculty_advisor_last_name: str = Field(min_length=1, max_length=255)
     faculty_advisor_email: EmailStr
+    contact_role: str | None = Field(default=None, max_length=255)
+    school_address: str | None = None
+    delegation_size: int | None = Field(default=None, ge=1)
+    attended_before: bool | None = None
+    payment_process: str | None = Field(default=None, max_length=255)
+    policy_ack_registration: bool | None = None
+    policy_ack_payment: bool | None = None
+    policy_ack_cancellation: bool | None = None
+    policy_ack_conduct: bool | None = None
+    policy_ack_photography: bool | None = None
+    heard_about: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
     head_delegate_id: UUID | None = None
 
 
@@ -70,6 +82,18 @@ class DelegationUpdate(BaseModel):
     faculty_advisor_first_name: str | None = Field(default=None, max_length=255)
     faculty_advisor_last_name: str | None = Field(default=None, max_length=255)
     faculty_advisor_email: EmailStr | None = None
+    contact_role: str | None = Field(default=None, max_length=255)
+    school_address: str | None = None
+    delegation_size: int | None = Field(default=None, ge=1)
+    attended_before: bool | None = None
+    payment_process: str | None = Field(default=None, max_length=255)
+    policy_ack_registration: bool | None = None
+    policy_ack_payment: bool | None = None
+    policy_ack_cancellation: bool | None = None
+    policy_ack_conduct: bool | None = None
+    policy_ack_photography: bool | None = None
+    heard_about: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
     head_delegate_id: UUID | None = None
 
 
@@ -96,6 +120,7 @@ class DelegateBase(BaseModel):
     delegate_status: DelegateStatus
     delegation_id: UUID | None = None
     code_of_conduct_url: str | None = Field(default=None, max_length=1024)
+    code_of_conduct_signed: bool | None = None
     payment_policy_ack: bool | None = None
     cancellation_policy_ack: bool | None = None
     heard_about: str | None = Field(default=None, max_length=255)
@@ -121,6 +146,7 @@ class DelegateUpdate(BaseModel):
     delegate_status: DelegateStatus | None = None
     delegation_id: UUID | None = None
     code_of_conduct_url: str | None = Field(default=None, max_length=1024)
+    code_of_conduct_signed: bool | None = None
     payment_policy_ack: bool | None = None
     cancellation_policy_ack: bool | None = None
     heard_about: str | None = Field(default=None, max_length=255)
