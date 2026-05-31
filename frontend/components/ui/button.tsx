@@ -5,22 +5,23 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ssicsim-brand-gold)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ssicsim-brand-gold)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "border border-transparent bg-[var(--ssicsim-brand-gold)] text-white hover:bg-[#8a6f1b]",
+          "bg-[var(--ssicsim-brand-navy)] text-white hover:bg-[#2a1c00] shadow-sm",
         secondary:
           "border border-[var(--ssicsim-brand-gold)] bg-white text-[var(--ssicsim-brand-gold)] hover:bg-[var(--ssicsim-brand-gold-soft)]",
         ghost:
-          "border border-[var(--ssicsim-border)] bg-white text-[var(--ssicsim-brand-navy)] hover:border-[var(--ssicsim-brand-gold)] hover:bg-[var(--ssicsim-brand-gold-soft)]",
-        danger: "border border-transparent bg-red-600 text-white hover:bg-red-700"
+          "border border-[var(--ssicsim-border)] bg-white text-[var(--ssicsim-text)] hover:border-[var(--ssicsim-brand-navy)] hover:bg-[var(--ssicsim-bg)]",
+        danger:
+          "bg-red-600 text-white hover:bg-red-700 shadow-sm"
       },
       size: {
         default: "h-9 px-4",
-        sm: "h-8 px-3",
-        lg: "h-10 px-5"
+        sm: "h-8 px-3 text-xs",
+        lg: "h-10 px-5 text-base"
       }
     },
     defaultVariants: {

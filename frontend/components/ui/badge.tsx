@@ -11,7 +11,7 @@ const badgeVariants = cva(
         default:
           "border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] text-[var(--ssicsim-brand-navy)]",
         secondary:
-          "border-[#e4cb91] bg-[#f8efd8] text-[#7b5a09]",
+          "border-[#e4cb91] bg-[#fef3dc] text-[#7b5a09]",
         success:
           "border-[#9bc4ad] bg-[#e8f4ed] text-[#1f5b38]",
         warning:

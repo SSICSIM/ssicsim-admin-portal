@@ -87,7 +87,8 @@ export default function CommitteesPage() {
 
   return (
     <main className="page-shell space-y-6">
-      <header className="rounded-3xl border border-[var(--ssicsim-border)] bg-white p-7 shadow-[var(--ssicsim-shadow)]">
+      <header className="relative overflow-hidden rounded-3xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-8 shadow-[var(--ssicsim-shadow)]">
+        <div className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-[var(--ssicsim-brand-gold)] to-[var(--ssicsim-brand-gold-bright)]" />
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="section-eyebrow">Admin</p>
@@ -162,22 +163,22 @@ export default function CommitteesPage() {
       </header>
 
       <section className="grid gap-4 sm:grid-cols-3">
-        <Card className="bg-[#fbf2de]">
+        <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Committees</CardDescription>
-            <CardTitle className="text-2xl">{stats.totalCommittees}</CardTitle>
+            <CardTitle className="text-3xl">{stats.totalCommittees}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-[var(--ssicsim-brand-gold-soft)]">
+        <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Characters</CardDescription>
-            <CardTitle className="text-2xl">{stats.totalCharacters}</CardTitle>
+            <CardTitle className="text-3xl">{stats.totalCharacters}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="bg-[#f8edd2]">
+        <Card>
           <CardHeader className="pb-2">
             <CardDescription>Needs Character Matrix</CardDescription>
-            <CardTitle className="text-2xl">{stats.missingCharacters}</CardTitle>
+            <CardTitle className="text-3xl">{stats.missingCharacters}</CardTitle>
           </CardHeader>
         </Card>
       </section>

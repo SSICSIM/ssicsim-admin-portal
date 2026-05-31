@@ -7,9 +7,8 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        "rounded-2xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] text-[var(--ssicsim-text)] shadow-[var(--ssicsim-shadow)]",
-        "before:pointer-events-none before:absolute before:left-0 before:right-0 before:top-0 before:h-[2px] before:rounded-t-2xl before:bg-[var(--ssicsim-brand-gold)]",
-        "relative overflow-hidden",
+        "relative overflow-hidden rounded-2xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] text-[var(--ssicsim-text)] shadow-[var(--ssicsim-shadow)]",
+        "before:pointer-events-none before:absolute before:left-0 before:right-0 before:top-0 before:h-[2px] before:rounded-t-2xl before:bg-gradient-to-r before:from-[var(--ssicsim-brand-gold)] before:to-[var(--ssicsim-brand-gold-bright)]",
         className
       )}
       {...props}
@@ -27,7 +26,7 @@ CardHeader.displayName = "CardHeader";
 
 const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn("text-xl font-bold text-[var(--ssicsim-brand-gold)]", className)} {...props} />
+    <h3 ref={ref} className={cn("text-xl font-bold text-[var(--ssicsim-brand-navy)]", className)} {...props} />
   )
 );
 CardTitle.displayName = "CardTitle";

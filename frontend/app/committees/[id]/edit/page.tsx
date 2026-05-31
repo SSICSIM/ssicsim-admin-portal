@@ -237,12 +237,11 @@ export default function CommitteeEditPage() {
           Back to committees
         </Link>
       </div>
-      <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="section-eyebrow">Committee</p>
-          <h1 className="text-2xl font-semibold tracking-tight">{committeeQuery.data.name}</h1>
-          <p className="text-sm text-[var(--ssicsim-text-muted)]">Edit committee details and upload resources.</p>
-        </div>
+      <header className="relative overflow-hidden rounded-3xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-8 shadow-[var(--ssicsim-shadow)]">
+        <div className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-[var(--ssicsim-brand-gold)] to-[var(--ssicsim-brand-gold-bright)]" />
+        <p className="section-eyebrow">Committee</p>
+        <h1 className="section-title mt-2">{committeeQuery.data.name}</h1>
+        <p className="section-subtitle mt-2">Edit committee details and upload resources.</p>
       </header>
 
       {committeeCharacters.length === 0 ? (
@@ -253,7 +252,7 @@ export default function CommitteeEditPage() {
           </AlertDescription>
         </Alert>
       ) : (
-        <Alert className="border-emerald-500/40 bg-emerald-500/10">
+        <Alert className="border-emerald-300 bg-emerald-50">
           <AlertTitle>Characters ready</AlertTitle>
           <AlertDescription>
             {committeeCharacters.length} character{committeeCharacters.length === 1 ? "" : "s"} loaded.
@@ -461,7 +460,7 @@ export default function CommitteeEditPage() {
                   return (
                     <div
                       key={character.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--ssicsim-border)] bg-white px-3 py-2"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] px-3 py-2 transition-colors hover:border-[var(--ssicsim-brand-gold)]/50"
                     >
                       <div>
                         <p className="font-medium text-[var(--ssicsim-brand-navy)]">{character.name}</p>

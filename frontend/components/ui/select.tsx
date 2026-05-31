@@ -15,14 +15,14 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-10 w-full items-center justify-between rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 text-sm text-[var(--ssicsim-text)] focus:outline-none focus:ring-2 focus:ring-[var(--ssicsim-brand-gold)] focus:ring-offset-2",
+      "flex h-10 w-full items-center justify-between rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 text-sm text-[var(--ssicsim-text)] focus:outline-none focus:ring-2 focus:ring-[var(--ssicsim-brand-gold)] focus:ring-offset-2 transition-colors",
       className
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 text-slate-500" />
+      <ChevronDown className="h-4 w-4 text-[var(--ssicsim-text-muted)]" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -36,7 +36,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-lg border border-[var(--ssicsim-border)] bg-white text-[var(--ssicsim-text)] shadow-[var(--ssicsim-shadow)]",
+        "z-50 min-w-[8rem] overflow-hidden rounded-xl border border-[var(--ssicsim-border)] bg-white text-[var(--ssicsim-text)] shadow-[var(--ssicsim-shadow)]",
         className
       )}
       {...props}
@@ -54,7 +54,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-slate-100",
+      "relative flex w-full cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-[var(--ssicsim-brand-gold-soft)] focus:text-[var(--ssicsim-brand-navy)]",
       className
     )}
     {...props}

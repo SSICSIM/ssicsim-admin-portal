@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import "./globals.css";
 import { Providers } from "./providers";
-import { Navbar } from "@/components/Navbar";
+import { NavbarWrapper } from "@/components/NavbarWrapper";
 
 export const metadata: Metadata = {
   title: "SSICSIM Admin Portal",
@@ -14,7 +14,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
     <html lang="en">
       <body className="min-h-screen">
         <Providers>
-          <Navbar />
+          <NavbarWrapper />
           {props.children}
         </Providers>
       </body>

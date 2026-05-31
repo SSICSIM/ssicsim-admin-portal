@@ -382,10 +382,17 @@ export default function DelegatesPage() {
 
   return (
     <main className="page-shell max-w-6xl space-y-6">
+      <header className="relative overflow-hidden rounded-3xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-8 shadow-[var(--ssicsim-shadow)]">
+        <div className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-[var(--ssicsim-brand-gold)] to-[var(--ssicsim-brand-gold-bright)]" />
+        <p className="section-eyebrow">Admin</p>
+        <h1 className="section-title mt-2">Delegates</h1>
+        <p className="section-subtitle mt-2">Manage delegate records, assignments, and statuses.</p>
+      </header>
+
       <Card>
         <CardHeader>
-          <CardTitle>Delegates</CardTitle>
-          <CardDescription>Manage delegate records and status.</CardDescription>
+          <CardTitle>Filters &amp; Actions</CardTitle>
+          <CardDescription>Search, filter, and bulk-manage delegates.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ssicsim-text-muted)]">
@@ -456,7 +463,7 @@ export default function DelegatesPage() {
           </div>
           {emailerMessage ? <Badge variant="success">{emailerMessage}</Badge> : null}
           {emailerError ? (
-            <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               {emailerError}
             </div>
           ) : null}
@@ -1302,12 +1309,12 @@ export default function DelegatesPage() {
               {submitMessage ? <Badge variant="success">{submitMessage}</Badge> : null}
             </div>
             {committeeId && filteredCharacters.length === 0 ? (
-              <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                 Selected committee has no remaining characters.
               </div>
             ) : null}
             {submitError ? (
-              <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                 {submitError}
               </div>
             ) : null}
@@ -1417,12 +1424,12 @@ export default function DelegatesPage() {
                 {submitMessage ? <Badge variant="success">{submitMessage}</Badge> : null}
               </div>
               {committeeId && filteredCharacters.length === 0 ? (
-                <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                   Selected committee has no remaining characters.
                 </div>
               ) : null}
               {submitError ? (
-                <div className="rounded-md border border-red-500/40 bg-red-50 px-3 py-2 text-xs text-red-700">
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
                   {submitError}
                 </div>
               ) : null}
