@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
-from fastapi import UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.committee import Committee
 from app.schemas import CommitteeCreate, CommitteeOut, CommitteeUpdate
-from app.utilities.storage import upload_file_to_bucket
 from app.services import committees
+from app.utilities.storage import upload_file_to_bucket
 
 router = APIRouter(prefix="/committees", tags=["committees"])
 
@@ -31,9 +30,7 @@ def create_committee(payload: CommitteeCreate, db: Session = Depends(get_db)) ->
 
 
 @router.patch("/{committee_id}", response_model=CommitteeOut)
-def update_committee(
-    committee_id: UUID, payload: CommitteeUpdate, db: Session = Depends(get_db)
-) -> Committee:
+def update_committee(committee_id: UUID, payload: CommitteeUpdate, db: Session = Depends(get_db)) -> Committee:
     return committees.update_committee(db, committee_id, payload)
 
 

@@ -60,9 +60,7 @@ def build_bulk_assignments(
 
         # Respect current assignment state to avoid conflicts.
         if character.delegate_id is not None:
-            warnings.append(
-                f"Character already assigned: character_id={character_id}, delegate_id={delegate_id}"
-            )
+            warnings.append(f"Character already assigned: character_id={character_id}, delegate_id={delegate_id}")
             continue
         if delegate_has_assignment(db, delegate_id):
             warnings.append(f"Delegate already assigned: delegate_id={delegate_id}")
@@ -70,6 +68,7 @@ def build_bulk_assignments(
         to_assign.append((character, delegate_id))
 
     return to_assign, warnings
+
 
 def assignment_from_character(character: Any) -> AssignmentOut:
     return AssignmentOut(

@@ -36,15 +36,11 @@ class Delegate(Base):
     third_committee: Mapped[str] = mapped_column(String(255), nullable=False)
     date_applied: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     delegate_status: Mapped[DelegateStatus] = mapped_column(
-        Enum(DelegateStatus, name="delegate_status_enum", native_enum=True)
+        Enum(DelegateStatus, name="delegate_status_enum", native_enum=True), default=DelegateStatus.AWAITING_PAYMENT
     )
-    delegation_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("delegations.id")
-    )
+    delegation_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("delegations.id"))
     code_of_conduct_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     payment_policy_ack: Mapped[bool | None] = mapped_column(nullable=True)
     cancellation_policy_ack: Mapped[bool | None] = mapped_column(nullable=True)
     heard_about: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-

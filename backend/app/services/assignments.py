@@ -11,18 +11,15 @@ from app.models.character import Character
 from app.models.delegate import Delegate
 from app.models.enums import DelegateStatus
 from app.schemas import AssignmentBulkCreate, AssignmentCreate, AssignmentOut, AssignmentUpdate
-from app.utilities.assignments import assignment_from_character
-from app.utilities.assignments import build_bulk_assignments, validate_assignment
+from app.utilities.assignments import assignment_from_character, build_bulk_assignments, validate_assignment
 
 
 def assign_delegate(db: Session, payload: AssignmentCreate) -> AssignmentOut:
-    character, delegate = validate_assignment(
-        db, character_id=payload.character_id, delegate_id=payload.delegate_id
-    )
+    character, delegate = validate_assignment(db, character_id=payload.character_id, delegate_id=payload.delegate_id)
 
     character.delegate_id = payload.delegate_id
     delegate.delegate_status = DelegateStatus.ASSIGNED
-    
+
     try:
         db.commit()
     except IntegrityError:

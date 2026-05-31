@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -29,9 +29,7 @@ def get_sec_member(sec_member_id: UUID, db: Session = Depends(get_db)) -> SecMem
 
 
 @router.patch("/{sec_member_id}", response_model=SecMemberOut)
-def update_sec_member(
-    sec_member_id: UUID, payload: SecMemberUpdate, db: Session = Depends(get_db)
-) -> SecMember:
+def update_sec_member(sec_member_id: UUID, payload: SecMemberUpdate, db: Session = Depends(get_db)) -> SecMember:
     return sec_members.update_sec_member(db, sec_member_id, payload)
 
 

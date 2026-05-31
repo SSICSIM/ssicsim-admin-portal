@@ -19,9 +19,7 @@ def list_email_templates(db: Session = Depends(get_db)) -> list[EmailTemplate]:
 
 
 @router.post("", response_model=EmailTemplateOut, status_code=201)
-def create_email_template(
-    payload: EmailTemplateCreate, db: Session = Depends(get_db)
-) -> EmailTemplate:
+def create_email_template(payload: EmailTemplateCreate, db: Session = Depends(get_db)) -> EmailTemplate:
     return email_templates.create_email_template(db, payload)
 
 

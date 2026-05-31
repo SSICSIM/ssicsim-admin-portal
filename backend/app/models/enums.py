@@ -10,6 +10,7 @@ class DelegateExperience(str, Enum):
 
 
 class DelegateStatus(str, Enum):
+    AWAITING_PAYMENT = "Awaiting Payment"
     AWAITING_ASSIGNMENT = "Awaiting Assignment"
     ASSIGNED = "Assigned"
     CONFIRMED = "Confirmed"

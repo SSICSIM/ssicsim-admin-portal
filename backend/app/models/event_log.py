@@ -22,19 +22,13 @@ class EventLog(Base):
         default=uuid.uuid4,
         server_default=text("gen_random_uuid()"),
     )
-    sec_member_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sec_members.id")
-    )
+    sec_member_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("sec_members.id"))
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.utcnow,
         server_default=text("now()"),
     )
-    event_type: Mapped[EventType] = mapped_column(
-        Enum(EventType, name="event_type_enum", native_enum=True)
-    )
+    event_type: Mapped[EventType] = mapped_column(Enum(EventType, name="event_type_enum", native_enum=True))
     target_type: Mapped[str | None] = mapped_column(String(255))
     target_id: Mapped[str | None] = mapped_column(String(255))
     details: Mapped[str | None] = mapped_column(Text)
-
-

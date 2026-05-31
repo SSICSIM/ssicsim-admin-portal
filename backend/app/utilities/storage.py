@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 try:
-    from supabase import create_client, Client  # type: ignore
+    from supabase import Client, create_client  # type: ignore
 except ImportError:
     Client = None  # type: ignore
     create_client = None  # type: ignore

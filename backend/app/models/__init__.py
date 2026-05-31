@@ -5,4 +5,3 @@ from app.models.delegation import Delegation  # noqa: F401
 from app.models.email_template import EmailTemplate  # noqa: F401
 from app.models.event_log import EventLog  # noqa: F401
 from app.models.sec_member import SecMember  # noqa: F401
-

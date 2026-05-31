@@ -29,9 +29,7 @@ def get_event_log(log_id: UUID, db: Session = Depends(get_db)) -> EventLog:
 
 
 @router.patch("/{log_id}", response_model=EventLogOut)
-def update_event_log(
-    log_id: UUID, payload: EventLogUpdate, db: Session = Depends(get_db)
-) -> EventLog:
+def update_event_log(log_id: UUID, payload: EventLogUpdate, db: Session = Depends(get_db)) -> EventLog:
     return event_logs.update_event_log(db, log_id, payload)
 
 

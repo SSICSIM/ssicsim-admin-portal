@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from pathlib import Path
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import select
 
@@ -12,8 +12,8 @@ from app.database import SessionLocal
 from app.models.committee import Committee
 from app.models.delegate import Delegate
 from app.models.delegation import Delegation
+from app.models.email_template import EmailTemplate
 from app.models.enums import DelegateExperience, DelegateStatus
-
 
 COMMITTEES = [
     {
@@ -110,7 +110,7 @@ DELEGATES = [
         "payment_policy_ack": True,
         "cancellation_policy_ack": True,
         "heard_about": "School announcement",
-        "notes": "Interested in crisis committees."
+        "notes": "Interested in crisis committees.",
     },
     {
         "first_name": "Owen",
@@ -129,7 +129,7 @@ DELEGATES = [
         "payment_policy_ack": True,
         "cancellation_policy_ack": True,
         "heard_about": "Friend",
-        "notes": "Wants to work on health policy."
+        "notes": "Wants to work on health policy.",
     },
     {
         "first_name": "Mina",
@@ -148,7 +148,7 @@ DELEGATES = [
         "payment_policy_ack": True,
         "cancellation_policy_ack": True,
         "heard_about": "Advisor",
-        "notes": "Advanced delegate."
+        "notes": "Advanced delegate.",
     },
     {
         "first_name": "Arjun",
@@ -167,7 +167,7 @@ DELEGATES = [
         "payment_policy_ack": True,
         "cancellation_policy_ack": True,
         "heard_about": "Instagram",
-        "notes": "Interested in leadership roles."
+        "notes": "Interested in leadership roles.",
     },
     {
         "first_name": "Harper",
@@ -186,9 +186,79 @@ DELEGATES = [
         "payment_policy_ack": True,
         "cancellation_policy_ack": True,
         "heard_about": "Newsletter",
-        "notes": "First time MUN."
+        "notes": "First time MUN.",
     },
 ]
+
+
+EMAIL_TEMPLATES = [
+    {
+        "name": "Assignment Notification",
+        "subject_template": "Your SSICSIM 2026 Committee Assignment — {committee}",
+        "body_template": "\n".join(
+            [
+                "Dear {preferred_name},",
+                "",
+                "We are thrilled to let you know that you have been officially assigned to {committee} as {character} for SSICSIM 2026!",
+                "",
+                "Please take a moment to review your assignment. If you have any questions, feel free to reach out to your committee director.",
+                "",
+                "We can't wait to see you at the conference!",
+                "",
+                "Warm regards,",
+                "The SSICSIM Team",
+            ]
+        ),
+        "confirms_assigned": True,
+        "placeholders": ["preferred_name", "committee", "character"],
+    },
+    {
+        "name": "Waitlist Notification",
+        "subject_template": "SSICSIM 2026 — Application Update",
+        "body_template": "\n".join(
+            [
+                "Dear {preferred_name},",
+                "",
+                "Thank you for applying to SSICSIM 2026. We appreciate your interest and the time you took to complete your application.",
+                "",
+                "At this time, you have been placed on our waitlist. We will be in touch as soon as a spot becomes available.",
+                "",
+                "Thank you for your patience and your continued interest in SSICSIM.",
+                "",
+                "Warm regards,",
+                "The SSICSIM Team",
+            ]
+        ),
+        "confirms_assigned": False,
+        "placeholders": ["preferred_name"],
+    },
+    {
+        "name": "Payment Reminder",
+        "subject_template": "SSICSIM 2026 — Payment Reminder",
+        "body_template": "\n".join(
+            [
+                "Dear {preferred_name},",
+                "",
+                "This is a friendly reminder that payment for SSICSIM 2026 is still outstanding.",
+                "",
+                "To secure your spot at the conference, please submit your payment at your earliest convenience. If you have any questions or concerns, please don't hesitate to reach out.",
+                "",
+                "Best regards,",
+                "The SSICSIM Team",
+            ]
+        ),
+        "confirms_assigned": False,
+        "placeholders": ["preferred_name"],
+    },
+]
+
+
+def seed_email_templates(db):
+    existing = set(db.scalars(select(EmailTemplate.name)).all())
+    for payload in EMAIL_TEMPLATES:
+        if payload["name"] in existing:
+            continue
+        db.add(EmailTemplate(**payload))
 
 
 def seed_committees(db):
@@ -219,7 +289,7 @@ def seed_delegates(db):
             Delegate(
                 **payload_copy,
                 delegation_id=delegation_map.get(delegation_name),
-                date_applied=datetime.now(timezone.utc),
+                date_applied=datetime.now(UTC),
             )
         )
 
@@ -227,6 +297,7 @@ def seed_delegates(db):
 def main() -> None:
     db = SessionLocal()
     try:
+        seed_email_templates(db)
         seed_committees(db)
         seed_delegations(db)
         seed_delegates(db)

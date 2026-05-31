@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -29,9 +29,7 @@ def get_character(character_id: UUID, db: Session = Depends(get_db)) -> Characte
 
 
 @router.patch("/{character_id}", response_model=CharacterOut)
-def update_character(
-    character_id: UUID, payload: CharacterUpdate, db: Session = Depends(get_db)
-) -> Character:
+def update_character(character_id: UUID, payload: CharacterUpdate, db: Session = Depends(get_db)) -> Character:
     return characters.update_character(db, character_id, payload)
 
 

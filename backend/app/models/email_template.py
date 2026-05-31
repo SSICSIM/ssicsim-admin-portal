@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
@@ -25,6 +25,9 @@ class EmailTemplate(Base):
     subject_template: Mapped[str] = mapped_column(String(255), nullable=False)
     body_template: Mapped[str] = mapped_column(Text, nullable=False)
     placeholders: Mapped[list[str] | None] = mapped_column(ARRAY(String(255)))
+    confirms_assigned: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=datetime.utcnow,
@@ -36,5 +39,3 @@ class EmailTemplate(Base):
         onupdate=datetime.utcnow,
         server_default=text("now()"),
     )
-
-

@@ -39,9 +39,7 @@ def create_email_template(db: Session, payload: EmailTemplateCreate) -> EmailTem
     return email_template
 
 
-def update_email_template(
-    db: Session, template_id: UUID, payload: EmailTemplateUpdate
-) -> EmailTemplate:
+def update_email_template(db: Session, template_id: UUID, payload: EmailTemplateUpdate) -> EmailTemplate:
     email_template = get_email_template(db, template_id)
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(email_template, field, value)

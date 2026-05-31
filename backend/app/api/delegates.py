@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -29,9 +29,7 @@ def get_delegate(delegate_id: UUID, db: Session = Depends(get_db)) -> Delegate:
 
 
 @router.patch("/{delegate_id}", response_model=DelegateOut)
-def update_delegate(
-    delegate_id: UUID, payload: DelegateUpdate, db: Session = Depends(get_db)
-) -> Delegate:
+def update_delegate(delegate_id: UUID, payload: DelegateUpdate, db: Session = Depends(get_db)) -> Delegate:
     return delegates.update_delegate(db, delegate_id, payload)
 
 

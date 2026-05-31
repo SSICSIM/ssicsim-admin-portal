@@ -1,21 +1,20 @@
 """initial_squash
 
 Revision ID: f55c0d42bec0
-Revises: 
+Revises:
 Create Date: 2026-03-23 22:26:22.348645
 
 """
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import text
 
-
 # revision identifiers, used by Alembic.
-revision = 'f55c0d42bec0'
+revision = "f55c0d42bec0"
 down_revision = None
 branch_labels = None
 depends_on = None

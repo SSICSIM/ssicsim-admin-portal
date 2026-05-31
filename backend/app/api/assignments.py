@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -28,12 +28,8 @@ def bulk_assign(
 
 
 @router.patch("/{delegate_id}", response_model=AssignmentOut)
-def update_assignment(
-    delegate_id: UUID, payload: AssignmentUpdate, db: Session = Depends(get_db)
-) -> AssignmentOut:
+def update_assignment(delegate_id: UUID, payload: AssignmentUpdate, db: Session = Depends(get_db)) -> AssignmentOut:
     return assignments.update_assignment(db, delegate_id, payload)
-
-
 
 
 @router.delete("/{delegate_id}", status_code=204, response_model=None, response_class=Response)

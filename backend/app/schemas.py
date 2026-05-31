@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -104,7 +103,7 @@ class DelegateBase(BaseModel):
 
 
 class DelegateCreate(DelegateBase):
-    pass
+    delegate_status: DelegateStatus = DelegateStatus.AWAITING_PAYMENT
 
 
 class DelegateUpdate(BaseModel):
@@ -223,6 +222,7 @@ class EmailTemplateBase(BaseModel):
     subject_template: str = Field(min_length=1, max_length=255)
     body_template: str
     placeholders: list[str] | None = None
+    confirms_assigned: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -232,6 +232,7 @@ class EmailTemplateCreate(BaseModel):
     subject_template: str = Field(min_length=1, max_length=255)
     body_template: str
     placeholders: list[str] | None = None
+    confirms_assigned: bool = False
 
 
 class EmailTemplateUpdate(BaseModel):
@@ -239,6 +240,7 @@ class EmailTemplateUpdate(BaseModel):
     subject_template: str | None = Field(default=None, min_length=1, max_length=255)
     body_template: str | None = None
     placeholders: list[str] | None = None
+    confirms_assigned: bool | None = None
 
 
 class EmailTemplateOut(EmailTemplateBase):
@@ -268,4 +270,3 @@ class AssignmentOut(BaseModel):
 
     class Config:
         from_attributes = True
-

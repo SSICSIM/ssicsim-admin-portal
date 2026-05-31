@@ -4,8 +4,8 @@ import uuid
 
 from sqlalchemy import Integer, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
-from sqlalchemy.sql import text
 from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.sql import text
 
 from app.database import Base
 
