@@ -1,6 +1,26 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Darker+Grotesque:wght@300..900&family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --font-body: "Nunito Sans", "DM Sans", "Avenir Next", "Segoe UI", sans-serif;
+  --font-heading: "Darker Grotesque", "DM Sans", "Avenir Next", "Segoe UI", sans-serif;
+
+  --ssicsim-bg: #f8f7f4;
+  --ssicsim-bg-soft: #f2f0ea;
+  --ssicsim-surface: #ffffff;
+  --ssicsim-surface-soft: #faf9f6;
+  --ssicsim-text: #1a1600;
+  --ssicsim-text-muted: #7a6a44;
+  --ssicsim-border: #e4ddd0;
+  --ssicsim-brand-navy: #3d2b00;
+  --ssicsim-brand-gold: #b8922a;
+  --ssicsim-brand-gold-bright: #d4a82a;
+  --ssicsim-brand-gold-soft: #fef3dc;
+  --ssicsim-shadow: 0 4px 24px rgba(61, 43, 0, 0.08);
+}
 
 html,
 body {
@@ -8,7 +28,53 @@ body {
 }
 
 body {
-  background: linear-gradient(180deg, #0b1220, #0a0f1a);
-  color: #e8eefc;
+  background:
+    radial-gradient(circle at 8% 12%, rgba(184, 146, 42, 0.07), transparent 44%),
+    radial-gradient(circle at 90% 4%, rgba(184, 146, 42, 0.05), transparent 40%),
+    linear-gradient(180deg, var(--ssicsim-bg), var(--ssicsim-bg-soft));
+  color: var(--ssicsim-text);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  min-height: 100vh;
 }
 
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading), "Segoe UI", sans-serif;
+  color: var(--ssicsim-brand-navy);
+}
+
+a {
+  color: var(--ssicsim-brand-gold);
+}
+
+.page-shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 1120px;
+  padding: 1.5rem;
+}
+
+.section-eyebrow {
+  color: var(--ssicsim-brand-gold);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-family: var(--font-body);
+}
+
+.section-title {
+  color: var(--ssicsim-brand-navy);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.section-subtitle {
+  color: var(--ssicsim-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}

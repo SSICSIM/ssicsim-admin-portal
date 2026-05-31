@@ -217,7 +217,7 @@ export default function CommitteeEditPage() {
   if (committeeQuery.isLoading) {
     return (
       <main className="mx-auto max-w-5xl p-6">
-        <p className="text-sm text-white/60">Loading committee...</p>
+        <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading committee...</p>
       </main>
     );
   }
@@ -225,24 +225,23 @@ export default function CommitteeEditPage() {
   if (committeeQuery.isError || !committeeQuery.data) {
     return (
       <main className="mx-auto max-w-5xl p-6">
-        <p className="text-sm text-red-300">Committee not found.</p>
+        <p className="text-sm text-red-700">Committee not found.</p>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 p-6">
+    <main className="page-shell max-w-5xl space-y-6">
       <div className="flex items-center justify-start">
-        <Link className="text-sm text-white/70 underline" href="/committees">
+        <Link className="text-sm font-semibold" href="/committees">
           Back to committees
         </Link>
       </div>
-      <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-white/40">Committee</p>
-          <h1 className="text-2xl font-semibold tracking-tight">{committeeQuery.data.name}</h1>
-          <p className="text-sm text-white/70">Edit committee details and upload resources.</p>
-        </div>
+      <header className="relative overflow-hidden rounded-3xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-8 shadow-[var(--ssicsim-shadow)]">
+        <div className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-[var(--ssicsim-brand-gold)] to-[var(--ssicsim-brand-gold-bright)]" />
+        <p className="section-eyebrow">Committee</p>
+        <h1 className="section-title mt-2">{committeeQuery.data.name}</h1>
+        <p className="section-subtitle mt-2">Edit committee details and upload resources.</p>
       </header>
 
       {committeeCharacters.length === 0 ? (
@@ -253,7 +252,7 @@ export default function CommitteeEditPage() {
           </AlertDescription>
         </Alert>
       ) : (
-        <Alert className="border-emerald-500/40 bg-emerald-500/10">
+        <Alert className="border-emerald-300 bg-emerald-50">
           <AlertTitle>Characters ready</AlertTitle>
           <AlertDescription>
             {committeeCharacters.length} character{committeeCharacters.length === 1 ? "" : "s"} loaded.
@@ -398,7 +397,7 @@ export default function CommitteeEditPage() {
         <CardHeader>
           <CardTitle>Character Matrix CSV</CardTitle>
           <CardDescription>
-            CSV format: header must include <span className="text-white">character_name</span>.
+            CSV format: header must include <span className="font-semibold text-[var(--ssicsim-brand-navy)]">character_name</span>.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -450,9 +449,9 @@ export default function CommitteeEditPage() {
           </div>
 
           {committeeCharacters.length === 0 ? (
-            <p className="text-sm text-white/60">No characters yet.</p>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">No characters yet.</p>
           ) : (
-            <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+            <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3">
               <div className="grid gap-2 text-sm">
                 {committeeCharacters.map((character) => {
                   const delegate = character.delegate_id
@@ -461,11 +460,11 @@ export default function CommitteeEditPage() {
                   return (
                     <div
                       key={character.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-black/30 px-3 py-2"
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] px-3 py-2 transition-colors hover:border-[var(--ssicsim-brand-gold)]/50"
                     >
                       <div>
-                        <p className="text-white">{character.name}</p>
-                        <p className="text-xs text-white/60">
+                        <p className="font-medium text-[var(--ssicsim-brand-navy)]">{character.name}</p>
+                        <p className="text-xs text-[var(--ssicsim-text-muted)]">
                           Assigned to: {delegate ? `${delegate.last_name}, ${delegate.first_name}` : "--"}
                           {delegate ? ` · ${delegate.delegate_experience}` : ""}
                         </p>
@@ -491,7 +490,7 @@ export default function CommitteeEditPage() {
                           </Button>
                         )}
                         {delegate ? (
-                          <span className="text-xs text-white/50">Unassign before removing.</span>
+                          <span className="text-xs text-[var(--ssicsim-text-muted)]">Unassign before removing.</span>
                         ) : null}
                       </div>
                     </div>

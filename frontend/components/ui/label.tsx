@@ -4,7 +4,11 @@ import { cn } from "@/lib/utils";
 
 const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLLabelElement>>(
   ({ className, ...props }, ref) => (
-    <label ref={ref} className={cn("text-sm font-medium text-white/80", className)} {...props} />
+    <label
+      ref={ref}
+      className={cn("text-sm font-semibold text-[var(--ssicsim-brand-navy)] leading-none", className)}
+      {...props}
+    />
   )
 );
 Label.displayName = "Label";
