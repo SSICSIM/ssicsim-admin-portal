@@ -36,11 +36,6 @@ export default function SignInPage() {
               className="relative h-12 w-auto object-contain"
               priority
             />
-            <div className="relative text-center">
-              <p className="text-[10px] font-medium tracking-[0.25em] uppercase text-white/50">
-                Admin Portal
-              </p>
-            </div>
           </div>
 
           {/* White form panel */}
@@ -65,10 +60,6 @@ export default function SignInPage() {
                 Sign in with Google
               </Button>
             </div>
-
-            <p className="mt-5 text-center text-xs text-[var(--ssicsim-text-muted)]">
-              Access is restricted to approved SSICSIM staff.
-            </p>
           </div>
         </div>
       </div>
