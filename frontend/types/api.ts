@@ -6,9 +6,11 @@ export type CommitteeOut = {
   small_description: string | null;
   large_description: string | null;
   director_name: string | null;
-  chair_name: string | null;
-  crisis_analysts: string[] | null;
+  director_image_url: string | null;
+  contact_email: string | null;
   max_delegates: number | null;
+  joint: boolean;
+  double: boolean;
   background_guide_link: string | null;
   mechanics_guide_link: string | null;
   character_guide_link: string | null;

@@ -22,8 +22,7 @@ export default function CommitteesPage() {
     name: "",
     small_description: "",
     large_description: "",
-    director_name: "",
-    chair_name: ""
+    director_name: ""
   });
   const [createMessage, setCreateMessage] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -36,9 +35,10 @@ export default function CommitteesPage() {
     return counts;
   }, [charactersQuery.data]);
 
-  const allCommittees = committeesQuery.data ?? [];
-  const committees = allCommittees.filter((committee) =>
-    committee.name.toLowerCase().includes(filter.toLowerCase())
+  const allCommittees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
+  const committees = useMemo(
+    () => allCommittees.filter((committee) => committee.name.toLowerCase().includes(filter.toLowerCase())),
+    [allCommittees, filter]
   );
 
   const stats = useMemo(() => {
@@ -53,19 +53,21 @@ export default function CommitteesPage() {
   const handleCreateCommittee = async () => {
     setCreateMessage(null);
     setCreateError(null);
-    if (!formState.name || !formState.small_description || !formState.large_description || !formState.director_name) {
-      setCreateError("Name, short description, full description, and director are required.");
+    if (!formState.name || !formState.director_name) {
+      setCreateError("Committee name and director name are required.");
       return;
     }
     try {
       await createCommittee.mutateAsync({
         name: formState.name,
-        small_description: formState.small_description,
-        large_description: formState.large_description,
+        small_description: formState.small_description || null,
+        large_description: formState.large_description || null,
         director_name: formState.director_name,
-        chair_name: formState.chair_name || null,
-        crisis_analysts: [],
+        director_image_url: null,
+        contact_email: null,
         max_delegates: null,
+        joint: false,
+        double: false,
         background_guide_link: null,
         mechanics_guide_link: null,
         character_guide_link: null,
@@ -77,8 +79,7 @@ export default function CommitteesPage() {
         name: "",
         small_description: "",
         large_description: "",
-        director_name: "",
-        chair_name: ""
+        director_name: ""
       });
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : "Unable to create committee.");
@@ -122,14 +123,6 @@ export default function CommitteesPage() {
                       id="committee-create-director"
                       value={formState.director_name}
                       onChange={(event) => setFormState((prev) => ({ ...prev, director_name: event.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="committee-create-chair">Chair name</Label>
-                    <Input
-                      id="committee-create-chair"
-                      value={formState.chair_name}
-                      onChange={(event) => setFormState((prev) => ({ ...prev, chair_name: event.target.value }))}
                     />
                   </div>
                 </div>

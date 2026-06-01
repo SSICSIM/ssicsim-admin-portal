@@ -5,16 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminService } from "@/services/admin";
 import type {
   AssignmentCreate,
-  AssignmentOut,
   CharacterCreate,
-  CharacterOut,
   CommitteeCreate,
-  CommitteeOut,
   CommitteeUpdate,
-  DelegationOut,
   DelegationUpdate,
   DelegateCreate,
-  DelegateOut,
   DelegateUpdate,
   EmailTemplateCreate,
   EmailTemplateUpdate,
@@ -228,6 +223,31 @@ export function useDeleteEmailTemplate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
     }
+  });
+}
+
+export function useUploadCommitteeImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ committeeId, formData }: { committeeId: UUID; formData: FormData }) =>
+      adminService.uploadCommitteeImage(committeeId, formData),
+    onSuccess: (_, { committeeId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.committee(committeeId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.committees });
+    }
+  });
+}
+
+export function useQueueEmails() {
+  return useMutation({
+    mutationFn: (payload: { recipients: Record<string, string>[]; subject: string; body: string }) =>
+      adminService.queueEmails(payload)
+  });
+}
+
+export function useValidateEmails() {
+  return useMutation({
+    mutationFn: (emails: string[]) => adminService.validateEmails(emails)
   });
 }
 

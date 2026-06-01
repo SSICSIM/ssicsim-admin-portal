@@ -11,13 +11,27 @@ from app.jobs.email import send_emails
 router = APIRouter(prefix="/email", tags=["email"])
 
 
-# ─── queue ────────────────────────────────────────────────────────────────────
+# ─── request / response models ────────────────────────────────────────────────
 
 
 class EmailQueueRequest(BaseModel):
     recipients: list[dict[str, str]]
     subject: str
     body: str
+
+
+class EmailValidateRequest(BaseModel):
+    emails: list[str]
+
+
+class EmailValidateResult(BaseModel):
+    email: str
+    valid: bool
+    normalized: str | None = None
+    reason: str | None = None
+
+
+# ─── queue ────────────────────────────────────────────────────────────────────
 
 
 @router.post("/queue", status_code=202)
@@ -52,17 +66,6 @@ def queue_email_job(payload: EmailQueueRequest) -> dict:
 
 
 # ─── validate ─────────────────────────────────────────────────────────────────
-
-
-class EmailValidateRequest(BaseModel):
-    emails: list[str]
-
-
-class EmailValidateResult(BaseModel):
-    email: str
-    valid: bool
-    normalized: str | None = None
-    reason: str | None = None
 
 
 @router.post("/validate", response_model=list[EmailValidateResult])

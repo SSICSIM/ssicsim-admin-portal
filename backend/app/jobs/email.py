@@ -11,6 +11,8 @@ def _replace_placeholders(template: str, data: dict[str, str]) -> str:
     return re.sub(r"\{(\w+)\}", lambda m: data.get(m.group(1), m.group(0)), template)
 
 
+# Email layout: dark navy header with logo, 3px gold stripe, white body, small beige footer.
+# Uses an inline-styled HTML table so it renders correctly across all major email clients.
 def _render_html(body_text: str, logo_url: str = "") -> str:
     paragraphs = []
     for line in body_text.split("\n"):
@@ -117,6 +119,9 @@ def send_emails(
                     results.append({"email": addr, "success": False, "error": str(exc)})
 
     except smtplib.SMTPAuthenticationError:
+        # Caught separately from address-level errors: this means Gmail credentials are wrong,
+        # not that any recipient address is bad. Frontend validation only checks address
+        # syntax/DNS — it cannot catch a misconfigured GMAIL_USER / GMAIL_APP_PASSWORD.
         for r in recipients:
             results.append(
                 {
@@ -126,6 +131,8 @@ def send_emails(
                 }
             )
     except Exception as exc:
+        # Catches connection failures (e.g. Gmail unreachable). Worker runs async with no
+        # other error boundary, so every failure path must be captured in results.
         for r in recipients:
             results.append({"email": r.get("email", ""), "success": False, "error": str(exc)})
 

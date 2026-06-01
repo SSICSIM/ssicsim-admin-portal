@@ -14,8 +14,6 @@ def _make_committee(client, name: str = "GA"):
             "small_description": "desc",
             "large_description": "long",
             "director_name": "Director",
-            "chair_name": "Chair",
-            "crisis_analysts": None,
             "max_delegates": 10,
             "background_guide_link": None,
             "mechanics_guide_link": None,

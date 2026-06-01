@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Integer, String, Text
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy import Boolean, Integer, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
@@ -21,12 +21,14 @@ class Committee(Base):
         server_default=text("gen_random_uuid()"),
     )
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
-    small_description: Mapped[str] = mapped_column(String(512), nullable=False)
-    large_description: Mapped[str] = mapped_column(Text, nullable=False)
+    small_description: Mapped[str | None] = mapped_column(String(512))
+    large_description: Mapped[str | None] = mapped_column(Text)
     director_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    chair_name: Mapped[str | None] = mapped_column(String(255))
-    crisis_analysts: Mapped[list[str] | None] = mapped_column(ARRAY(String(255)))
+    director_image_url: Mapped[str | None] = mapped_column(String(1024))
+    contact_email: Mapped[str | None] = mapped_column(String(255))
     max_delegates: Mapped[int | None] = mapped_column(Integer)
+    joint: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    double: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     background_guide_link: Mapped[str | None] = mapped_column(String(1024))
     mechanics_guide_link: Mapped[str | None] = mapped_column(String(1024))
     character_guide_link: Mapped[str | None] = mapped_column(String(1024))

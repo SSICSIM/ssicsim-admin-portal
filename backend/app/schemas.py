@@ -15,12 +15,14 @@ class HealthResponse(BaseModel):
 # Committee schemas
 class CommitteeBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    small_description: str = Field(min_length=1, max_length=512)
-    large_description: str
+    small_description: str | None = Field(default=None, max_length=512)
+    large_description: str | None = None
     director_name: str = Field(default="Director", min_length=1, max_length=255)
-    chair_name: str | None = Field(default=None, max_length=255)
-    crisis_analysts: list[str] | None = None
+    director_image_url: str | None = Field(default=None, max_length=1024)
+    contact_email: str | None = Field(default=None, max_length=255)
     max_delegates: int | None = Field(default=None, ge=0)
+    joint: bool = False
+    double: bool = False
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
@@ -36,9 +38,11 @@ class CommitteeUpdate(BaseModel):
     small_description: str | None = Field(default=None, max_length=512)
     large_description: str | None = None
     director_name: str | None = Field(default=None, max_length=255)
-    chair_name: str | None = Field(default=None, max_length=255)
-    crisis_analysts: list[str] | None = None
+    director_image_url: str | None = Field(default=None, max_length=1024)
+    contact_email: str | None = Field(default=None, max_length=255)
     max_delegates: int | None = Field(default=None, ge=0)
+    joint: bool | None = None
+    double: bool | None = None
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)

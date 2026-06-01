@@ -9,9 +9,11 @@ import {
   useCommittees,
   useDelegates,
   useDelegations,
-  useEmailTemplates
+  useEmailTemplates,
+  useQueueEmails,
+  useUpdateDelegate,
+  useValidateEmails
 } from "@/hooks/useAdminQueries";
-import { adminService } from "@/services/admin";
 import type { DelegateOut, DelegateStatus, UUID } from "@/types/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +54,9 @@ export default function EmailerPage() {
   const delegationsQuery = useDelegations();
   const charactersQuery  = useCharacters();
   const templatesQuery   = useEmailTemplates();
+  const validateEmails   = useValidateEmails();
+  const queueEmails      = useQueueEmails();
+  const updateDelegate   = useUpdateDelegate();
 
   const committees  = committeesQuery.data  ?? [];
   const delegates   = delegatesQuery.data   ?? [];
@@ -172,7 +177,7 @@ export default function EmailerPage() {
     // Phase 1 — validate (best-effort; DNS issues won't block sending)
     try {
       const emails = selectedDelegates.map(d => d.email);
-      const validations = await adminService.validateEmails(emails);
+      const validations = await validateEmails.mutateAsync(emails);
       const warnings = validations
         .filter(v => !v.valid)
         .map(v => ({ email: v.email, reason: v.reason ?? "Unknown issue" }));
@@ -198,7 +203,7 @@ export default function EmailerPage() {
 
     try {
       const recipients = selectedDelegates.map(buildData);
-      const res = await adminService.queueEmails({ recipients, subject, body });
+      const res = await queueEmails.mutateAsync({ recipients, subject, body });
 
       if (res.error) {
         setResults([{ email: "all", success: false, error: res.error }]);
@@ -214,7 +219,7 @@ export default function EmailerPage() {
         try {
           await Promise.all(
             assignedInAudience.map(d =>
-              adminService.updateDelegate(d.id, { delegate_status: "Confirmed" })
+              updateDelegate.mutateAsync({ delegateId: d.id, data: { delegate_status: "Confirmed" } })
             )
           );
           setConfirmStatusMsg(
