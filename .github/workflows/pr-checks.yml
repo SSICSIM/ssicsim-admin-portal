@@ -8,7 +8,7 @@ jobs:
 
   # ── Backend ──────────────────────────────────────────────────────────────────
   backend-lint:
-    name: Backend — ruff lint & format
+    name: Backend — ruff lint & black format
     runs-on: ubuntu-latest
 
     steps:
@@ -26,8 +26,8 @@ jobs:
       - name: Lint (ruff check)
         run: ruff check backend/app backend/migrations backend/scripts
 
-      - name: Format check (ruff format)
-        run: ruff format --check backend/app backend/migrations backend/scripts
+      - name: Format check (black)
+        run: black --check backend/app backend/migrations backend/scripts
 
   # ── Frontend ─────────────────────────────────────────────────────────────────
   frontend-lint:
