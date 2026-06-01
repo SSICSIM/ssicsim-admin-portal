@@ -12,6 +12,7 @@ This guide covers running the portal locally, deploying to production (Vercel + 
 4. [Vercel — frontend](#4-vercel--frontend)
 5. [Custom domain on GoDaddy](#5-custom-domain-on-godaddy)
 6. [CI/CD pipeline overview](#6-cicd-pipeline-overview)
+7. [PR testing environments (staging)](#7-pr-testing-environments-staging)
 
 ---
 
@@ -333,4 +334,217 @@ If a bad release goes out:
 
 # For a database rollback (run locally against Supabase)
 DATABASE_URL="postgresql://..." alembic downgrade -1
+```
+
+---
+
+## 7. PR testing environments (staging)
+
+Instead of pushing directly to `main` and testing in production, every PR should be tested against isolated staging infrastructure before merge. This section explains how to wire up a staging environment for both `ssicsim-admin-portal` and the main `ssicsim.ca` website.
+
+The goal is a three-tier setup:
+
+| Tier | Branch | Frontend | Backend | Database |
+|---|---|---|---|---|
+| Production | `main` | `admin.ssicsim.ca` / `ssicsim.ca` | `ssicsim-backend` (Render) | Supabase production project |
+| Staging / PR preview | feature branches | Vercel preview URL | `ssicsim-backend-staging` (Render) | Supabase staging project |
+| Local | any | `localhost:3000` | `localhost:8000` | Docker Postgres |
+
+---
+
+### Step 1 — Create a Supabase staging project
+
+Do this once. It gives you a real isolated database for all PR previews.
+
+1. In [supabase.com](https://supabase.com), open your organisation and click **New Project**.
+2. Name it `ssicsim-staging` (or `ssicsim-admin-staging` for the admin portal).
+3. Choose the same region as production.
+4. Set a strong password and save it.
+5. Wait for provisioning (~1 minute).
+6. Go to **Settings → Database → Connection string → URI** and copy the **Direct connection** string:
+   ```
+   postgresql://postgres:[PASSWORD]@db.[STAGING-REF].supabase.co:5432/postgres
+   ```
+7. Run migrations against the staging DB from your local machine:
+   ```bash
+   DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[STAGING-REF].supabase.co:5432/postgres" \
+     alembic -c backend/alembic.ini upgrade heads
+   ```
+
+Keep this staging DB separate from production — it can be wiped and reseeded freely.
+
+---
+
+### Step 2 — Create a Render staging backend (admin portal only)
+
+The main `ssicsim.ca` website is frontend-only, so skip to Step 3 if you are working on that repo.
+
+1. In [Render](https://dashboard.render.com), click **New → Web Service**.
+2. Connect the same GitHub repo (`ssicsim-admin-portal`), branch: `main` (Render will always pull the latest image; the staging env vars point to the staging DB).
+3. Set the following:
+
+   | Field | Value |
+   |---|---|
+   | Name | `ssicsim-backend-staging` |
+   | Region | Same as production backend |
+   | Instance type | Free or Starter |
+   | Start Command | `uvicorn app.main:app --host 0.0.0.0 --port 8000` |
+
+4. Under **Environment Variables**, add the same keys as production but with staging values:
+
+   | Key | Value |
+   |---|---|
+   | `ENVIRONMENT` | `staging` |
+   | `DATABASE_URL` | Supabase staging connection string (from Step 1) |
+   | `REDIS_URL` | You can reuse the same Render Redis or create a second one |
+   | `API_CORS_ORIGINS` | `https://*.vercel.app` (wildcard covers all Vercel preview URLs) |
+   | `ADMIN_API_TOKEN` | Generate a separate token: `openssl rand -hex 32` |
+   | `GMAIL_USER` | Your Gmail address |
+   | `GMAIL_APP_PASSWORD` | Gmail App Password |
+
+5. Click **Create Web Service** and copy the service URL (e.g. `https://ssicsim-backend-staging.onrender.com`).
+
+6. Go to the staging service → **Settings → Deploy hook → Generate deploy hook** and copy it. Add it to GitHub repository secrets as `RENDER_STAGING_BACKEND_DEPLOY_HOOK`.
+
+---
+
+### Step 3 — Add staging environment variables in Vercel
+
+This applies to both `ssicsim-admin-portal` (frontend) and `ssicsim.ca` (website).
+
+#### Admin portal
+
+1. In Vercel, open the **ssicsim-admin-portal** project → **Settings → Environment Variables**.
+2. Add each variable below. **Set scope to `Preview` only** — do not touch Production values.
+
+   | Key | Preview value |
+   |---|---|
+   | `BACKEND_BASE_URL` | `https://ssicsim-backend-staging.onrender.com` |
+   | `NEXTAUTH_URL` | Leave blank — Vercel automatically sets this to the preview URL |
+   | `NEXTAUTH_SECRET` | Same as production (or a separate staging secret) |
+   | `GOOGLE_CLIENT_ID` | Same as production |
+   | `GOOGLE_CLIENT_SECRET` | Same as production |
+   | `ADMIN_EMAIL_ALLOWLIST` | `tech@ssicsim.ca` |
+   | `ADMIN_API_TOKEN` | The staging token you generated in Step 2 |
+
+3. Click **Save** for each variable.
+
+#### Website (ssicsim.ca)
+
+1. In Vercel, open the **ssicsim** (website) project → **Settings → Environment Variables**.
+2. Add any env vars the site needs (API keys, CMS tokens, etc.) and set scope to **`Preview`** with staging/test values.
+3. If the site calls the admin portal backend, set `BACKEND_BASE_URL` to the staging backend URL.
+
+---
+
+### Step 4 — Update Google OAuth to allow preview URLs
+
+Vercel preview URLs follow the pattern `https://ssicsim-admin-portal-<hash>-ssicsim.vercel.app`. Google OAuth requires explicit redirect URIs, so add a wildcard-friendly approach:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com) → **APIs & Services → Credentials** → your OAuth 2.0 Client.
+2. Under **Authorised JavaScript origins**, add:
+   ```
+   https://ssicsim-admin-portal.vercel.app
+   ```
+3. Under **Authorised redirect URIs**, add:
+   ```
+   https://ssicsim-admin-portal.vercel.app/api/auth/callback/google
+   ```
+
+> Google does not support wildcard redirect URIs. For individual PR previews with unique URLs, the easiest fix is to use a stable branch-based preview URL (see Step 5) instead of the hash-based one, or disable Google OAuth in staging and use a dev bypass (see below).
+
+#### Dev bypass for staging (optional but recommended)
+
+To avoid Google OAuth friction on every PR, add a staging-only bypass in the NextAuth config:
+
+1. Set a Vercel Preview env var `STAGING_BYPASS_EMAIL=your@email.com`.
+2. In `auth.ts`, add a `CredentialsProvider` that is only active when `ENVIRONMENT !== 'production'` — it auto-signs in as the bypass email without a Google redirect.
+
+This lets you open any PR preview link and click straight through without OAuth.
+
+---
+
+### Step 5 — Open a PR and test it
+
+#### Admin portal PR
+
+1. Push your feature branch and open a PR on GitHub.
+2. Vercel automatically deploys a preview. The link appears in the PR checks (e.g. `https://ssicsim-admin-portal-git-<branch>-ssicsim.vercel.app`).
+3. The preview automatically uses the `Preview` env vars you set in Step 3, which point to the staging backend and staging DB.
+4. Open the preview link, log in, and test your changes end-to-end against real (staging) data.
+5. If env vars were just updated and not picked up, go to **Vercel → Deployments → Redeploy** (or push a new commit).
+
+#### Website PR
+
+1. Push your branch and open a PR — Vercel deploys a preview automatically.
+2. The preview uses the `Preview` env vars you set in Step 3.
+3. Verify the page renders correctly, links work, and any API calls hit staging services.
+
+---
+
+### Step 6 — Migrate the staging DB when schema changes
+
+When a PR includes new Alembic migrations, run them against the staging DB before testing:
+
+```bash
+DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[STAGING-REF].supabase.co:5432/postgres" \
+  alembic -c backend/alembic.ini upgrade heads
+```
+
+You can also automate this in CI — add a `staging-migrate` job to `pr-checks.yml` that runs on every PR push:
+
+```yaml
+staging-migrate:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: pip install -r backend/requirements.txt
+    - run: alembic -c backend/alembic.ini upgrade heads
+      env:
+        DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+```
+
+Add `STAGING_DATABASE_URL` as a GitHub repository secret (the Supabase staging connection string from Step 1).
+
+---
+
+### Step 7 — Control who can see preview links
+
+By default Vercel requires login to view preview deployments (Vercel team members only).
+
+To open a preview link to anyone with the URL (e.g. for client demos or external review):
+
+1. In Vercel → **Project → Settings → Deployment Protection**.
+2. Under **Preview Deployments**, choose **Bypass with link** or **Disabled**.
+3. Anyone with the URL can now open it without a Vercel account.
+
+To keep previews team-only (recommended for internal tools like the admin portal):
+
+- Leave the default **Vercel Authentication** protection enabled.
+- Invite reviewers to the Vercel team: **Dashboard → Settings → Members → Invite**.
+
+---
+
+### Summary — what happens on every PR
+
+```
+PR opened / updated on feature branch
+  │
+  ├─► Vercel                   Auto-deploys preview frontend
+  │     └─ Uses Preview env vars → points to staging backend + staging DB
+  │
+  ├─► GitHub Actions (pr-checks.yml)
+  │     ├─ backend-lint
+  │     ├─ frontend-lint
+  │     ├─ frontend-typecheck
+  │     └─ staging-migrate (if added)  → runs alembic against staging DB
+  │
+  └─► Render staging backend   Always running, always pointing at staging DB
+        └─ Redeploy manually if backend code changed
+           (or automate via RENDER_STAGING_BACKEND_DEPLOY_HOOK in pr-checks.yml)
+
+PR merged to main → normal production deploy pipeline (Section 6)
 ```
