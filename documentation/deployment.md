@@ -13,11 +13,16 @@ Step-by-step instructions for deploying the SSICSIM admin portal to production (
    ```
    postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres
    ```
-3. From your local machine (in the repo root), run this command — it creates all the tables in Supabase by applying every Alembic migration in order:
-   ```bash
-   DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres" \
-     alembic -c backend/alembic.ini upgrade heads
+3. From your local machine, run this command from inside the `backend/` directory — it creates all the tables in Supabase by applying every Alembic migration in order:
+   Temporarily set `DATABASE_URL` in `backend/.env` to the Supabase connection string (note the `+psycopg2` driver):
    ```
+   DATABASE_URL=postgresql+psycopg2://postgres:[PASSWORD]@db.[REF].supabase.co:5432/postgres
+   ```
+   Then run from inside `backend/`:
+   ```bash
+   cd backend && alembic upgrade heads
+   ```
+   After migrations succeed, swap `DATABASE_URL` back to the local Docker value in `.env`.
    Replace `[PASSWORD]` and `[REF]` with the values from step 2. You only need to run this once on first setup. Future schema changes (new columns, new tables) are applied automatically when you publish a GitHub Release.
 
    You can verify the tables were created by going to **Supabase → Table Editor** — you should see `committees`, `delegates`, `delegations`, `characters`, `assignments`, etc.
@@ -182,8 +187,8 @@ If the token ever leaks: generate a new one, update it on Render first, then Ver
 ```bash
 # Render — go to: Service → Deploys → select a previous deploy → Rollback
 
-# Database rollback (run locally)
-DATABASE_URL="postgresql://..." alembic downgrade -1
+# Database rollback (run from inside backend/)
+cd backend && DATABASE_URL="postgresql://..." alembic downgrade -1
 ```
 
 ---
