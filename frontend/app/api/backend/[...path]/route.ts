@@ -32,7 +32,13 @@ async function proxy(request: NextRequest) {
     init.body = await request.arrayBuffer();
   }
 
-  const response = await fetch(url, init);
+  let response: Response;
+  try {
+    response = await fetch(url, init);
+  } catch {
+    return NextResponse.json({ detail: "Backend unavailable" }, { status: 502 });
+  }
+
   if ([204, 205, 304].includes(response.status)) {
     return new NextResponse(null, {
       status: response.status,
