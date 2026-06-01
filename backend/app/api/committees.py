@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
-from fastapi import UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.committee import Committee
 from app.schemas import CommitteeCreate, CommitteeOut, CommitteeUpdate
-from app.utilities.storage import upload_file_to_bucket
 from app.services import committees
+from app.utilities.storage import upload_file_to_bucket
 
 router = APIRouter(prefix="/committees", tags=["committees"])
 
@@ -26,7 +25,9 @@ def get_committee(committee_id: UUID, db: Session = Depends(get_db)) -> Committe
 
 
 @router.post("", response_model=CommitteeOut, status_code=201)
-def create_committee(payload: CommitteeCreate, db: Session = Depends(get_db)) -> Committee:
+def create_committee(
+    payload: CommitteeCreate, db: Session = Depends(get_db)
+) -> Committee:
     return committees.create_committee(db, payload)
 
 
@@ -37,7 +38,9 @@ def update_committee(
     return committees.update_committee(db, committee_id, payload)
 
 
-@router.delete("/{committee_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{committee_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_committee(committee_id: UUID, db: Session = Depends(get_db)) -> Response:
     committees.delete_committee(db, committee_id)
     return Response(status_code=204)

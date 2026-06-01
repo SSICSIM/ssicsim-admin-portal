@@ -1,0 +1,19 @@
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes (unused imports, undefined names)
+    "I",   # isort (import ordering)
+    "UP",  # pyupgrade (modern Python syntax)
+]
+ignore = [
+    "E501",   # line-too-long — formatter handles this
+    "UP042",  # StrEnum — str+Enum is required for SQLAlchemy native enum mapping
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]

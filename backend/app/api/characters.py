@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -19,7 +19,9 @@ def list_characters(db: Session = Depends(get_db)) -> list[Character]:
 
 
 @router.post("", response_model=CharacterOut, status_code=201)
-def create_character(payload: CharacterCreate, db: Session = Depends(get_db)) -> Character:
+def create_character(
+    payload: CharacterCreate, db: Session = Depends(get_db)
+) -> Character:
     return characters.create_character(db, payload)
 
 
@@ -35,7 +37,9 @@ def update_character(
     return characters.update_character(db, character_id, payload)
 
 
-@router.delete("/{character_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{character_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_character(character_id: UUID, db: Session = Depends(get_db)) -> Response:
     characters.delete_character(db, character_id)
     return Response(status_code=204)

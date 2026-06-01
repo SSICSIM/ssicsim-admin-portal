@@ -8,9 +8,8 @@ Create Date: 2026-03-29 21:05:00.000000
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "3b4f0e2a1c7d"
@@ -30,4 +29,6 @@ def downgrade() -> None:
     inspector = sa.inspect(op.get_bind())
     constraints = {c["name"] for c in inspector.get_unique_constraints("characters")}
     if "characters_committee_id_key" not in constraints:
-        op.create_unique_constraint("characters_committee_id_key", "characters", ["committee_id"])
+        op.create_unique_constraint(
+            "characters_committee_id_key", "characters", ["committee_id"]
+        )

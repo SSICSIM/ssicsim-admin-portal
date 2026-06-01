@@ -34,7 +34,9 @@ def create_committee(db: Session, payload: CommitteeCreate) -> Committee:
     return committee
 
 
-def update_committee(db: Session, committee_id: UUID, payload: CommitteeUpdate) -> Committee:
+def update_committee(
+    db: Session, committee_id: UUID, payload: CommitteeUpdate
+) -> Committee:
     committee = get_committee(db, committee_id)
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(committee, field, value)

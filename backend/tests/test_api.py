@@ -14,8 +14,6 @@ def _make_committee(client, name: str = "GA"):
             "small_description": "desc",
             "large_description": "long",
             "director_name": "Director",
-            "chair_name": "Chair",
-            "crisis_analysts": None,
             "max_delegates": 10,
             "background_guide_link": None,
             "mechanics_guide_link": None,
@@ -225,6 +223,9 @@ def test_assignment_flow_and_conflicts(client):
 
     missing_character = client.post(
         "/api/assignments",
-        json={"delegate_id": delegate["id"], "character_id": "00000000-0000-0000-0000-000000000000"},
+        json={
+            "delegate_id": delegate["id"],
+            "character_id": "00000000-0000-0000-0000-000000000000",
+        },
     )
     assert missing_character.status_code == 404

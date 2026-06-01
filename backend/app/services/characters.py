@@ -17,7 +17,9 @@ def list_characters(db: Session) -> list[Character]:
     return db.scalars(select(Character).order_by(Character.id)).all()
 
 
-def _validate_fk(db: Session, committee_id: UUID | None, delegate_id: UUID | None) -> None:
+def _validate_fk(
+    db: Session, committee_id: UUID | None, delegate_id: UUID | None
+) -> None:
     if committee_id is not None:
         if db.get(Committee, committee_id) is None:
             raise HTTPException(status_code=404, detail="Committee not found")
@@ -61,7 +63,9 @@ def create_character(db: Session, payload: CharacterCreate) -> Character:
     return character
 
 
-def update_character(db: Session, character_id: UUID, payload: CharacterUpdate) -> Character:
+def update_character(
+    db: Session, character_id: UUID, payload: CharacterUpdate
+) -> Character:
     character = get_character(db, character_id)
     updates = payload.model_dump(exclude_none=True)
     _validate_fk(db, updates.get("committee_id"), updates.get("delegate_id"))

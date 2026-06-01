@@ -11,12 +11,14 @@ export default function middleware(
   req: NextRequestWithAuth,
   event: NextFetchEvent
 ) {
-  const response = authMiddleware(req, event);
+  // authMiddleware returns a NextResponse (redirect) when unauthenticated,
+  // or void when it passes through. In both cases we must set X-Robots-Tag.
+  const authResponse = authMiddleware(req, event);
+  const response = authResponse instanceof NextResponse
+    ? authResponse
+    : NextResponse.next();
 
-  if (response instanceof NextResponse) {
-    response.headers.set("X-Robots-Tag", "noindex, nofollow");
-  }
-
+  response.headers.set("X-Robots-Tag", "noindex, nofollow");
   return response;
 }
 

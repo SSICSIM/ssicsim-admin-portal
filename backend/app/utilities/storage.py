@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 try:
-    from supabase import create_client, Client  # type: ignore
+    from supabase import Client, create_client  # type: ignore
 except ImportError:
     Client = None  # type: ignore
     create_client = None  # type: ignore
@@ -66,7 +66,9 @@ def upload_file_to_bucket(
     key = f"{key_prefix}{base}-{uuid.uuid4()}{ext}"
 
     options = {"contentType": content_type} if content_type else {}
-    client.storage.from_(bucket).upload(path=key, file=file_obj, file_options=options | {"upsert": False})
+    client.storage.from_(bucket).upload(
+        path=key, file=file_obj, file_options=options | {"upsert": False}
+    )
 
     public_base = settings.supabase_public_base_url
     if public_base:

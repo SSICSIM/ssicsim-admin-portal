@@ -10,9 +10,17 @@ from sqlalchemy.orm import Session
 from app.models.character import Character
 from app.models.delegate import Delegate
 from app.models.enums import DelegateStatus
-from app.schemas import AssignmentBulkCreate, AssignmentCreate, AssignmentOut, AssignmentUpdate
-from app.utilities.assignments import assignment_from_character
-from app.utilities.assignments import build_bulk_assignments, validate_assignment
+from app.schemas import (
+    AssignmentBulkCreate,
+    AssignmentCreate,
+    AssignmentOut,
+    AssignmentUpdate,
+)
+from app.utilities.assignments import (
+    assignment_from_character,
+    build_bulk_assignments,
+    validate_assignment,
+)
 
 
 def assign_delegate(db: Session, payload: AssignmentCreate) -> AssignmentOut:
@@ -22,7 +30,7 @@ def assign_delegate(db: Session, payload: AssignmentCreate) -> AssignmentOut:
 
     character.delegate_id = payload.delegate_id
     delegate.delegate_status = DelegateStatus.ASSIGNED
-    
+
     try:
         db.commit()
     except IntegrityError:
@@ -35,9 +43,13 @@ def assign_delegate(db: Session, payload: AssignmentCreate) -> AssignmentOut:
     return assignment_from_character(character)
 
 
-def bulk_assign(db: Session, payload: AssignmentBulkCreate) -> tuple[list[AssignmentOut], list[str]]:
+def bulk_assign(
+    db: Session, payload: AssignmentBulkCreate
+) -> tuple[list[AssignmentOut], list[str]]:
     results: list[AssignmentOut] = []
-    assignment_pairs = [(item.character_id, item.delegate_id) for item in payload.assignments]
+    assignment_pairs = [
+        (item.character_id, item.delegate_id) for item in payload.assignments
+    ]
     to_assign, warnings = build_bulk_assignments(db, assignment_pairs)
 
     for character, delegate_id in to_assign:
@@ -58,7 +70,9 @@ def bulk_assign(db: Session, payload: AssignmentBulkCreate) -> tuple[list[Assign
     return results, warnings
 
 
-def update_assignment(db: Session, delegate_id: UUID, payload: AssignmentUpdate) -> AssignmentOut:
+def update_assignment(
+    db: Session, delegate_id: UUID, payload: AssignmentUpdate
+) -> AssignmentOut:
     current = db.scalar(select(Character).where(Character.delegate_id == delegate_id))
     if current is None:
         raise HTTPException(status_code=404, detail="Assignment not found")

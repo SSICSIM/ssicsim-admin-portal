@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-import { adminService } from "@/services/admin";
 import {
   useCharacters,
   useCommittee,
@@ -12,7 +11,8 @@ import {
   useDeleteAssignment,
   useDeleteCharacter,
   useDelegates,
-  useUpdateCommittee
+  useUpdateCommittee,
+  useUploadCommitteeImage
 } from "@/hooks/useAdminQueries";
 import type { CommitteeUpdate, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -31,9 +31,11 @@ const emptyForm: CommitteeUpdate = {
   small_description: "",
   large_description: "",
   director_name: "",
-  chair_name: "",
-  crisis_analysts: [],
+  director_image_url: "",
+  contact_email: "",
   max_delegates: null,
+  joint: false,
+  double: false,
   background_guide_link: "",
   mechanics_guide_link: "",
   character_guide_link: "",
@@ -49,6 +51,7 @@ export default function CommitteeEditPage() {
   const charactersQuery = useCharacters();
   const delegatesQuery = useDelegates();
   const updateCommittee = useUpdateCommittee(committeeId ?? "");
+  const uploadImage = useUploadCommitteeImage();
   const createCharacter = useCreateCharacter();
   const deleteCharacter = useDeleteCharacter();
   const deleteAssignment = useDeleteAssignment();
@@ -75,9 +78,11 @@ export default function CommitteeEditPage() {
       small_description: committeeQuery.data.small_description ?? "",
       large_description: committeeQuery.data.large_description ?? "",
       director_name: committeeQuery.data.director_name ?? "",
-      chair_name: committeeQuery.data.chair_name ?? "",
-      crisis_analysts: committeeQuery.data.crisis_analysts ?? [],
+      director_image_url: committeeQuery.data.director_image_url ?? "",
+      contact_email: committeeQuery.data.contact_email ?? "",
       max_delegates: committeeQuery.data.max_delegates ?? null,
+      joint: committeeQuery.data.joint ?? false,
+      double: committeeQuery.data.double ?? false,
       background_guide_link: committeeQuery.data.background_guide_link ?? "",
       mechanics_guide_link: committeeQuery.data.mechanics_guide_link ?? "",
       character_guide_link: committeeQuery.data.character_guide_link ?? "",
@@ -120,7 +125,7 @@ export default function CommitteeEditPage() {
     const formData = new FormData();
     formData.append("file", imageFile);
     try {
-      await adminService.uploadCommitteeImage(committeeId, formData);
+      await uploadImage.mutateAsync({ committeeId, formData });
       setUploadMessage("Committee image updated.");
       setImageFile(null);
     } catch (error) {
@@ -284,11 +289,12 @@ export default function CommitteeEditPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="committee-chair">Chair name</Label>
+              <Label htmlFor="committee-contact-email">Contact email</Label>
               <Input
-                id="committee-chair"
-                value={formState.chair_name ?? ""}
-                onChange={(event) => handleFormChange("chair_name", event.target.value)}
+                id="committee-contact-email"
+                type="email"
+                value={formState.contact_email ?? ""}
+                onChange={(event) => handleFormChange("contact_email", event.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -306,6 +312,37 @@ export default function CommitteeEditPage() {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="committee-director-image">Director image URL</Label>
+            <Input
+              id="committee-director-image"
+              value={formState.director_image_url ?? ""}
+              onChange={(event) => handleFormChange("director_image_url", event.target.value)}
+              placeholder="https://..."
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-6">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formState.joint ?? false}
+                onChange={(event) => handleFormChange("joint", event.target.checked)}
+                className="h-4 w-4 rounded border-[var(--ssicsim-border)]"
+              />
+              <span className="text-sm font-medium">Joint committee</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formState.double ?? false}
+                onChange={(event) => handleFormChange("double", event.target.checked)}
+                className="h-4 w-4 rounded border-[var(--ssicsim-border)]"
+              />
+              <span className="text-sm font-medium">Double delegate</span>
+            </label>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="committee-small">Short description</Label>
             <Input
               id="committee-small"
@@ -320,23 +357,6 @@ export default function CommitteeEditPage() {
               id="committee-large"
               value={formState.large_description ?? ""}
               onChange={(event) => handleFormChange("large_description", event.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="committee-analysts">Crisis analysts (comma-separated)</Label>
-            <Input
-              id="committee-analysts"
-              value={(formState.crisis_analysts ?? []).join(", ")}
-              onChange={(event) =>
-                handleFormChange(
-                  "crisis_analysts",
-                  event.target.value
-                    .split(",")
-                    .map((value) => value.trim())
-                    .filter(Boolean)
-                )
-              }
             />
           </div>
 
@@ -384,8 +404,8 @@ export default function CommitteeEditPage() {
             <Input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] ?? null)} />
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" onClick={handleImageUpload} disabled={!imageFile}>
-              Upload image
+            <Button variant="secondary" onClick={handleImageUpload} disabled={!imageFile || uploadImage.isPending}>
+              {uploadImage.isPending ? "Uploading..." : "Upload image"}
             </Button>
             {uploadMessage ? <Badge variant="success">{uploadMessage}</Badge> : null}
             {uploadError ? <Badge variant="warning">{uploadError}</Badge> : null}

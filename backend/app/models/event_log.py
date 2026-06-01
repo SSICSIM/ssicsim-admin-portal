@@ -36,5 +36,3 @@ class EventLog(Base):
     target_type: Mapped[str | None] = mapped_column(String(255))
     target_id: Mapped[str | None] = mapped_column(String(255))
     details: Mapped[str | None] = mapped_column(Text)
-
-

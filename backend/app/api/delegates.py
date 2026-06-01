@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -35,7 +35,9 @@ def update_delegate(
     return delegates.update_delegate(db, delegate_id, payload)
 
 
-@router.delete("/{delegate_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{delegate_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_delegate(delegate_id: UUID, db: Session = Depends(get_db)) -> Response:
     delegates.delete_delegate(db, delegate_id)
     return Response(status_code=204)

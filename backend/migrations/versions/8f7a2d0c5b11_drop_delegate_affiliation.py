@@ -8,9 +8,8 @@ Create Date: 2026-03-29 22:25:00.000000
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "8f7a2d0c5b11"
@@ -32,4 +31,6 @@ def downgrade() -> None:
     inspector = sa.inspect(bind)
     columns = [column["name"] for column in inspector.get_columns("delegates")]
     if "affiliation" not in columns:
-        op.add_column("delegates", sa.Column("affiliation", sa.String(length=255), nullable=True))
+        op.add_column(
+            "delegates", sa.Column("affiliation", sa.String(length=255), nullable=True)
+        )

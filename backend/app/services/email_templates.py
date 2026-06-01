@@ -34,7 +34,9 @@ def create_email_template(db: Session, payload: EmailTemplateCreate) -> EmailTem
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Email template name already exists")
+        raise HTTPException(
+            status_code=409, detail="Email template name already exists"
+        )
     db.refresh(email_template)
     return email_template
 
@@ -49,7 +51,9 @@ def update_email_template(
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Email template name already exists")
+        raise HTTPException(
+            status_code=409, detail="Email template name already exists"
+        )
     db.refresh(email_template)
     return email_template
 

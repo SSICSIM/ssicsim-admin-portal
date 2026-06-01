@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -19,7 +19,9 @@ def list_sec_members(db: Session = Depends(get_db)) -> list[SecMember]:
 
 
 @router.post("", response_model=SecMemberOut, status_code=201)
-def create_sec_member(payload: SecMemberCreate, db: Session = Depends(get_db)) -> SecMember:
+def create_sec_member(
+    payload: SecMemberCreate, db: Session = Depends(get_db)
+) -> SecMember:
     return sec_members.create_sec_member(db, payload)
 
 
@@ -35,7 +37,9 @@ def update_sec_member(
     return sec_members.update_sec_member(db, sec_member_id, payload)
 
 
-@router.delete("/{sec_member_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{sec_member_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_sec_member(sec_member_id: UUID, db: Session = Depends(get_db)) -> Response:
     sec_members.delete_sec_member(db, sec_member_id)
     return Response(status_code=204)

@@ -6,9 +6,11 @@ export type CommitteeOut = {
   small_description: string | null;
   large_description: string | null;
   director_name: string | null;
-  chair_name: string | null;
-  crisis_analysts: string[] | null;
+  director_image_url: string | null;
+  contact_email: string | null;
   max_delegates: number | null;
+  joint: boolean;
+  double: boolean;
   background_guide_link: string | null;
   mechanics_guide_link: string | null;
   character_guide_link: string | null;
@@ -22,7 +24,7 @@ export type CommitteeCreate = Omit<CommitteeOut, "id" | "image_url"> & {
 };
 
 export type DelegateExperience = "Beginner" | "Intermediate" | "Expertise";
-export type DelegateStatus = "Awaiting Assignment" | "Assigned" | "Confirmed";
+export type DelegateStatus = "Awaiting Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
 
 export type DelegateOut = {
   id: UUID;
@@ -40,6 +42,7 @@ export type DelegateOut = {
   delegate_status: DelegateStatus;
   delegation_id: UUID | null;
   code_of_conduct_url: string | null;
+  code_of_conduct_signed: boolean | null;
   payment_policy_ack: boolean | null;
   cancellation_policy_ack: boolean | null;
   heard_about: string | null;
@@ -52,8 +55,22 @@ export type DelegationOut = {
   faculty_advisor_first_name: string | null;
   faculty_advisor_last_name: string | null;
   faculty_advisor_email: string | null;
+  contact_role: string | null;
+  school_address: string | null;
+  delegation_size: number | null;
+  attended_before: boolean | null;
+  payment_process: string | null;
+  policy_ack_registration: boolean | null;
+  policy_ack_payment: boolean | null;
+  policy_ack_cancellation: boolean | null;
+  policy_ack_conduct: boolean | null;
+  policy_ack_photography: boolean | null;
+  heard_about: string | null;
+  notes: string | null;
   head_delegate_id: UUID | null;
 };
+
+export type DelegationUpdate = Partial<Omit<DelegationOut, "id">>;
 
 export type DelegateUpdate = Partial<Omit<DelegateOut, "id">>;
 
@@ -84,4 +101,25 @@ export type AssignmentOut = {
   character_id: UUID;
   committee_id: UUID;
 };
+
+export type EmailTemplateOut = {
+  id: UUID;
+  name: string;
+  subject_template: string;
+  body_template: string;
+  placeholders: string[] | null;
+  confirms_assigned: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmailTemplateCreate = {
+  name: string;
+  subject_template: string;
+  body_template: string;
+  placeholders?: string[] | null;
+  confirms_assigned?: boolean;
+};
+
+export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 

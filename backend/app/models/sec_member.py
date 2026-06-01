@@ -23,8 +23,8 @@ class SecMember(Base):
     )
     first_name: Mapped[str] = mapped_column(String(255), nullable=False)
     last_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    email: Mapped[str] = mapped_column(
+        String(255), unique=True, index=True, nullable=False
+    )
     role: Mapped[str] = mapped_column(String(255), nullable=False)
     last_logged_in: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-
-

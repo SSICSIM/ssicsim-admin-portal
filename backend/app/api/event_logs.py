@@ -19,7 +19,9 @@ def list_event_logs(db: Session = Depends(get_db)) -> list[EventLog]:
 
 
 @router.post("", response_model=EventLogOut, status_code=201)
-def create_event_log(payload: EventLogCreate, db: Session = Depends(get_db)) -> EventLog:
+def create_event_log(
+    payload: EventLogCreate, db: Session = Depends(get_db)
+) -> EventLog:
     return event_logs.create_event_log(db, payload)
 
 
@@ -35,7 +37,9 @@ def update_event_log(
     return event_logs.update_event_log(db, log_id, payload)
 
 
-@router.delete("/{log_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{log_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_event_log(log_id: UUID, db: Session = Depends(get_db)) -> Response:
     event_logs.delete_event_log(db, log_id)
     return Response(status_code=204)

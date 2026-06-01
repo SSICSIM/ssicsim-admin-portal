@@ -13,7 +13,9 @@ from app.schemas import DelegateCreate, DelegateUpdate
 
 
 def list_delegates(db: Session) -> list[Delegate]:
-    return db.scalars(select(Delegate).order_by(Delegate.last_name, Delegate.first_name)).all()
+    return db.scalars(
+        select(Delegate).order_by(Delegate.last_name, Delegate.first_name)
+    ).all()
 
 
 def get_delegate(db: Session, delegate_id: UUID) -> Delegate:
@@ -47,6 +49,7 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         delegate_status=payload.delegate_status,
         delegation_id=payload.delegation_id,
         code_of_conduct_url=payload.code_of_conduct_url,
+        code_of_conduct_signed=payload.code_of_conduct_signed,
         payment_policy_ack=payload.payment_policy_ack,
         cancellation_policy_ack=payload.cancellation_policy_ack,
         heard_about=payload.heard_about,
@@ -62,7 +65,9 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
     return delegate
 
 
-def update_delegate(db: Session, delegate_id: UUID, payload: DelegateUpdate) -> Delegate:
+def update_delegate(
+    db: Session, delegate_id: UUID, payload: DelegateUpdate
+) -> Delegate:
     delegate = get_delegate(db, delegate_id)
     updates = payload.model_dump(exclude_none=True)
     if "delegation_id" in updates:

@@ -16,7 +16,11 @@ class Settings(BaseSettings):
     supabase_public_base_url: str | None = None  # optional custom domain/CDN
     upload_dir: str = "uploads"
     upload_base_url: str = "/uploads"  # where StaticFiles is mounted
+    environment: str = "development"
+    frontend_url: str = "http://localhost:3000"
     admin_api_token: str | None = None
+    gmail_user: str | None = None
+    gmail_app_password: str | None = None
 
     @property
     def cors_origins_list(self) -> list[str]:

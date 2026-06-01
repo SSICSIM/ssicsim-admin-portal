@@ -1,21 +1,20 @@
 """initial_squash
 
 Revision ID: f55c0d42bec0
-Revises: 
+Revises:
 Create Date: 2026-03-23 22:26:22.348645
 
 """
 
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql import text
 
-
 # revision identifiers, used by Alembic.
-revision = 'f55c0d42bec0'
+revision = "f55c0d42bec0"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -37,7 +36,9 @@ def upgrade() -> None:
         sa.Column("large_description", sa.Text(), nullable=False),
         sa.Column("director_name", sa.String(length=255), nullable=False),
         sa.Column("chair_name", sa.String(length=255), nullable=True),
-        sa.Column("crisis_analysts", postgresql.ARRAY(sa.String(length=255)), nullable=True),
+        sa.Column(
+            "crisis_analysts", postgresql.ARRAY(sa.String(length=255)), nullable=True
+        ),
         sa.Column("max_delegates", sa.Integer(), nullable=True),
         sa.Column("background_guide_link", sa.String(length=1024), nullable=True),
         sa.Column("mechanics_guide_link", sa.String(length=1024), nullable=True),
@@ -154,7 +155,12 @@ def upgrade() -> None:
             sa.ForeignKey("sec_members.id"),
             nullable=True,
         ),
-        sa.Column("timestamp", sa.DateTime(timezone=True), server_default=text("now()"), nullable=False),
+        sa.Column(
+            "timestamp",
+            sa.DateTime(timezone=True),
+            server_default=text("now()"),
+            nullable=False,
+        ),
         sa.Column(
             "event_type",
             sa.Enum(
@@ -184,13 +190,29 @@ def upgrade() -> None:
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("subject_template", sa.String(length=255), nullable=False),
         sa.Column("body_template", sa.Text(), nullable=False),
-        sa.Column("placeholders", postgresql.ARRAY(sa.String(length=255)), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=text("now()"), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=text("now()"), nullable=False),
+        sa.Column(
+            "placeholders", postgresql.ARRAY(sa.String(length=255)), nullable=True
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=text("now()"),
+            nullable=False,
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index(op.f("ix_email_templates_id"), "email_templates", ["id"], unique=False)
-    op.create_index(op.f("ix_email_templates_name"), "email_templates", ["name"], unique=True)
+    op.create_index(
+        op.f("ix_email_templates_id"), "email_templates", ["id"], unique=False
+    )
+    op.create_index(
+        op.f("ix_email_templates_name"), "email_templates", ["name"], unique=True
+    )
 
     op.create_table(
         "characters",

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -16,12 +15,14 @@ class HealthResponse(BaseModel):
 # Committee schemas
 class CommitteeBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
-    small_description: str = Field(min_length=1, max_length=512)
-    large_description: str
+    small_description: str | None = Field(default=None, max_length=512)
+    large_description: str | None = None
     director_name: str = Field(default="Director", min_length=1, max_length=255)
-    chair_name: str | None = Field(default=None, max_length=255)
-    crisis_analysts: list[str] | None = None
+    director_image_url: str | None = Field(default=None, max_length=1024)
+    contact_email: str | None = Field(default=None, max_length=255)
     max_delegates: int | None = Field(default=None, ge=0)
+    joint: bool = False
+    double: bool = False
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
@@ -37,9 +38,11 @@ class CommitteeUpdate(BaseModel):
     small_description: str | None = Field(default=None, max_length=512)
     large_description: str | None = None
     director_name: str | None = Field(default=None, max_length=255)
-    chair_name: str | None = Field(default=None, max_length=255)
-    crisis_analysts: list[str] | None = None
+    director_image_url: str | None = Field(default=None, max_length=1024)
+    contact_email: str | None = Field(default=None, max_length=255)
     max_delegates: int | None = Field(default=None, ge=0)
+    joint: bool | None = None
+    double: bool | None = None
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
@@ -59,6 +62,18 @@ class DelegationBase(BaseModel):
     faculty_advisor_first_name: str = Field(min_length=1, max_length=255)
     faculty_advisor_last_name: str = Field(min_length=1, max_length=255)
     faculty_advisor_email: EmailStr
+    contact_role: str | None = Field(default=None, max_length=255)
+    school_address: str | None = None
+    delegation_size: int | None = Field(default=None, ge=1)
+    attended_before: bool | None = None
+    payment_process: str | None = Field(default=None, max_length=255)
+    policy_ack_registration: bool | None = None
+    policy_ack_payment: bool | None = None
+    policy_ack_cancellation: bool | None = None
+    policy_ack_conduct: bool | None = None
+    policy_ack_photography: bool | None = None
+    heard_about: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
     head_delegate_id: UUID | None = None
 
 
@@ -71,6 +86,18 @@ class DelegationUpdate(BaseModel):
     faculty_advisor_first_name: str | None = Field(default=None, max_length=255)
     faculty_advisor_last_name: str | None = Field(default=None, max_length=255)
     faculty_advisor_email: EmailStr | None = None
+    contact_role: str | None = Field(default=None, max_length=255)
+    school_address: str | None = None
+    delegation_size: int | None = Field(default=None, ge=1)
+    attended_before: bool | None = None
+    payment_process: str | None = Field(default=None, max_length=255)
+    policy_ack_registration: bool | None = None
+    policy_ack_payment: bool | None = None
+    policy_ack_cancellation: bool | None = None
+    policy_ack_conduct: bool | None = None
+    policy_ack_photography: bool | None = None
+    heard_about: str | None = Field(default=None, max_length=255)
+    notes: str | None = None
     head_delegate_id: UUID | None = None
 
 
@@ -97,6 +124,7 @@ class DelegateBase(BaseModel):
     delegate_status: DelegateStatus
     delegation_id: UUID | None = None
     code_of_conduct_url: str | None = Field(default=None, max_length=1024)
+    code_of_conduct_signed: bool | None = None
     payment_policy_ack: bool | None = None
     cancellation_policy_ack: bool | None = None
     heard_about: str | None = Field(default=None, max_length=255)
@@ -104,7 +132,7 @@ class DelegateBase(BaseModel):
 
 
 class DelegateCreate(DelegateBase):
-    pass
+    delegate_status: DelegateStatus = DelegateStatus.AWAITING_PAYMENT
 
 
 class DelegateUpdate(BaseModel):
@@ -122,6 +150,7 @@ class DelegateUpdate(BaseModel):
     delegate_status: DelegateStatus | None = None
     delegation_id: UUID | None = None
     code_of_conduct_url: str | None = Field(default=None, max_length=1024)
+    code_of_conduct_signed: bool | None = None
     payment_policy_ack: bool | None = None
     cancellation_policy_ack: bool | None = None
     heard_about: str | None = Field(default=None, max_length=255)
@@ -223,6 +252,7 @@ class EmailTemplateBase(BaseModel):
     subject_template: str = Field(min_length=1, max_length=255)
     body_template: str
     placeholders: list[str] | None = None
+    confirms_assigned: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -232,6 +262,7 @@ class EmailTemplateCreate(BaseModel):
     subject_template: str = Field(min_length=1, max_length=255)
     body_template: str
     placeholders: list[str] | None = None
+    confirms_assigned: bool = False
 
 
 class EmailTemplateUpdate(BaseModel):
@@ -239,6 +270,7 @@ class EmailTemplateUpdate(BaseModel):
     subject_template: str | None = Field(default=None, min_length=1, max_length=255)
     body_template: str | None = None
     placeholders: list[str] | None = None
+    confirms_assigned: bool | None = None
 
 
 class EmailTemplateOut(EmailTemplateBase):
@@ -268,4 +300,3 @@ class AssignmentOut(BaseModel):
 
     class Config:
         from_attributes = True
-

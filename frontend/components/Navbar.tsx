@@ -8,9 +8,9 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard" },
   { href: "/committees", label: "Committees" },
-  { href: "/delegates", label: "Delegates" }
+  { href: "/delegates",  label: "Delegates" },
+  { href: "/emailer",    label: "Emailer" }
 ];
 
 export function Navbar() {
@@ -21,7 +21,7 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-[var(--ssicsim-border)] bg-white/95 backdrop-blur-md shadow-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
         {/* Brand */}
-        <Link href="/dashboard" className="flex items-center gap-3 shrink-0">
+        <Link href="/" className="flex items-center gap-3 shrink-0">
           <Image
             src="/branding/GoldLogo.png"
             alt="SSICSIM"

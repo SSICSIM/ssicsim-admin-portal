@@ -5,16 +5,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminService } from "@/services/admin";
 import type {
   AssignmentCreate,
-  AssignmentOut,
   CharacterCreate,
-  CharacterOut,
   CommitteeCreate,
-  CommitteeOut,
   CommitteeUpdate,
-  DelegationOut,
+  DelegationUpdate,
   DelegateCreate,
-  DelegateOut,
   DelegateUpdate,
+  EmailTemplateCreate,
+  EmailTemplateUpdate,
   UUID
 } from "@/types/api";
 
@@ -95,6 +93,17 @@ export function useDeleteCharacter() {
   });
 }
 
+export function useUpdateDelegation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: UUID; data: DelegationUpdate }) =>
+      adminService.updateDelegation(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.delegations });
+    }
+  });
+}
+
 // Query hooks
 export function useDelegates() {
   return useQuery({
@@ -133,6 +142,17 @@ export function useUpdateDelegate() {
   });
 }
 
+export function useDeleteDelegate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (delegateId: UUID) => adminService.deleteDelegate(delegateId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
+      queryClient.invalidateQueries({ queryKey: queryKeys.characters });
+    }
+  });
+}
+
 // Mutation hooks
 export function useAssignDelegate() {
   const queryClient = useQueryClient();
@@ -164,6 +184,70 @@ export function useDeleteAssignment() {
       queryClient.invalidateQueries({ queryKey: queryKeys.characters });
       queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
     }
+  });
+}
+
+// Email template hooks
+export function useEmailTemplates() {
+  return useQuery({
+    queryKey: ["emailTemplates"],
+    queryFn: () => adminService.fetchEmailTemplates()
+  });
+}
+
+export function useCreateEmailTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: EmailTemplateCreate) => adminService.createEmailTemplate(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
+    }
+  });
+}
+
+export function useUpdateEmailTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: UUID; data: EmailTemplateUpdate }) =>
+      adminService.updateEmailTemplate(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
+    }
+  });
+}
+
+export function useDeleteEmailTemplate() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: UUID) => adminService.deleteEmailTemplate(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["emailTemplates"] });
+    }
+  });
+}
+
+export function useUploadCommitteeImage() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ committeeId, formData }: { committeeId: UUID; formData: FormData }) =>
+      adminService.uploadCommitteeImage(committeeId, formData),
+    onSuccess: (_, { committeeId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.committee(committeeId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.committees });
+    }
+  });
+}
+
+export function useQueueEmails() {
+  return useMutation({
+    mutationFn: (payload: { recipients: Record<string, string>[]; subject: string; body: string }) =>
+      adminService.queueEmails(payload)
+  });
+}
+
+export function useValidateEmails() {
+  return useMutation({
+    mutationFn: (emails: string[]) => adminService.validateEmails(emails)
   });
 }
 

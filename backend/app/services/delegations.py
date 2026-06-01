@@ -29,6 +29,18 @@ def create_delegation(db: Session, payload: DelegationCreate) -> Delegation:
         faculty_advisor_last_name=payload.faculty_advisor_last_name,
         faculty_advisor_email=str(payload.faculty_advisor_email),
         head_delegate_id=payload.head_delegate_id,
+        contact_role=payload.contact_role,
+        school_address=payload.school_address,
+        delegation_size=payload.delegation_size,
+        attended_before=payload.attended_before,
+        payment_process=payload.payment_process,
+        policy_ack_registration=payload.policy_ack_registration,
+        policy_ack_payment=payload.policy_ack_payment,
+        policy_ack_cancellation=payload.policy_ack_cancellation,
+        policy_ack_conduct=payload.policy_ack_conduct,
+        policy_ack_photography=payload.policy_ack_photography,
+        heard_about=payload.heard_about,
+        notes=payload.notes,
     )
     db.add(delegation)
     try:
@@ -40,7 +52,9 @@ def create_delegation(db: Session, payload: DelegationCreate) -> Delegation:
     return delegation
 
 
-def update_delegation(db: Session, delegation_id: UUID, payload: DelegationUpdate) -> Delegation:
+def update_delegation(
+    db: Session, delegation_id: UUID, payload: DelegationUpdate
+) -> Delegation:
     delegation = get_delegation(db, delegation_id)
     updates = payload.model_dump(exclude_none=True)
     if "head_delegate_id" in updates:

@@ -26,7 +26,9 @@ def create_email_template(
 
 
 @router.get("/{template_id}", response_model=EmailTemplateOut)
-def get_email_template(template_id: UUID, db: Session = Depends(get_db)) -> EmailTemplate:
+def get_email_template(
+    template_id: UUID, db: Session = Depends(get_db)
+) -> EmailTemplate:
     return email_templates.get_email_template(db, template_id)
 
 
@@ -37,7 +39,9 @@ def update_email_template(
     return email_templates.update_email_template(db, template_id, payload)
 
 
-@router.delete("/{template_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{template_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_email_template(template_id: UUID, db: Session = Depends(get_db)) -> Response:
     email_templates.delete_email_template(db, template_id)
     return Response(status_code=204)

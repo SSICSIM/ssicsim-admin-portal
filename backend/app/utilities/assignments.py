@@ -13,10 +13,15 @@ from app.schemas import AssignmentOut
 
 
 def delegate_has_assignment(db: Session, delegate_id: UUID) -> bool:
-    return db.scalar(select(Character).where(Character.delegate_id == delegate_id)) is not None
+    return (
+        db.scalar(select(Character).where(Character.delegate_id == delegate_id))
+        is not None
+    )
 
 
-def validate_assignment(db: Session, *, character_id: UUID, delegate_id: UUID) -> tuple[Character, Delegate]:
+def validate_assignment(
+    db: Session, *, character_id: UUID, delegate_id: UUID
+) -> tuple[Character, Delegate]:
     character = db.get(Character, character_id)
     if character is None:
         raise HTTPException(status_code=404, detail="Character not found")
@@ -41,10 +46,14 @@ def build_bulk_assignments(
     for character_id, delegate_id in assignments:
         # Deduplicate within the incoming payload so we don’t double-assign the same entity in one call.
         if delegate_id in seen_delegates:
-            warnings.append(f"Duplicate delegate in bulk request: delegate_id={delegate_id}")
+            warnings.append(
+                f"Duplicate delegate in bulk request: delegate_id={delegate_id}"
+            )
             continue
         if character_id in seen_characters:
-            warnings.append(f"Duplicate character in bulk request: character_id={character_id}")
+            warnings.append(
+                f"Duplicate character in bulk request: character_id={character_id}"
+            )
             continue
         seen_delegates.add(delegate_id)
         seen_characters.add(character_id)
@@ -70,6 +79,7 @@ def build_bulk_assignments(
         to_assign.append((character, delegate_id))
 
     return to_assign, warnings
+
 
 def assignment_from_character(character: Any) -> AssignmentOut:
     return AssignmentOut(

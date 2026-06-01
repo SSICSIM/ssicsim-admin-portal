@@ -8,12 +8,9 @@ Create Date: 2026-03-23 22:40:08.100126
 
 from __future__ import annotations
 
-from alembic import op
-
-
 # revision identifiers, used by Alembic.
-revision = '7e88398aa726'
-down_revision = 'f55c0d42bec0'
+revision = "7e88398aa726"
+down_revision = "f55c0d42bec0"
 branch_labels = None
 depends_on = None
 
@@ -24,4 +21,3 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     pass
-
