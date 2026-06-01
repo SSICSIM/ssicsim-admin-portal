@@ -19,21 +19,43 @@ depends_on = None
 
 def upgrade() -> None:
     # ── delegations: new columns ──────────────────────────────────────────────
-    op.add_column("delegations", sa.Column("contact_role", sa.String(255), nullable=True))
+    op.add_column(
+        "delegations", sa.Column("contact_role", sa.String(255), nullable=True)
+    )
     op.add_column("delegations", sa.Column("school_address", sa.Text, nullable=True))
-    op.add_column("delegations", sa.Column("delegation_size", sa.Integer, nullable=True))
-    op.add_column("delegations", sa.Column("attended_before", sa.Boolean, nullable=True))
-    op.add_column("delegations", sa.Column("payment_process", sa.String(255), nullable=True))
-    op.add_column("delegations", sa.Column("policy_ack_registration", sa.Boolean, nullable=True))
-    op.add_column("delegations", sa.Column("policy_ack_payment", sa.Boolean, nullable=True))
-    op.add_column("delegations", sa.Column("policy_ack_cancellation", sa.Boolean, nullable=True))
-    op.add_column("delegations", sa.Column("policy_ack_conduct", sa.Boolean, nullable=True))
-    op.add_column("delegations", sa.Column("policy_ack_photography", sa.Boolean, nullable=True))
-    op.add_column("delegations", sa.Column("heard_about", sa.String(255), nullable=True))
+    op.add_column(
+        "delegations", sa.Column("delegation_size", sa.Integer, nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("attended_before", sa.Boolean, nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("payment_process", sa.String(255), nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("policy_ack_registration", sa.Boolean, nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("policy_ack_payment", sa.Boolean, nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("policy_ack_cancellation", sa.Boolean, nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("policy_ack_conduct", sa.Boolean, nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("policy_ack_photography", sa.Boolean, nullable=True)
+    )
+    op.add_column(
+        "delegations", sa.Column("heard_about", sa.String(255), nullable=True)
+    )
     op.add_column("delegations", sa.Column("notes", sa.Text, nullable=True))
 
     # ── delegates: code_of_conduct_signed ─────────────────────────────────────
-    op.add_column("delegates", sa.Column("code_of_conduct_signed", sa.Boolean, nullable=True))
+    op.add_column(
+        "delegates", sa.Column("code_of_conduct_signed", sa.Boolean, nullable=True)
+    )
 
 
 def downgrade() -> None:

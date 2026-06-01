@@ -40,7 +40,9 @@ def create_sec_member(db: Session, payload: SecMemberCreate) -> SecMember:
     return sec_member
 
 
-def update_sec_member(db: Session, sec_member_id: UUID, payload: SecMemberUpdate) -> SecMember:
+def update_sec_member(
+    db: Session, sec_member_id: UUID, payload: SecMemberUpdate
+) -> SecMember:
     sec_member = get_sec_member(db, sec_member_id)
     for field, value in payload.model_dump(exclude_none=True).items():
         if field == "email":

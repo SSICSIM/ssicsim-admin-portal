@@ -20,7 +20,9 @@ class Delegation(Base):
         default=uuid.uuid4,
         server_default=text("gen_random_uuid()"),
     )
-    name: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(
+        String(255), unique=True, index=True, nullable=False
+    )
 
     # Faculty advisor contact
     faculty_advisor_first_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -45,4 +47,6 @@ class Delegation(Base):
     heard_about: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    head_delegate_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    head_delegate_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )

@@ -223,6 +223,9 @@ def test_assignment_flow_and_conflicts(client):
 
     missing_character = client.post(
         "/api/assignments",
-        json={"delegate_id": delegate["id"], "character_id": "00000000-0000-0000-0000-000000000000"},
+        json={
+            "delegate_id": delegate["id"],
+            "character_id": "00000000-0000-0000-0000-000000000000",
+        },
     )
     assert missing_character.status_code == 404

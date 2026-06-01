@@ -19,7 +19,9 @@ def list_delegations(db: Session = Depends(get_db)) -> list[Delegation]:
 
 
 @router.post("", response_model=DelegationOut, status_code=201)
-def create_delegation(payload: DelegationCreate, db: Session = Depends(get_db)) -> Delegation:
+def create_delegation(
+    payload: DelegationCreate, db: Session = Depends(get_db)
+) -> Delegation:
     return delegations.create_delegation(db, payload)
 
 
@@ -29,11 +31,15 @@ def get_delegation(delegation_id: UUID, db: Session = Depends(get_db)) -> Delega
 
 
 @router.patch("/{delegation_id}", response_model=DelegationOut)
-def update_delegation(delegation_id: UUID, payload: DelegationUpdate, db: Session = Depends(get_db)) -> Delegation:
+def update_delegation(
+    delegation_id: UUID, payload: DelegationUpdate, db: Session = Depends(get_db)
+) -> Delegation:
     return delegations.update_delegation(db, delegation_id, payload)
 
 
-@router.delete("/{delegation_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{delegation_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_delegation(delegation_id: UUID, db: Session = Depends(get_db)) -> Response:
     delegations.delete_delegation(db, delegation_id)
     return Response(status_code=204)

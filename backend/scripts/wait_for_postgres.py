@@ -34,7 +34,9 @@ def main() -> None:
             return
         except Exception as e:
             if time.time() - start > timeout_s:
-                raise SystemExit(f"Timed out waiting for Postgres at {target}: {e}") from e
+                raise SystemExit(
+                    f"Timed out waiting for Postgres at {target}: {e}"
+                ) from e
             time.sleep(1)
 
 

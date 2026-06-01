@@ -19,7 +19,9 @@ def list_characters(db: Session = Depends(get_db)) -> list[Character]:
 
 
 @router.post("", response_model=CharacterOut, status_code=201)
-def create_character(payload: CharacterCreate, db: Session = Depends(get_db)) -> Character:
+def create_character(
+    payload: CharacterCreate, db: Session = Depends(get_db)
+) -> Character:
     return characters.create_character(db, payload)
 
 
@@ -29,11 +31,15 @@ def get_character(character_id: UUID, db: Session = Depends(get_db)) -> Characte
 
 
 @router.patch("/{character_id}", response_model=CharacterOut)
-def update_character(character_id: UUID, payload: CharacterUpdate, db: Session = Depends(get_db)) -> Character:
+def update_character(
+    character_id: UUID, payload: CharacterUpdate, db: Session = Depends(get_db)
+) -> Character:
     return characters.update_character(db, character_id, payload)
 
 
-@router.delete("/{character_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{character_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_character(character_id: UUID, db: Session = Depends(get_db)) -> Response:
     characters.delete_character(db, character_id)
     return Response(status_code=204)

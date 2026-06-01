@@ -37,7 +37,10 @@ class EmailValidateResult(BaseModel):
 @router.post("/queue", status_code=202)
 def queue_email_job(payload: EmailQueueRequest) -> dict:
     if not settings.gmail_user or not settings.gmail_app_password:
-        return {"error": "GMAIL_USER or GMAIL_APP_PASSWORD is not set on the server.", "queued": 0}
+        return {
+            "error": "GMAIL_USER or GMAIL_APP_PASSWORD is not set on the server.",
+            "queued": 0,
+        }
 
     if not payload.recipients:
         return {"error": "No recipients provided.", "queued": 0}

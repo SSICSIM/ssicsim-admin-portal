@@ -29,11 +29,15 @@ def get_delegate(delegate_id: UUID, db: Session = Depends(get_db)) -> Delegate:
 
 
 @router.patch("/{delegate_id}", response_model=DelegateOut)
-def update_delegate(delegate_id: UUID, payload: DelegateUpdate, db: Session = Depends(get_db)) -> Delegate:
+def update_delegate(
+    delegate_id: UUID, payload: DelegateUpdate, db: Session = Depends(get_db)
+) -> Delegate:
     return delegates.update_delegate(db, delegate_id, payload)
 
 
-@router.delete("/{delegate_id}", status_code=204, response_model=None, response_class=Response)
+@router.delete(
+    "/{delegate_id}", status_code=204, response_model=None, response_class=Response
+)
 def delete_delegate(delegate_id: UUID, db: Session = Depends(get_db)) -> Response:
     delegates.delete_delegate(db, delegate_id)
     return Response(status_code=204)

@@ -18,14 +18,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(
-        """
+    op.execute("""
         UPDATE delegations
         SET faculty_advisor_first_name = COALESCE(faculty_advisor_first_name, 'Independent'),
             faculty_advisor_last_name = COALESCE(faculty_advisor_last_name, 'Advisor'),
             faculty_advisor_email = COALESCE(faculty_advisor_email, 'independent.advisor@example.com')
-        """
-    )
+        """)
     op.alter_column("delegations", "faculty_advisor_first_name", nullable=False)
     op.alter_column("delegations", "faculty_advisor_last_name", nullable=False)
     op.alter_column("delegations", "faculty_advisor_email", nullable=False)

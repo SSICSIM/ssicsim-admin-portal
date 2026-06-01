@@ -35,9 +35,17 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.add_column("delegates", sa.Column("address_line1", sa.String(length=255), nullable=True))
-    op.add_column("delegates", sa.Column("address_line2", sa.String(length=255), nullable=True))
+    op.add_column(
+        "delegates", sa.Column("address_line1", sa.String(length=255), nullable=True)
+    )
+    op.add_column(
+        "delegates", sa.Column("address_line2", sa.String(length=255), nullable=True)
+    )
     op.add_column("delegates", sa.Column("city", sa.String(length=255), nullable=True))
     op.add_column("delegates", sa.Column("state", sa.String(length=255), nullable=True))
-    op.add_column("delegates", sa.Column("postal_code", sa.String(length=32), nullable=True))
-    op.add_column("delegates", sa.Column("country", sa.String(length=255), nullable=True))
+    op.add_column(
+        "delegates", sa.Column("postal_code", sa.String(length=32), nullable=True)
+    )
+    op.add_column(
+        "delegates", sa.Column("country", sa.String(length=255), nullable=True)
+    )

@@ -31,4 +31,6 @@ def downgrade() -> None:
     inspector = sa.inspect(bind)
     columns = [column["name"] for column in inspector.get_columns("delegates")]
     if "affiliation" not in columns:
-        op.add_column("delegates", sa.Column("affiliation", sa.String(length=255), nullable=True))
+        op.add_column(
+            "delegates", sa.Column("affiliation", sa.String(length=255), nullable=True)
+        )

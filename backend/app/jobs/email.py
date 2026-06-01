@@ -134,6 +134,8 @@ def send_emails(
         # Catches connection failures (e.g. Gmail unreachable). Worker runs async with no
         # other error boundary, so every failure path must be captured in results.
         for r in recipients:
-            results.append({"email": r.get("email", ""), "success": False, "error": str(exc)})
+            results.append(
+                {"email": r.get("email", ""), "success": False, "error": str(exc)}
+            )
 
     return results

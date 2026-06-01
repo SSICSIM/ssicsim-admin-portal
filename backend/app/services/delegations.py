@@ -52,7 +52,9 @@ def create_delegation(db: Session, payload: DelegationCreate) -> Delegation:
     return delegation
 
 
-def update_delegation(db: Session, delegation_id: UUID, payload: DelegationUpdate) -> Delegation:
+def update_delegation(
+    db: Session, delegation_id: UUID, payload: DelegationUpdate
+) -> Delegation:
     delegation = get_delegation(db, delegation_id)
     updates = payload.model_dump(exclude_none=True)
     if "head_delegate_id" in updates:
