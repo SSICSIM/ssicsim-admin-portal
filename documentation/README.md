@@ -37,8 +37,10 @@ Notes:
 
 ## Documentation
 
+- `documentation/onboarding.md` — start here: local setup, project structure, where to look next
 - `docs/DOCKER.md`
 - `backend/db.md`
+- `documentation/frontend-pages.md` — how to build a new admin page (or multi-step flow) and the Tailwind design tokens
 
 ## Task List
 
