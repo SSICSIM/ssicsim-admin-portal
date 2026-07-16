@@ -2,20 +2,42 @@
 
 import Image from "next/image";
 import { signIn, useSession } from "next-auth/react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+const isMockLoginEnabled = process.env.NODE_ENV !== "production";
 
 export default function SignInPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const [mockEmail, setMockEmail] = useState("");
+  const [mockError, setMockError] = useState<string | null>(null);
+  const [mockLoading, setMockLoading] = useState(false);
 
   useEffect(() => {
     if (session) {
       router.replace("/");
     }
   }, [router, session]);
+
+  async function handleMockSignIn(e: React.FormEvent) {
+    e.preventDefault();
+    setMockError(null);
+    setMockLoading(true);
+    const result = await signIn("mock", {
+      email: mockEmail,
+      redirect: false
+    });
+    setMockLoading(false);
+    if (result?.error) {
+      setMockError("That email isn't on the allowlist.");
+      return;
+    }
+    router.replace("/");
+  }
 
   return (
     <main className="flex min-h-[calc(100vh-57px)] items-center justify-center px-4">
@@ -60,6 +82,40 @@ export default function SignInPage() {
                 Sign in with Google
               </Button>
             </div>
+
+            {isMockLoginEnabled && (
+              <>
+                <div className="my-5 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-[var(--ssicsim-border)]" />
+                  <span className="text-xs uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
+                    Dev only
+                  </span>
+                  <div className="h-px flex-1 bg-[var(--ssicsim-border)]" />
+                </div>
+
+                <form className="space-y-2" onSubmit={handleMockSignIn}>
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={mockEmail}
+                    onChange={(e) => setMockEmail(e.target.value)}
+                    required
+                  />
+                  {mockError && (
+                    <p className="text-xs text-red-600">{mockError}</p>
+                  )}
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    className="w-full"
+                    size="lg"
+                    disabled={mockLoading}
+                  >
+                    {mockLoading ? "Signing in..." : "Mock sign in"}
+                  </Button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>

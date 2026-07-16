@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Repo root .env — used when running uvicorn directly (outside docker-compose,
+# which injects the same file's vars via `env_file:` instead).
+_ROOT_ENV = Path(__file__).resolve().parents[2] / ".env"
 
 
 # TO-DO: Eventually phase out this config class and put in environment variables directly, but for now this is a convenient place to centralize config and validation logic for development
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ROOT_ENV, extra="ignore")
 
     database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/ssicsim"
     redis_url: str = "redis://localhost:6379/0"
