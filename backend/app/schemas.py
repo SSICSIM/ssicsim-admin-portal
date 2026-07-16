@@ -194,6 +194,8 @@ class SecMemberBase(BaseModel):
     last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr
     role: str = Field(min_length=1, max_length=255)
+    interview_slots: list[datetime] | None = None;
+    interviewees : list[UUID] | None = None;
     last_logged_in: datetime | None = None
 
 
@@ -206,6 +208,8 @@ class SecMemberUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = None
     role: str | None = Field(default=None, max_length=255)
+    interview_slots: list[datetime] | None = None;
+    interviewees : list[UUID] | None = None;
     last_logged_in: datetime | None = None
 
 
