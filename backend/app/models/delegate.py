@@ -42,7 +42,7 @@ class Delegate(Base):
         default=DelegateStatus.AWAITING_PAYMENT,
     )
     delegation_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("delegations.id")
+        UUID(as_uuid=True), ForeignKey("delegations.id", ondelete="SET NULL")
     )
     code_of_conduct_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     code_of_conduct_signed: Mapped[bool | None] = mapped_column(nullable=True)
