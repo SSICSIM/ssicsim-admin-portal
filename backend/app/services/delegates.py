@@ -9,7 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.models.delegate import Delegate
 from app.models.delegation import Delegation
+from app.models.enums import EventType
+from app.models.sec_member import SecMember
 from app.schemas import DelegateCreate, DelegateUpdate
+from app.services.event_logs import record_event
 
 
 def list_delegates(db: Session) -> list[Delegate]:
@@ -66,18 +69,36 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
 
 
 def update_delegate(
-    db: Session, delegate_id: UUID, payload: DelegateUpdate
+    db: Session,
+    delegate_id: UUID,
+    payload: DelegateUpdate,
+    actor: SecMember | None = None,
 ) -> Delegate:
     delegate = get_delegate(db, delegate_id)
     updates = payload.model_dump(exclude_none=True)
     if "delegation_id" in updates:
         _validate_delegation(db, updates["delegation_id"])
         delegate.delegation_id = updates.pop("delegation_id")
+
+    old_status = delegate.delegate_status
+    new_status = updates.get("delegate_status")
+
     for field, value in updates.items():
         if field == "email":
             delegate.email = str(value)
         else:
             setattr(delegate, field, value)
+
+    if new_status is not None and new_status != old_status:
+        record_event(
+            db,
+            actor,
+            EventType.STATUS_CHANGE,
+            "Delegate",
+            str(delegate.id),
+            f"{delegate.first_name} {delegate.last_name}: {old_status.value} → {new_status.value}",
+        )
+
     try:
         db.commit()
     except IntegrityError:

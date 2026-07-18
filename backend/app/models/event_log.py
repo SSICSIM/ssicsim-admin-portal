@@ -23,7 +23,7 @@ class EventLog(Base):
         server_default=text("gen_random_uuid()"),
     )
     sec_member_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sec_members.id")
+        UUID(as_uuid=True), ForeignKey("sec_members.id", ondelete="SET NULL")
     )
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

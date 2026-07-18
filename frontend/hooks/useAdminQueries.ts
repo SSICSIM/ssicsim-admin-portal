@@ -22,7 +22,9 @@ export const queryKeys = {
   characters: ["characters"] as const,
   delegates: ["delegates"] as const,
   delegations: ["delegations"] as const,
-  assignments: ["assignments"] as const
+  assignments: ["assignments"] as const,
+  eventLogs: ["eventLogs"] as const,
+  secMembers: ["secMembers"] as const
 };
 
 // Query hooks
@@ -248,6 +250,21 @@ export function useQueueEmails() {
 export function useValidateEmails() {
   return useMutation({
     mutationFn: (emails: string[]) => adminService.validateEmails(emails)
+  });
+}
+
+// Activity log hooks
+export function useEventLogs() {
+  return useQuery({
+    queryKey: queryKeys.eventLogs,
+    queryFn: () => adminService.fetchEventLogs()
+  });
+}
+
+export function useSecMembers() {
+  return useQuery({
+    queryKey: queryKeys.secMembers,
+    queryFn: () => adminService.fetchSecMembers()
   });
 }
 

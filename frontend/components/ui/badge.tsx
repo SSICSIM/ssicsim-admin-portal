@@ -17,7 +17,9 @@ const badgeVariants = cva(
         warning:
           "border-[#eac98f] bg-[var(--ssicsim-brand-gold-soft)] text-[#825400]",
         destructive:
-          "border-rose-200 bg-rose-50 text-rose-700"
+          "border-rose-200 bg-rose-50 text-rose-700",
+        info:
+          "border-sky-200 bg-sky-50 text-sky-700"
       }
     },
     defaultVariants: {
