@@ -123,3 +123,24 @@ export type EmailTemplateCreate = {
 
 export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 
+export type EventType = "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment";
+
+export type EventLogOut = {
+  id: UUID;
+  sec_member_id: UUID | null;
+  timestamp: string | null;
+  event_type: EventType;
+  target_type: string | null;
+  target_id: string | null;
+  details: string | null;
+};
+
+export type SecMemberOut = {
+  id: UUID;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  last_logged_in: string | null;
+};
+

@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.enums import EventType
 from app.models.event_log import EventLog
 from app.models.sec_member import SecMember
 from app.schemas import EventLogCreate, EventLogUpdate
@@ -13,6 +14,27 @@ from app.schemas import EventLogCreate, EventLogUpdate
 
 def list_event_logs(db: Session) -> list[EventLog]:
     return db.scalars(select(EventLog).order_by(EventLog.timestamp.desc())).all()
+
+
+def record_event(
+    db: Session,
+    actor: SecMember | None,
+    event_type: EventType,
+    target_type: str,
+    target_id: str,
+    details: str,
+) -> None:
+    # Adds to the session without committing — the caller's existing commit
+    # persists this alongside the state change it describes, atomically.
+    db.add(
+        EventLog(
+            sec_member_id=actor.id if actor else None,
+            event_type=event_type,
+            target_type=target_type,
+            target_id=target_id,
+            details=details,
+        )
+    )
 
 
 def _validate_sec_member(db: Session, sec_member_id: UUID | None) -> None:

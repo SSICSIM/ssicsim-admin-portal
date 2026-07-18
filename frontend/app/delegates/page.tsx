@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
 import {
   useAssignDelegate,
@@ -27,11 +28,26 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious
+} from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -44,11 +60,11 @@ const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
   { label: "Confirmed",           value: "Confirmed" }
 ];
 
-const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive"> = {
+const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info"> = {
   "Awaiting Payment":    "destructive",
-  "Awaiting Assignment": "warning",
-  Assigned:              "success",
-  Confirmed:             "secondary"
+  "Awaiting Assignment": "info",
+  Assigned:              "warning",
+  Confirmed:             "success"
 };
 
 // ─── undo toast ───────────────────────────────────────────────────────────────
@@ -108,6 +124,41 @@ function UnassignToast({ pending, onUndo }: { pending: PendingUnassign; onUndo: 
   );
 }
 
+// ─── sorting ──────────────────────────────────────────────────────────────────
+
+type SortKey = "name" | "grade" | "status" | "experience" | "delegation" | "committee" | "character" | "submitted";
+
+function SortableHead({
+  label,
+  sortKeyName,
+  activeKey,
+  activeDir,
+  onSort
+}: {
+  label: string;
+  sortKeyName: SortKey;
+  activeKey: SortKey;
+  activeDir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+}) {
+  const isActive = activeKey === sortKeyName;
+  return (
+    <TableHead className="cursor-pointer select-none" onClick={() => onSort(sortKeyName)}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {isActive ? (
+          activeDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+        ) : null}
+      </span>
+    </TableHead>
+  );
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "--";
+  return new Date(value).toLocaleDateString();
+}
+
 // ─── shared table row ─────────────────────────────────────────────────────────
 
 function DelegateRow({
@@ -133,9 +184,6 @@ function DelegateRow({
   unassigning: boolean;
   isPendingUnassign: boolean;
 }) {
-  const prefs = [delegate.first_committee, delegate.second_committee, delegate.third_committee]
-    .filter(Boolean).join(" / ") || "--";
-
   return (
     <TableRow className={isPendingUnassign ? "opacity-40" : undefined}>
       <TableCell className="font-medium">{delegate.last_name}, {delegate.first_name}</TableCell>
@@ -151,37 +199,40 @@ function DelegateRow({
       <TableCell>{delegationName}</TableCell>
       <TableCell>{assignedCommittee ?? "--"}</TableCell>
       <TableCell>{assignedCharacter ?? "--"}</TableCell>
-      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">{prefs}</TableCell>
-      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
-        <div className="space-y-0.5">
-          <div>CoC: {delegate.code_of_conduct_url ? "✓" : "--"}</div>
-          <div>Payment: {delegate.payment_policy_ack == null ? "--" : delegate.payment_policy_ack ? "✓" : "✗"}</div>
-          <div>Cancellation: {delegate.cancellation_policy_ack == null ? "--" : delegate.cancellation_policy_ack ? "✓" : "✗"}</div>
-        </div>
-      </TableCell>
+      <TableCell className="whitespace-nowrap text-xs text-[var(--ssicsim-text-muted)]">{formatDate(delegate.date_applied)}</TableCell>
       <TableCell className="text-right">
-        <div className="flex flex-wrap justify-end gap-1.5">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onAssign}
-            disabled={delegate.delegate_status === "Awaiting Payment"}
-            title={delegate.delegate_status === "Awaiting Payment" ? "Payment required before assignment" : undefined}
-          >
-            {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
-          </Button>
-          {(delegate.delegate_status === "Assigned" || delegate.delegate_status === "Confirmed") && (
-            <Button size="sm" variant="ghost" onClick={onUnassign} disabled={unassigning || isPendingUnassign}>
-              {isPendingUnassign ? "Undoing…" : "Unassign"}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" aria-label="Row actions">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={onEdit}>
-            Edit
-          </Button>
-          <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={onDelete}>
-            Delete
-          </Button>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem
+              onSelect={e => { e.preventDefault(); setTimeout(onAssign, 0); }}
+              disabled={delegate.delegate_status === "Awaiting Payment"}
+              title={delegate.delegate_status === "Awaiting Payment" ? "Payment required before assignment" : undefined}
+            >
+              {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
+            </DropdownMenuItem>
+            {(delegate.delegate_status === "Assigned" || delegate.delegate_status === "Confirmed") && (
+              <DropdownMenuItem
+                onSelect={e => { e.preventDefault(); setTimeout(onUnassign, 0); }}
+                disabled={unassigning || isPendingUnassign}
+              >
+                {isPendingUnassign ? "Undoing…" : "Unassign"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={e => { e.preventDefault(); setTimeout(onEdit, 0); }}>Edit</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={e => { e.preventDefault(); setTimeout(onDelete, 0); }}
+              className="text-red-600 focus:bg-red-50 focus:text-red-700"
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
@@ -189,21 +240,28 @@ function DelegateRow({
 
 // ─── table head shared ────────────────────────────────────────────────────────
 
-function DelegateTableHead() {
+function DelegateTableHead({
+  sortKey,
+  sortDir,
+  onSort
+}: {
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+}) {
   return (
     <TableHeader>
       <TableRow>
-        <TableHead>Delegate</TableHead>
+        <SortableHead label="Delegate" sortKeyName="name" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <TableHead>Preferred</TableHead>
-        <TableHead>Grade</TableHead>
+        <SortableHead label="Grade" sortKeyName="grade" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <TableHead>Email</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>Experience</TableHead>
-        <TableHead>Delegation</TableHead>
-        <TableHead>Committee</TableHead>
-        <TableHead>Character</TableHead>
-        <TableHead>Preferences</TableHead>
-        <TableHead>Compliance</TableHead>
+        <SortableHead label="Status" sortKeyName="status" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Experience" sortKeyName="experience" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Delegation" sortKeyName="delegation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Committee" sortKeyName="committee" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Character" sortKeyName="character" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Submitted" sortKeyName="submitted" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <TableHead></TableHead>
       </TableRow>
     </TableHeader>
@@ -227,6 +285,17 @@ export default function DelegatesPage() {
   const [statusFilter,     setStatusFilter]     = useState<DelegateStatus | "all">("all");
   const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
   const [searchTerm,       setSearchTerm]       = useState("");
+
+  // ── sorting & pagination ───────────────────────────────────────────────────
+  const [sortKey, setSortKey] = useState<SortKey>("submitted");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page,    setPage]    = useState(1);
+  const PAGE_SIZE = 25;
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
 
   // ── assignment flow ────────────────────────────────────────────────────────
   const [assignmentOpen,       setAssignmentOpen]       = useState(false);
@@ -297,18 +366,49 @@ export default function DelegatesPage() {
     return list;
   }, [delegates, searchTerm, statusFilter, committeeFilterId, assignedCharacterByDelegateId]);
 
-  const { awaitingPayment, needsAssignment, assignedDelegates } = useMemo(() => {
-    const order: Record<DelegateStatus, number> = {
-      "Awaiting Payment": 3, "Awaiting Assignment": 2, Assigned: 0, Confirmed: 1
-    };
-    return {
-      awaitingPayment:   filteredDelegates.filter(d => d.delegate_status === "Awaiting Payment"),
-      needsAssignment:   filteredDelegates.filter(d => d.delegate_status === "Awaiting Assignment"),
-      assignedDelegates: filteredDelegates
-        .filter(d => d.delegate_status === "Assigned" || d.delegate_status === "Confirmed")
-        .sort((a, b) => order[a.delegate_status] - order[b.delegate_status])
-    };
-  }, [filteredDelegates]);
+  const needsAssignment = useMemo(
+    () => filteredDelegates.filter(d => d.delegate_status === "Awaiting Assignment"),
+    [filteredDelegates]
+  );
+
+  const statusCounts = useMemo(() => {
+    const counts = new Map<DelegateStatus, number>();
+    delegates.forEach(d => counts.set(d.delegate_status, (counts.get(d.delegate_status) ?? 0) + 1));
+    return counts;
+  }, [delegates]);
+
+  function sortValue(d: DelegateOut, key: SortKey): string {
+    switch (key) {
+      case "name": return `${d.last_name}, ${d.first_name}`.toLowerCase();
+      case "grade": return d.grade ?? "";
+      case "status": return d.delegate_status;
+      case "experience": return d.delegate_experience;
+      case "delegation": return delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate";
+      case "committee": {
+        const ch = assignedCharacterByDelegateId.get(d.id);
+        return ch ? committeeMap.get(ch.committee_id)?.name ?? "" : "";
+      }
+      case "character": return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
+      case "submitted": return d.date_applied ?? "";
+    }
+  }
+
+  const sortedDelegates = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filteredDelegates].sort((a, b) => {
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
+      if (av < bv) return -dir;
+      if (av > bv) return dir;
+      return 0;
+    });
+  }, [filteredDelegates, sortKey, sortDir, delegationMap, assignedCharacterByDelegateId, committeeMap]);
+
+  useEffect(() => { setPage(1); }, [statusFilter, committeeFilterId, searchTerm, sortKey, sortDir]);
+
+  const pageCount    = Math.max(1, Math.ceil(sortedDelegates.length / PAGE_SIZE));
+  const currentPage  = Math.min(page, pageCount);
+  const pagedDelegates = sortedDelegates.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const filteredCharacters = useMemo(() =>
     characters.filter(c => (!committeeId || c.committee_id === committeeId) && c.delegate_id == null),
@@ -599,123 +699,83 @@ export default function DelegatesPage() {
         <p className="section-subtitle mt-2">Manage delegate records, assignments, and statuses.</p>
       </header>
 
-      {/* Filters & actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters &amp; Actions</CardTitle>
-          <CardDescription>Search, filter, and bulk-manage delegates.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ssicsim-text-muted)]">
-            <a className="underline" href="#awaiting-payment">Awaiting payment</a>
-            <span>·</span>
-            <a className="underline" href="#needs-assignment">Needs assignment</a>
-            <span>·</span>
-            <a className="underline" href="#assigned-confirmed">Assigned / Confirmed</a>
-            <span>·</span>
-            <a className="underline" href="#delegations">Delegations</a>
-          </div>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={statusFilter} onValueChange={v => setStatusFilter(v as DelegateStatus | "all")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {statusFilters.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Committee</Label>
-              <Select value={committeeFilterId} onValueChange={v => setCommitteeFilterId(v as UUID | "all")}>
-                <SelectTrigger><SelectValue placeholder="All committees" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All committees</SelectItem>
-                  {committees.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Search</Label>
-              <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or email" />
-            </div>
-            <div className="flex items-end justify-end gap-2 flex-wrap">
-              <Button variant="secondary" onClick={openFlow}>Assignment flow</Button>
-              <Button variant="ghost" onClick={exportDelegates}>Export CSV</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Awaiting Payment */}
-      <section id="awaiting-payment">
+      {/* Delegates: filters + table */}
+      <section id="delegates-table">
         <Card>
           <CardHeader>
-            <CardTitle>Awaiting Payment</CardTitle>
+            <CardTitle>Delegates</CardTitle>
             <CardDescription>
-              Delegates who have not yet completed payment. Assignment is blocked until their status is changed to Awaiting Assignment.
+              Search, filter, and bulk-manage delegates · {sortedDelegates.length} of {delegates.length} shown
+              {statusFilter !== "all" ? ` · ${statusFilter}` : ""}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <Tabs value={statusFilter} onValueChange={v => setStatusFilter(v as DelegateStatus | "all")}>
+              <TabsList>
+                {statusFilters.map(f => (
+                  <TabsTrigger key={f.value} value={f.value}>
+                    {f.label} ({f.value === "all" ? delegates.length : statusCounts.get(f.value as DelegateStatus) ?? 0})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Committee</Label>
+                <Select value={committeeFilterId} onValueChange={v => setCommitteeFilterId(v as UUID | "all")}>
+                  <SelectTrigger><SelectValue placeholder="All committees" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All committees</SelectItem>
+                    {committees.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Search</Label>
+                <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or email" />
+              </div>
+              <div className="flex items-end justify-end gap-2 flex-wrap">
+                <Button variant="secondary" onClick={openFlow}>Assignment flow</Button>
+                <Button variant="ghost" onClick={exportDelegates}>Export CSV</Button>
+              </div>
+            </div>
+            <Separator />
             {delegatesQuery.isLoading ? (
               <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
-            ) : awaitingPayment.length === 0 ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates awaiting payment.</p>
+            ) : sortedDelegates.length === 0 ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates match these filters.</p>
             ) : (
-              <Table>
-                <DelegateTableHead />
-                <TableBody>
-                  {awaitingPayment.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Needs assignment */}
-      <section id="needs-assignment">
-        <Card>
-          <CardHeader>
-            <CardTitle>Needs Assignment</CardTitle>
-            <CardDescription>Delegates awaiting committee assignment.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {delegatesQuery.isLoading ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
-            ) : needsAssignment.length === 0 ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates need assignment.</p>
-            ) : (
-              <Table>
-                <DelegateTableHead />
-                <TableBody>
-                  {needsAssignment.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Assigned / Confirmed */}
-      <section id="assigned-confirmed">
-        <Card>
-          <CardHeader>
-            <CardTitle>Assigned / Confirmed</CardTitle>
-            <CardDescription>Delegates with assignments or confirmed status.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {delegatesQuery.isLoading ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
-            ) : assignedDelegates.length === 0 ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates assigned yet.</p>
-            ) : (
-              <Table>
-                <DelegateTableHead />
-                <TableBody>
-                  {assignedDelegates.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
-                </TableBody>
-              </Table>
+              <>
+                <Table>
+                  <DelegateTableHead sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <TableBody>
+                    {pagedDelegates.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
+                  </TableBody>
+                </Table>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-[var(--ssicsim-text-muted)]">
+                    Page {currentPage} of {pageCount} · {sortedDelegates.length} delegate{sortedDelegates.length === 1 ? "" : "s"}
+                  </p>
+                  <Pagination className="mx-0 w-auto">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          aria-disabled={currentPage <= 1}
+                          className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
+                        />
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                          aria-disabled={currentPage >= pageCount}
+                          className={currentPage >= pageCount ? "pointer-events-none opacity-50" : undefined}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -742,7 +802,6 @@ export default function DelegatesPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Size</TableHead>
                     <TableHead>Attended Before</TableHead>
-                    <TableHead>Policies</TableHead>
                     <TableHead>Delegates</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -751,15 +810,6 @@ export default function DelegatesPage() {
                   {delegations.map(delegation => {
                     const count = delegates.filter(d => d.delegation_id === delegation.id).length;
                     const advisor = [delegation.faculty_advisor_first_name, delegation.faculty_advisor_last_name].filter(Boolean).join(" ");
-                    const policies = [
-                      delegation.policy_ack_registration,
-                      delegation.policy_ack_payment,
-                      delegation.policy_ack_cancellation,
-                      delegation.policy_ack_conduct,
-                      delegation.policy_ack_photography
-                    ];
-                    const ackedCount = policies.filter(Boolean).length;
-                    const totalPolicies = policies.length;
                     return (
                       <TableRow key={delegation.id}>
                         <TableCell className="font-medium">{delegation.name}</TableCell>
@@ -771,11 +821,6 @@ export default function DelegatesPage() {
                         <TableCell>{delegation.delegation_size ?? "--"}</TableCell>
                         <TableCell>
                           {delegation.attended_before == null ? "--" : delegation.attended_before ? "Yes" : "No"}
-                        </TableCell>
-                        <TableCell>
-                          <span className={ackedCount === totalPolicies ? "text-emerald-600 font-medium" : "text-amber-600"}>
-                            {ackedCount}/{totalPolicies}
-                          </span>
                         </TableCell>
                         <TableCell>{count}</TableCell>
                         <TableCell>
