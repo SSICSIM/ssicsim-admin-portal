@@ -244,6 +244,29 @@ EMAIL_TEMPLATES = [
         "confirms_assigned": False,
         "placeholders": ["preferred_name"],
     },
+    {
+        "name": "Payment Confirmed",
+        "subject_template": "SSICSIM 2026 Registration Payment Confirmed",
+        "body_template": "\n".join(
+            [
+                "Dear {preferred_name},",
+                "",
+                "Thank you for your payment. We have received and recorded it, and your registration for SSICSIM 2026 is confirmed.",
+                "",
+                "We have also acknowledged your committee preferences and will do our best to place you in your first-choice committee. Background guides are expected to be released toward the end of July, followed by committee assignments in August.",
+                "",
+                "Additional information and event updates will be shared as the conference approaches. Should you have any logistical questions in the meantime, please do not hesitate to contact us. We are always happy to help.",
+                "",
+                "We look forward to welcoming you to SSICSIM 2026.",
+                "",
+                "Best regards,",
+                "The SSICSIM Team",
+            ]
+        ),
+        "confirms_assigned": False,
+        "confirms_payment": True,
+        "placeholders": ["preferred_name"],
+    },
 ]
 
 

@@ -24,7 +24,8 @@ export type CommitteeCreate = Omit<CommitteeOut, "id" | "image_url"> & {
 };
 
 export type DelegateExperience = "Beginner" | "Intermediate" | "Expertise";
-export type DelegateStatus = "Awaiting Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
+export type DelegateStatus = "Awaiting Payment" | "Verify Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
+export type FinancialAidStatus = "Yes" | "No" | "Delegation Paying";
 
 export type DelegateOut = {
   id: UUID;
@@ -34,10 +35,12 @@ export type DelegateOut = {
   preferred_name: string | null;
   grade: string | null;
   email: string;
+  phone: string | null;
   delegate_experience: DelegateExperience;
   first_committee: string | null;
   second_committee: string | null;
   third_committee: string | null;
+  committee_selection_ack: boolean | null;
   date_applied: string | null;
   delegate_status: DelegateStatus;
   delegation_id: UUID | null;
@@ -45,6 +48,10 @@ export type DelegateOut = {
   code_of_conduct_signed: boolean | null;
   payment_policy_ack: boolean | null;
   cancellation_policy_ack: boolean | null;
+  financial_aid_status: FinancialAidStatus | null;
+  financial_aid_reason: string | null;
+  financial_aid_contacted: boolean | null;
+  payment_receipt_url: string | null;
   heard_about: string | null;
   notes: string | null;
 };
@@ -56,8 +63,11 @@ export type DelegationOut = {
   faculty_advisor_last_name: string | null;
   faculty_advisor_email: string | null;
   contact_role: string | null;
+  contact_phone: string | null;
   school_address: string | null;
   delegation_size: number | null;
+  delegation_size_min: number | null;
+  delegation_size_max: number | null;
   attended_before: boolean | null;
   payment_process: string | null;
   policy_ack_registration: boolean | null;
@@ -109,6 +119,7 @@ export type EmailTemplateOut = {
   body_template: string;
   placeholders: string[] | null;
   confirms_assigned: boolean;
+  confirms_payment: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -119,11 +130,12 @@ export type EmailTemplateCreate = {
   body_template: string;
   placeholders?: string[] | null;
   confirms_assigned?: boolean;
+  confirms_payment?: boolean;
 };
 
 export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 
-export type EventType = "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment";
+export type EventType = "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment" | "Financial Aid Contact";
 
 export type EventLogOut = {
   id: UUID;

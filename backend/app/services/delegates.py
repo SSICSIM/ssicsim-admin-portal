@@ -44,10 +44,12 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         preferred_name=payload.preferred_name,
         grade=payload.grade,
         email=str(payload.email),
+        phone=payload.phone,
         delegate_experience=payload.delegate_experience,
         first_committee=payload.first_committee,
         second_committee=payload.second_committee,
         third_committee=payload.third_committee,
+        committee_selection_ack=payload.committee_selection_ack,
         date_applied=payload.date_applied,
         delegate_status=payload.delegate_status,
         delegation_id=payload.delegation_id,
@@ -55,6 +57,10 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         code_of_conduct_signed=payload.code_of_conduct_signed,
         payment_policy_ack=payload.payment_policy_ack,
         cancellation_policy_ack=payload.cancellation_policy_ack,
+        financial_aid_status=payload.financial_aid_status,
+        financial_aid_reason=payload.financial_aid_reason,
+        financial_aid_contacted=payload.financial_aid_contacted,
+        payment_receipt_url=payload.payment_receipt_url,
         heard_about=payload.heard_about,
         notes=payload.notes,
     )
@@ -82,6 +88,7 @@ def update_delegate(
 
     old_status = delegate.delegate_status
     new_status = updates.get("delegate_status")
+    was_contacted = bool(delegate.financial_aid_contacted)
 
     for field, value in updates.items():
         if field == "email":
@@ -97,6 +104,20 @@ def update_delegate(
             "Delegate",
             str(delegate.id),
             f"{delegate.first_name} {delegate.last_name}: {old_status.value} → {new_status.value}",
+        )
+
+    if (
+        "financial_aid_contacted" in updates
+        and updates["financial_aid_contacted"]
+        and not was_contacted
+    ):
+        record_event(
+            db,
+            actor,
+            EventType.FINANCIAL_AID_CONTACT,
+            "Delegate",
+            str(delegate.id),
+            f"{delegate.first_name} {delegate.last_name}: SEC reached out regarding financial aid request",
         )
 
     try:

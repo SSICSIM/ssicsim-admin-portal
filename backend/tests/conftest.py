@@ -13,10 +13,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.append(str(PROJECT_ROOT))
 
+from app.auth import require_admin_token  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.main import create_app  # noqa: E402
-from app.auth import require_admin_token  # noqa: E402
 
 
 @pytest.fixture(scope="session")

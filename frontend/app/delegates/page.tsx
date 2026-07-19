@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
 import {
@@ -16,11 +15,12 @@ import {
   useUpdateDelegate,
   useUpdateDelegation
 } from "@/hooks/useAdminQueries";
-import type { DelegateOut, DelegateStatus, DelegateUpdate, DelegationOut, DelegationUpdate, UUID } from "@/types/api";
+import type { DelegateOut, DelegateStatus, DelegateUpdate, DelegationOut, DelegationUpdate, FinancialAidStatus, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -55,16 +55,24 @@ import { Textarea } from "@/components/ui/textarea";
 const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
   { label: "All delegates",       value: "all" },
   { label: "Awaiting payment",    value: "Awaiting Payment" },
+  { label: "Verify payment",      value: "Verify Payment" },
   { label: "Awaiting assignment", value: "Awaiting Assignment" },
   { label: "Assigned",            value: "Assigned" },
   { label: "Confirmed",           value: "Confirmed" }
 ];
 
-const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info"> = {
+const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
   "Awaiting Payment":    "destructive",
+  "Verify Payment":      "default",
   "Awaiting Assignment": "info",
   Assigned:              "warning",
   Confirmed:             "success"
+};
+
+const financialAidBadge: Record<FinancialAidStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
+  Yes:                 "warning",
+  No:                  "default",
+  "Delegation Paying":  "secondary"
 };
 
 // ─── undo toast ───────────────────────────────────────────────────────────────
@@ -126,7 +134,7 @@ function UnassignToast({ pending, onUndo }: { pending: PendingUnassign; onUndo: 
 
 // ─── sorting ──────────────────────────────────────────────────────────────────
 
-type SortKey = "name" | "grade" | "status" | "experience" | "delegation" | "committee" | "character" | "submitted";
+type SortKey = "name" | "grade" | "status" | "experience" | "delegation" | "committee" | "character" | "submitted" | "financial_aid";
 
 function SortableHead({
   label,
@@ -197,6 +205,11 @@ function DelegateRow({
       </TableCell>
       <TableCell>{delegate.delegate_experience}</TableCell>
       <TableCell>{delegationName}</TableCell>
+      <TableCell>
+        {delegate.financial_aid_status ? (
+          <Badge variant={financialAidBadge[delegate.financial_aid_status]}>{delegate.financial_aid_status}</Badge>
+        ) : "--"}
+      </TableCell>
       <TableCell>{assignedCommittee ?? "--"}</TableCell>
       <TableCell>{assignedCharacter ?? "--"}</TableCell>
       <TableCell className="whitespace-nowrap text-xs text-[var(--ssicsim-text-muted)]">{formatDate(delegate.date_applied)}</TableCell>
@@ -210,8 +223,14 @@ function DelegateRow({
           <DropdownMenuContent>
             <DropdownMenuItem
               onSelect={e => { e.preventDefault(); setTimeout(onAssign, 0); }}
-              disabled={delegate.delegate_status === "Awaiting Payment"}
-              title={delegate.delegate_status === "Awaiting Payment" ? "Payment required before assignment" : undefined}
+              disabled={delegate.delegate_status === "Awaiting Payment" || delegate.delegate_status === "Verify Payment"}
+              title={
+                delegate.delegate_status === "Awaiting Payment"
+                  ? "Payment required before assignment"
+                  : delegate.delegate_status === "Verify Payment"
+                    ? "Verify the submitted payment receipt before assignment"
+                    : undefined
+              }
             >
               {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
             </DropdownMenuItem>
@@ -259,6 +278,7 @@ function DelegateTableHead({
         <SortableHead label="Status" sortKeyName="status" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Experience" sortKeyName="experience" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Delegation" sortKeyName="delegation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Financial Aid" sortKeyName="financial_aid" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Committee" sortKeyName="committee" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Character" sortKeyName="character" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Submitted" sortKeyName="submitted" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
@@ -284,6 +304,8 @@ export default function DelegatesPage() {
   // ── filters ────────────────────────────────────────────────────────────────
   const [statusFilter,     setStatusFilter]     = useState<DelegateStatus | "all">("all");
   const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
+  const [delegationFilterId, setDelegationFilterId] = useState<UUID | "all">("all");
+  const [financialAidFilter, setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
   const [searchTerm,       setSearchTerm]       = useState("");
 
   // ── sorting & pagination ───────────────────────────────────────────────────
@@ -363,8 +385,10 @@ export default function DelegatesPage() {
         return ch?.committee_id === committeeFilterId;
       });
     }
+    if (delegationFilterId !== "all") list = list.filter(d => d.delegation_id === delegationFilterId);
+    if (financialAidFilter !== "all") list = list.filter(d => d.financial_aid_status === financialAidFilter);
     return list;
-  }, [delegates, searchTerm, statusFilter, committeeFilterId, assignedCharacterByDelegateId]);
+  }, [delegates, searchTerm, statusFilter, committeeFilterId, delegationFilterId, financialAidFilter, assignedCharacterByDelegateId]);
 
   const needsAssignment = useMemo(
     () => filteredDelegates.filter(d => d.delegate_status === "Awaiting Assignment"),
@@ -390,6 +414,7 @@ export default function DelegatesPage() {
       }
       case "character": return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
       case "submitted": return d.date_applied ?? "";
+      case "financial_aid": return d.financial_aid_status ?? "";
     }
   }
 
@@ -404,7 +429,7 @@ export default function DelegatesPage() {
     });
   }, [filteredDelegates, sortKey, sortDir, delegationMap, assignedCharacterByDelegateId, committeeMap]);
 
-  useEffect(() => { setPage(1); }, [statusFilter, committeeFilterId, searchTerm, sortKey, sortDir]);
+  useEffect(() => { setPage(1); }, [statusFilter, committeeFilterId, delegationFilterId, financialAidFilter, searchTerm, sortKey, sortDir]);
 
   const pageCount    = Math.max(1, Math.ceil(sortedDelegates.length / PAGE_SIZE));
   const currentPage  = Math.min(page, pageCount);
@@ -502,15 +527,21 @@ export default function DelegatesPage() {
       preferred_name:           delegate.preferred_name,
       grade:                    delegate.grade,
       email:                    delegate.email,
+      phone:                    delegate.phone,
       delegate_experience:      delegate.delegate_experience,
       delegate_status:          delegate.delegate_status,
       first_committee:          delegate.first_committee,
       second_committee:         delegate.second_committee,
       third_committee:          delegate.third_committee,
+      committee_selection_ack:  delegate.committee_selection_ack,
       delegation_id:            delegate.delegation_id,
       code_of_conduct_url:      delegate.code_of_conduct_url,
       payment_policy_ack:       delegate.payment_policy_ack,
       cancellation_policy_ack:  delegate.cancellation_policy_ack,
+      financial_aid_status:     delegate.financial_aid_status,
+      financial_aid_reason:     delegate.financial_aid_reason,
+      financial_aid_contacted:  delegate.financial_aid_contacted,
+      payment_receipt_url:      delegate.payment_receipt_url,
       heard_about:              delegate.heard_about,
       notes:                    delegate.notes
     });
@@ -547,8 +578,11 @@ export default function DelegatesPage() {
       faculty_advisor_last_name:   delegation.faculty_advisor_last_name,
       faculty_advisor_email:       delegation.faculty_advisor_email,
       contact_role:                delegation.contact_role,
+      contact_phone:               delegation.contact_phone,
       school_address:              delegation.school_address,
       delegation_size:             delegation.delegation_size,
+      delegation_size_min:         delegation.delegation_size_min,
+      delegation_size_max:         delegation.delegation_size_max,
       attended_before:             delegation.attended_before,
       payment_process:             delegation.payment_process,
       policy_ack_registration:     delegation.policy_ack_registration,
@@ -663,7 +697,7 @@ export default function DelegatesPage() {
   // ── export ─────────────────────────────────────────────────────────────────
 
   function exportDelegates() {
-    const headers = ["id","first_name","last_name","full_name","preferred_name","grade","email","delegate_experience","delegate_status","first_committee","second_committee","third_committee","delegation","code_of_conduct_url","payment_policy_ack","cancellation_policy_ack","heard_about","notes"];
+    const headers = ["id","first_name","last_name","full_name","preferred_name","grade","email","phone","delegate_experience","delegate_status","first_committee","second_committee","third_committee","committee_selection_ack","delegation","code_of_conduct_url","payment_policy_ack","cancellation_policy_ack","financial_aid_status","financial_aid_reason","financial_aid_contacted","payment_receipt_url","heard_about","notes"];
     const rows = delegates.map(d =>
       headers.map(k => {
         if (k === "delegation") {
@@ -731,6 +765,28 @@ export default function DelegatesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Delegation</Label>
+                <Select value={delegationFilterId} onValueChange={v => setDelegationFilterId(v as UUID | "all")}>
+                  <SelectTrigger><SelectValue placeholder="All delegations" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All delegations</SelectItem>
+                    {delegations.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Financial aid</Label>
+                <Select value={financialAidFilter} onValueChange={v => setFinancialAidFilter(v as FinancialAidStatus | "all")}>
+                  <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="Yes">Yes</SelectItem>
+                    <SelectItem value="No">No</SelectItem>
+                    <SelectItem value="Delegation Paying">Delegation Paying</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
                 <Label>Search</Label>
                 <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or email" />
               </div>
@@ -867,6 +923,10 @@ export default function DelegatesPage() {
                   <Label>Contact role</Label>
                   <Input value={editDelegationDraft.contact_role ?? ""} onChange={e => setDelegationField("contact_role", e.target.value)} />
                 </div>
+                <div className="space-y-2">
+                  <Label>Contact phone</Label>
+                  <Input value={editDelegationDraft.contact_phone ?? ""} onChange={e => setDelegationField("contact_phone", e.target.value)} />
+                </div>
               </div>
 
               <Separator />
@@ -888,6 +948,25 @@ export default function DelegatesPage() {
                     min={1}
                     value={editDelegationDraft.delegation_size ?? ""}
                     onChange={e => setDelegationField("delegation_size", e.target.value ? Number(e.target.value) : null)}
+                  />
+                </div>
+                <div />
+                <div className="space-y-2">
+                  <Label>Delegation size (min)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editDelegationDraft.delegation_size_min ?? ""}
+                    onChange={e => setDelegationField("delegation_size_min", e.target.value ? Number(e.target.value) : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delegation size (max)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editDelegationDraft.delegation_size_max ?? ""}
+                    onChange={e => setDelegationField("delegation_size_max", e.target.value ? Number(e.target.value) : null)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -989,6 +1068,10 @@ export default function DelegatesPage() {
                   <Input value={editDraft.last_name ?? ""} onChange={e => setField("last_name", e.target.value)} />
                 </div>
                 <div className="space-y-2">
+                  <Label>Full name</Label>
+                  <Input value={editDraft.full_name ?? ""} onChange={e => setField("full_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
                   <Label>Preferred name</Label>
                   <Input value={editDraft.preferred_name ?? ""} onChange={e => setField("preferred_name", e.target.value)} />
                 </div>
@@ -996,9 +1079,13 @@ export default function DelegatesPage() {
                   <Label>Grade</Label>
                   <Input value={editDraft.grade ?? ""} onChange={e => setField("grade", e.target.value)} />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
                   <Label>Email</Label>
                   <Input value={editDraft.email ?? ""} onChange={e => setField("email", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={editDraft.phone ?? ""} onChange={e => setField("phone", e.target.value)} />
                 </div>
               </div>
 
@@ -1012,6 +1099,7 @@ export default function DelegatesPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Awaiting Payment">Awaiting Payment</SelectItem>
+                      <SelectItem value="Verify Payment">Verify Payment</SelectItem>
                       <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>
                       <SelectItem value="Assigned">Assigned</SelectItem>
                       <SelectItem value="Confirmed">Confirmed</SelectItem>
@@ -1056,6 +1144,20 @@ export default function DelegatesPage() {
                 <div className="space-y-2">
                   <Label>3rd preference</Label>
                   <Input value={editDraft.third_committee ?? ""} onChange={e => setField("third_committee", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Committee selection acknowledged</Label>
+                  <Select
+                    value={editDraft.committee_selection_ack == null ? "unset" : editDraft.committee_selection_ack ? "yes" : "no"}
+                    onValueChange={v => setField("committee_selection_ack", v === "unset" ? null : v === "yes")}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      <SelectItem value="yes">Acknowledged</SelectItem>
+                      <SelectItem value="no">Not acknowledged</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -1122,6 +1224,45 @@ export default function DelegatesPage() {
                       <SelectItem value="no">Not acknowledged</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Financial aid */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Financial aid</Label>
+                  <Select
+                    value={editDraft.financial_aid_status ?? "unset"}
+                    onValueChange={v => setField("financial_aid_status", v === "unset" ? null : v as FinancialAidStatus)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                      <SelectItem value="Delegation Paying">Delegation Paying</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment receipt URL</Label>
+                  <Input value={editDraft.payment_receipt_url ?? ""} onChange={e => setField("payment_receipt_url", e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Financial aid reason</Label>
+                  <Textarea value={editDraft.financial_aid_reason ?? ""} onChange={e => setField("financial_aid_reason", e.target.value)} rows={2} />
+                </div>
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <Checkbox
+                    id="financial-aid-contacted"
+                    checked={editDraft.financial_aid_contacted ?? false}
+                    onCheckedChange={checked => setField("financial_aid_contacted", checked === true)}
+                  />
+                  <Label htmlFor="financial-aid-contacted" className="font-normal cursor-pointer">
+                    A secretariat member has reached out to this delegate about their financial aid request, if applicable.
+                  </Label>
                 </div>
               </div>
 
