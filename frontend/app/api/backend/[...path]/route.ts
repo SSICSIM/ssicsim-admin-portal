@@ -21,6 +21,8 @@ async function proxy(request: NextRequest) {
 
   const headers = new Headers(request.headers);
   headers.set("X-Admin-Token", adminToken);
+  headers.set("X-Actor-Email", session.user.email);
+  headers.set("X-Actor-Name", session.user.name ?? "");
   headers.delete("host");
 
   const init: RequestInit = {

@@ -67,6 +67,27 @@ const SEED_TEMPLATES = [
     ].join("\n"),
     confirms_assigned: false,
     placeholders: ["preferred_name"]
+  },
+  {
+    name: "Payment Confirmed",
+    subject_template: "SSICSIM 2026 Registration Payment Confirmed",
+    body_template: [
+      "Dear {preferred_name},",
+      "",
+      "Thank you for your payment. We have received and recorded it, and your registration for SSICSIM 2026 is confirmed.",
+      "",
+      "We have also acknowledged your committee preferences and will do our best to place you in your first-choice committee. Background guides are expected to be released toward the end of July, followed by committee assignments in August.",
+      "",
+      "Additional information and event updates will be shared as the conference approaches. Should you have any logistical questions in the meantime, please do not hesitate to contact us. We are always happy to help.",
+      "",
+      "We look forward to welcoming you to SSICSIM 2026.",
+      "",
+      "Best regards,",
+      "The SSICSIM Team"
+    ].join("\n"),
+    confirms_assigned: false,
+    confirms_payment: true,
+    placeholders: ["preferred_name"]
   }
 ];
 
@@ -77,13 +98,15 @@ type FormState = {
   subject_template: string;
   body_template: string;
   confirms_assigned: boolean;
+  confirms_payment: boolean;
 };
 
 const BLANK: FormState = {
   name: "",
   subject_template: "",
   body_template: "Dear {preferred_name},\n\n",
-  confirms_assigned: false
+  confirms_assigned: false,
+  confirms_payment: false
 };
 
 // ─── component ────────────────────────────────────────────────────────────────
@@ -113,7 +136,8 @@ export default function TemplatesPage() {
       name:               t.name,
       subject_template:   t.subject_template,
       body_template:      t.body_template,
-      confirms_assigned:  t.confirms_assigned
+      confirms_assigned:  t.confirms_assigned,
+      confirms_payment:   t.confirms_payment
     });
     setError(null);
     setEditingId(t.id);
@@ -278,6 +302,11 @@ function TemplateCard({
                 Confirms Assigned → Confirmed
               </span>
             )}
+            {template.confirms_payment && (
+              <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                Verify Payment → Awaiting Assignment
+              </span>
+            )}
           </div>
           <p className="text-sm text-[var(--ssicsim-text-muted)]">
             <span className="font-medium text-[var(--ssicsim-text)]">Subject:</span>{" "}
@@ -376,6 +405,18 @@ function TemplateForm({
         />
         <span className="text-sm font-medium text-[var(--ssicsim-text)]">
           Mark Assigned delegates as Confirmed after sending
+        </span>
+      </label>
+
+      <label className="flex items-center gap-3 cursor-pointer select-none">
+        <input
+          type="checkbox"
+          checked={form.confirms_payment}
+          onChange={e => set("confirms_payment", e.target.checked)}
+          className="h-4 w-4 accent-[var(--ssicsim-brand-gold)]"
+        />
+        <span className="text-sm font-medium text-[var(--ssicsim-text)]">
+          Move Verify Payment delegates to Awaiting Assignment after sending
         </span>
       </label>
 

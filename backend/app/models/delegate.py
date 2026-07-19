@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
 from app.database import Base
-from app.models.enums import DelegateExperience, DelegateStatus
+from app.models.enums import DelegateExperience, DelegateStatus, FinancialAidStatus
 
 
 class Delegate(Base):
@@ -30,23 +30,32 @@ class Delegate(Base):
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
     )
+    phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     delegate_experience: Mapped[DelegateExperience] = mapped_column(
         Enum(DelegateExperience, name="delegate_experience_enum", native_enum=True)
     )
     first_committee: Mapped[str] = mapped_column(String(255), nullable=False)
     second_committee: Mapped[str] = mapped_column(String(255), nullable=False)
     third_committee: Mapped[str] = mapped_column(String(255), nullable=False)
+    committee_selection_ack: Mapped[bool | None] = mapped_column(nullable=True)
     date_applied: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     delegate_status: Mapped[DelegateStatus] = mapped_column(
         Enum(DelegateStatus, name="delegate_status_enum", native_enum=True),
         default=DelegateStatus.AWAITING_PAYMENT,
     )
     delegation_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("delegations.id")
+        UUID(as_uuid=True), ForeignKey("delegations.id", ondelete="SET NULL")
     )
     code_of_conduct_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     code_of_conduct_signed: Mapped[bool | None] = mapped_column(nullable=True)
     payment_policy_ack: Mapped[bool | None] = mapped_column(nullable=True)
     cancellation_policy_ack: Mapped[bool | None] = mapped_column(nullable=True)
+    financial_aid_status: Mapped[FinancialAidStatus | None] = mapped_column(
+        Enum(FinancialAidStatus, name="financial_aid_status_enum", native_enum=True),
+        nullable=True,
+    )
+    financial_aid_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    financial_aid_contacted: Mapped[bool | None] = mapped_column(nullable=True)
+    payment_receipt_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     heard_about: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
 import {
   useAssignDelegate,
@@ -15,11 +16,12 @@ import {
   useUpdateDelegate,
   useUpdateDelegation
 } from "@/hooks/useAdminQueries";
-import type { DelegateOut, DelegateStatus, DelegateUpdate, DelegationOut, DelegationUpdate, UUID } from "@/types/api";
+import type { DelegateOut, DelegateStatus, DelegateUpdate, DelegationOut, DelegationUpdate, FinancialAidStatus, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -27,11 +29,26 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious
+} from "@/components/ui/pagination";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -39,16 +56,24 @@ import { Textarea } from "@/components/ui/textarea";
 const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
   { label: "All delegates",       value: "all" },
   { label: "Awaiting payment",    value: "Awaiting Payment" },
+  { label: "Verify payment",      value: "Verify Payment" },
   { label: "Awaiting assignment", value: "Awaiting Assignment" },
   { label: "Assigned",            value: "Assigned" },
   { label: "Confirmed",           value: "Confirmed" }
 ];
 
-const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive"> = {
+const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
   "Awaiting Payment":    "destructive",
-  "Awaiting Assignment": "warning",
-  Assigned:              "success",
-  Confirmed:             "secondary"
+  "Verify Payment":      "default",
+  "Awaiting Assignment": "info",
+  Assigned:              "warning",
+  Confirmed:             "success"
+};
+
+const financialAidBadge: Record<FinancialAidStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
+  Yes:                  "warning",
+  No:                   "default",
+  "Delegation Paying":   "secondary"
 };
 
 // ─── undo toast ───────────────────────────────────────────────────────────────
@@ -108,6 +133,52 @@ function UnassignToast({ pending, onUndo }: { pending: PendingUnassign; onUndo: 
   );
 }
 
+// ─── sorting ──────────────────────────────────────────────────────────────────
+
+type SortKey = "name" | "grade" | "status" | "experience" | "delegation" | "committee" | "character" | "submitted";
+
+function SortableHead({
+  label,
+  sortKeyName,
+  activeKey,
+  activeDir,
+  onSort
+}: {
+  label: string;
+  sortKeyName: SortKey;
+  activeKey: SortKey;
+  activeDir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+}) {
+  const isActive = activeKey === sortKeyName;
+  return (
+    <TableHead className="cursor-pointer select-none" onClick={() => onSort(sortKeyName)}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {isActive ? (
+          activeDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />
+        ) : null}
+      </span>
+    </TableHead>
+  );
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "--";
+  return new Date(value).toLocaleDateString();
+}
+
+// ─── read-only field display (used by the View dialog) ────────────────────────
+
+function Field({ label, value, span }: { label: string; value: ReactNode; span?: boolean }) {
+  return (
+    <div className={span ? "space-y-1 sm:col-span-2" : "space-y-1"}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">{label}</p>
+      <p className="text-sm text-[var(--ssicsim-text)] whitespace-pre-wrap break-words">{value ?? "--"}</p>
+    </div>
+  );
+}
+
 // ─── shared table row ─────────────────────────────────────────────────────────
 
 function DelegateRow({
@@ -115,6 +186,7 @@ function DelegateRow({
   assignedCommittee,
   assignedCharacter,
   delegationName,
+  onView,
   onEdit,
   onAssign,
   onUnassign,
@@ -126,6 +198,7 @@ function DelegateRow({
   assignedCommittee: string | null;
   assignedCharacter: string | null;
   delegationName: string;
+  onView: () => void;
   onEdit: () => void;
   onAssign: () => void;
   onUnassign: () => void;
@@ -133,9 +206,6 @@ function DelegateRow({
   unassigning: boolean;
   isPendingUnassign: boolean;
 }) {
-  const prefs = [delegate.first_committee, delegate.second_committee, delegate.third_committee]
-    .filter(Boolean).join(" / ") || "--";
-
   return (
     <TableRow className={isPendingUnassign ? "opacity-40" : undefined}>
       <TableCell className="font-medium">{delegate.last_name}, {delegate.first_name}</TableCell>
@@ -149,39 +219,48 @@ function DelegateRow({
       </TableCell>
       <TableCell>{delegate.delegate_experience}</TableCell>
       <TableCell>{delegationName}</TableCell>
+      <TableCell>
+        {delegate.financial_aid_status ? (
+          <Badge variant={financialAidBadge[delegate.financial_aid_status]}>{delegate.financial_aid_status}</Badge>
+        ) : "--"}
+      </TableCell>
       <TableCell>{assignedCommittee ?? "--"}</TableCell>
       <TableCell>{assignedCharacter ?? "--"}</TableCell>
-      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">{prefs}</TableCell>
-      <TableCell className="text-xs text-[var(--ssicsim-text-muted)]">
-        <div className="space-y-0.5">
-          <div>CoC: {delegate.code_of_conduct_url ? "✓" : "--"}</div>
-          <div>Payment: {delegate.payment_policy_ack == null ? "--" : delegate.payment_policy_ack ? "✓" : "✗"}</div>
-          <div>Cancellation: {delegate.cancellation_policy_ack == null ? "--" : delegate.cancellation_policy_ack ? "✓" : "✗"}</div>
-        </div>
-      </TableCell>
+      <TableCell className="whitespace-nowrap text-xs text-[var(--ssicsim-text-muted)]">{formatDate(delegate.date_applied)}</TableCell>
       <TableCell className="text-right">
-        <div className="flex flex-wrap justify-end gap-1.5">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onAssign}
-            disabled={delegate.delegate_status === "Awaiting Payment"}
-            title={delegate.delegate_status === "Awaiting Payment" ? "Payment required before assignment" : undefined}
-          >
-            {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
-          </Button>
-          {(delegate.delegate_status === "Assigned" || delegate.delegate_status === "Confirmed") && (
-            <Button size="sm" variant="ghost" onClick={onUnassign} disabled={unassigning || isPendingUnassign}>
-              {isPendingUnassign ? "Undoing…" : "Unassign"}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" aria-label="Row actions">
+              <MoreHorizontal className="h-4 w-4" />
             </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={onEdit}>
-            Edit
-          </Button>
-          <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={onDelete}>
-            Delete
-          </Button>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onSelect={e => { e.preventDefault(); setTimeout(onView, 0); }}>View</DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={e => { e.preventDefault(); setTimeout(onAssign, 0); }}
+              disabled={delegate.delegate_status === "Awaiting Payment"}
+              title={delegate.delegate_status === "Awaiting Payment" ? "Payment required before assignment" : undefined}
+            >
+              {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
+            </DropdownMenuItem>
+            {(delegate.delegate_status === "Assigned" || delegate.delegate_status === "Confirmed") && (
+              <DropdownMenuItem
+                onSelect={e => { e.preventDefault(); setTimeout(onUnassign, 0); }}
+                disabled={unassigning || isPendingUnassign}
+              >
+                {isPendingUnassign ? "Undoing…" : "Unassign"}
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onSelect={e => { e.preventDefault(); setTimeout(onEdit, 0); }}>Edit</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={e => { e.preventDefault(); setTimeout(onDelete, 0); }}
+              className="text-red-600 focus:bg-red-50 focus:text-red-700"
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
@@ -189,21 +268,28 @@ function DelegateRow({
 
 // ─── table head shared ────────────────────────────────────────────────────────
 
-function DelegateTableHead() {
+function DelegateTableHead({
+  sortKey,
+  sortDir,
+  onSort
+}: {
+  sortKey: SortKey;
+  sortDir: "asc" | "desc";
+  onSort: (key: SortKey) => void;
+}) {
   return (
     <TableHeader>
       <TableRow>
-        <TableHead>Delegate</TableHead>
+        <SortableHead label="Delegate" sortKeyName="name" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <TableHead>Preferred</TableHead>
-        <TableHead>Grade</TableHead>
+        <SortableHead label="Grade" sortKeyName="grade" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <TableHead>Email</TableHead>
-        <TableHead>Status</TableHead>
-        <TableHead>Experience</TableHead>
-        <TableHead>Delegation</TableHead>
-        <TableHead>Committee</TableHead>
-        <TableHead>Character</TableHead>
-        <TableHead>Preferences</TableHead>
-        <TableHead>Compliance</TableHead>
+        <SortableHead label="Status" sortKeyName="status" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Experience" sortKeyName="experience" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Delegation" sortKeyName="delegation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Committee" sortKeyName="committee" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Character" sortKeyName="character" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <SortableHead label="Submitted" sortKeyName="submitted" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <TableHead></TableHead>
       </TableRow>
     </TableHeader>
@@ -226,7 +312,20 @@ export default function DelegatesPage() {
   // ── filters ────────────────────────────────────────────────────────────────
   const [statusFilter,     setStatusFilter]     = useState<DelegateStatus | "all">("all");
   const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
+  const [delegationFilterId, setDelegationFilterId] = useState<UUID | "all">("all");
+  const [financialAidFilter, setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
   const [searchTerm,       setSearchTerm]       = useState("");
+
+  // ── sorting & pagination ───────────────────────────────────────────────────
+  const [sortKey, setSortKey] = useState<SortKey>("submitted");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [page,    setPage]    = useState(1);
+  const PAGE_SIZE = 25;
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir("asc"); }
+  }
 
   // ── assignment flow ────────────────────────────────────────────────────────
   const [assignmentOpen,       setAssignmentOpen]       = useState(false);
@@ -248,6 +347,9 @@ export default function DelegatesPage() {
     const t = timers.current;
     return () => { t.forEach(clearTimeout); };
   }, []);
+
+  // ── delegate view dialog ───────────────────────────────────────────────────
+  const [viewDelegate, setViewDelegate] = useState<DelegateOut | null>(null);
 
   // ── delegate edit dialog ───────────────────────────────────────────────────
   const [editDelegate, setEditDelegate] = useState<DelegateOut | null>(null);
@@ -294,21 +396,54 @@ export default function DelegatesPage() {
         return ch?.committee_id === committeeFilterId;
       });
     }
+    if (delegationFilterId !== "all") list = list.filter(d => d.delegation_id === delegationFilterId);
+    if (financialAidFilter !== "all") list = list.filter(d => d.financial_aid_status === financialAidFilter);
     return list;
-  }, [delegates, searchTerm, statusFilter, committeeFilterId, assignedCharacterByDelegateId]);
+  }, [delegates, searchTerm, statusFilter, committeeFilterId, delegationFilterId, financialAidFilter, assignedCharacterByDelegateId]);
 
-  const { awaitingPayment, needsAssignment, assignedDelegates } = useMemo(() => {
-    const order: Record<DelegateStatus, number> = {
-      "Awaiting Payment": 3, "Awaiting Assignment": 2, Assigned: 0, Confirmed: 1
-    };
-    return {
-      awaitingPayment:   filteredDelegates.filter(d => d.delegate_status === "Awaiting Payment"),
-      needsAssignment:   filteredDelegates.filter(d => d.delegate_status === "Awaiting Assignment"),
-      assignedDelegates: filteredDelegates
-        .filter(d => d.delegate_status === "Assigned" || d.delegate_status === "Confirmed")
-        .sort((a, b) => order[a.delegate_status] - order[b.delegate_status])
-    };
-  }, [filteredDelegates]);
+  const needsAssignment = useMemo(
+    () => filteredDelegates.filter(d => d.delegate_status === "Awaiting Assignment"),
+    [filteredDelegates]
+  );
+
+  const statusCounts = useMemo(() => {
+    const counts = new Map<DelegateStatus, number>();
+    delegates.forEach(d => counts.set(d.delegate_status, (counts.get(d.delegate_status) ?? 0) + 1));
+    return counts;
+  }, [delegates]);
+
+  function sortValue(d: DelegateOut, key: SortKey): string {
+    switch (key) {
+      case "name": return `${d.last_name}, ${d.first_name}`.toLowerCase();
+      case "grade": return d.grade ?? "";
+      case "status": return d.delegate_status;
+      case "experience": return d.delegate_experience;
+      case "delegation": return delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate";
+      case "committee": {
+        const ch = assignedCharacterByDelegateId.get(d.id);
+        return ch ? committeeMap.get(ch.committee_id)?.name ?? "" : "";
+      }
+      case "character": return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
+      case "submitted": return d.date_applied ?? "";
+    }
+  }
+
+  const sortedDelegates = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filteredDelegates].sort((a, b) => {
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
+      if (av < bv) return -dir;
+      if (av > bv) return dir;
+      return 0;
+    });
+  }, [filteredDelegates, sortKey, sortDir, delegationMap, assignedCharacterByDelegateId, committeeMap]);
+
+  useEffect(() => { setPage(1); }, [statusFilter, committeeFilterId, searchTerm, sortKey, sortDir]);
+
+  const pageCount    = Math.max(1, Math.ceil(sortedDelegates.length / PAGE_SIZE));
+  const currentPage  = Math.min(page, pageCount);
+  const pagedDelegates = sortedDelegates.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const filteredCharacters = useMemo(() =>
     characters.filter(c => (!committeeId || c.committee_id === committeeId) && c.delegate_id == null),
@@ -333,6 +468,7 @@ export default function DelegatesPage() {
       assignedCommittee:  com,
       assignedCharacter:  ch?.name ?? null,
       delegationName:     delegationMap.get(delegate.delegation_id ?? "")?.name ?? "Independent Delegate",
+      onView:             () => openView(delegate),
       onEdit:             () => openEdit(delegate),
       onAssign:           () => openAssignment(delegate.id),
       onUnassign:         () => startUnassign(delegate.id),
@@ -402,15 +538,21 @@ export default function DelegatesPage() {
       preferred_name:           delegate.preferred_name,
       grade:                    delegate.grade,
       email:                    delegate.email,
+      phone:                    delegate.phone,
       delegate_experience:      delegate.delegate_experience,
       delegate_status:          delegate.delegate_status,
       first_committee:          delegate.first_committee,
       second_committee:         delegate.second_committee,
       third_committee:          delegate.third_committee,
+      committee_selection_ack:  delegate.committee_selection_ack,
       delegation_id:            delegate.delegation_id,
       code_of_conduct_url:      delegate.code_of_conduct_url,
       payment_policy_ack:       delegate.payment_policy_ack,
       cancellation_policy_ack:  delegate.cancellation_policy_ack,
+      financial_aid_status:     delegate.financial_aid_status,
+      financial_aid_reason:     delegate.financial_aid_reason,
+      financial_aid_contacted:  delegate.financial_aid_contacted,
+      payment_receipt_url:      delegate.payment_receipt_url,
       heard_about:              delegate.heard_about,
       notes:                    delegate.notes
     });
@@ -419,6 +561,14 @@ export default function DelegatesPage() {
   function closeEdit() {
     setEditDelegate(null);
     setEditError(null);
+  }
+
+  function openView(delegate: DelegateOut) {
+    setViewDelegate(delegate);
+  }
+
+  function closeView() {
+    setViewDelegate(null);
   }
 
   function setField<K extends keyof DelegateUpdate>(key: K, value: DelegateUpdate[K]) {
@@ -447,8 +597,11 @@ export default function DelegatesPage() {
       faculty_advisor_last_name:   delegation.faculty_advisor_last_name,
       faculty_advisor_email:       delegation.faculty_advisor_email,
       contact_role:                delegation.contact_role,
+      contact_phone:               delegation.contact_phone,
       school_address:              delegation.school_address,
       delegation_size:             delegation.delegation_size,
+      delegation_size_min:         delegation.delegation_size_min,
+      delegation_size_max:         delegation.delegation_size_max,
       attended_before:             delegation.attended_before,
       payment_process:             delegation.payment_process,
       policy_ack_registration:     delegation.policy_ack_registration,
@@ -563,7 +716,7 @@ export default function DelegatesPage() {
   // ── export ─────────────────────────────────────────────────────────────────
 
   function exportDelegates() {
-    const headers = ["id","first_name","last_name","full_name","preferred_name","grade","email","delegate_experience","delegate_status","first_committee","second_committee","third_committee","delegation","code_of_conduct_url","payment_policy_ack","cancellation_policy_ack","heard_about","notes"];
+    const headers = ["id","first_name","last_name","full_name","preferred_name","grade","email","phone","delegate_experience","delegate_status","first_committee","second_committee","third_committee","committee_selection_ack","delegation","code_of_conduct_url","payment_policy_ack","cancellation_policy_ack","financial_aid_status","financial_aid_reason","financial_aid_contacted","payment_receipt_url","heard_about","notes"];
     const rows = delegates.map(d =>
       headers.map(k => {
         if (k === "delegation") {
@@ -599,123 +752,83 @@ export default function DelegatesPage() {
         <p className="section-subtitle mt-2">Manage delegate records, assignments, and statuses.</p>
       </header>
 
-      {/* Filters & actions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Filters &amp; Actions</CardTitle>
-          <CardDescription>Search, filter, and bulk-manage delegates.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--ssicsim-text-muted)]">
-            <a className="underline" href="#awaiting-payment">Awaiting payment</a>
-            <span>·</span>
-            <a className="underline" href="#needs-assignment">Needs assignment</a>
-            <span>·</span>
-            <a className="underline" href="#assigned-confirmed">Assigned / Confirmed</a>
-            <span>·</span>
-            <a className="underline" href="#delegations">Delegations</a>
-          </div>
-          <div className="grid gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={statusFilter} onValueChange={v => setStatusFilter(v as DelegateStatus | "all")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {statusFilters.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Committee</Label>
-              <Select value={committeeFilterId} onValueChange={v => setCommitteeFilterId(v as UUID | "all")}>
-                <SelectTrigger><SelectValue placeholder="All committees" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All committees</SelectItem>
-                  {committees.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Search</Label>
-              <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or email" />
-            </div>
-            <div className="flex items-end justify-end gap-2 flex-wrap">
-              <Button variant="secondary" onClick={openFlow}>Assignment flow</Button>
-              <Button variant="ghost" onClick={exportDelegates}>Export CSV</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Awaiting Payment */}
-      <section id="awaiting-payment">
+      {/* Delegates: filters + table */}
+      <section id="delegates-table">
         <Card>
           <CardHeader>
-            <CardTitle>Awaiting Payment</CardTitle>
+            <CardTitle>Delegates</CardTitle>
             <CardDescription>
-              Delegates who have not yet completed payment. Assignment is blocked until their status is changed to Awaiting Assignment.
+              Search, filter, and bulk-manage delegates · {sortedDelegates.length} of {delegates.length} shown
+              {statusFilter !== "all" ? ` · ${statusFilter}` : ""}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <Tabs value={statusFilter} onValueChange={v => setStatusFilter(v as DelegateStatus | "all")}>
+              <TabsList>
+                {statusFilters.map(f => (
+                  <TabsTrigger key={f.value} value={f.value}>
+                    {f.label} ({f.value === "all" ? delegates.length : statusCounts.get(f.value as DelegateStatus) ?? 0})
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Committee</Label>
+                <Select value={committeeFilterId} onValueChange={v => setCommitteeFilterId(v as UUID | "all")}>
+                  <SelectTrigger><SelectValue placeholder="All committees" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All committees</SelectItem>
+                    {committees.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Search</Label>
+                <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or email" />
+              </div>
+              <div className="flex items-end justify-end gap-2 flex-wrap">
+                <Button variant="secondary" onClick={openFlow}>Assignment flow</Button>
+                <Button variant="ghost" onClick={exportDelegates}>Export CSV</Button>
+              </div>
+            </div>
+            <Separator />
             {delegatesQuery.isLoading ? (
               <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
-            ) : awaitingPayment.length === 0 ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates awaiting payment.</p>
+            ) : sortedDelegates.length === 0 ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates match these filters.</p>
             ) : (
-              <Table>
-                <DelegateTableHead />
-                <TableBody>
-                  {awaitingPayment.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Needs assignment */}
-      <section id="needs-assignment">
-        <Card>
-          <CardHeader>
-            <CardTitle>Needs Assignment</CardTitle>
-            <CardDescription>Delegates awaiting committee assignment.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {delegatesQuery.isLoading ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
-            ) : needsAssignment.length === 0 ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates need assignment.</p>
-            ) : (
-              <Table>
-                <DelegateTableHead />
-                <TableBody>
-                  {needsAssignment.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Assigned / Confirmed */}
-      <section id="assigned-confirmed">
-        <Card>
-          <CardHeader>
-            <CardTitle>Assigned / Confirmed</CardTitle>
-            <CardDescription>Delegates with assignments or confirmed status.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {delegatesQuery.isLoading ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
-            ) : assignedDelegates.length === 0 ? (
-              <p className="text-sm text-[var(--ssicsim-text-muted)]">No delegates assigned yet.</p>
-            ) : (
-              <Table>
-                <DelegateTableHead />
-                <TableBody>
-                  {assignedDelegates.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
-                </TableBody>
-              </Table>
+              <>
+                <Table>
+                  <DelegateTableHead sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                  <TableBody>
+                    {pagedDelegates.map(d => <DelegateRow key={d.id} {...rowProps(d)} />)}
+                  </TableBody>
+                </Table>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-[var(--ssicsim-text-muted)]">
+                    Page {currentPage} of {pageCount} · {sortedDelegates.length} delegate{sortedDelegates.length === 1 ? "" : "s"}
+                  </p>
+                  <Pagination className="mx-0 w-auto">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                          aria-disabled={currentPage <= 1}
+                          className={currentPage <= 1 ? "pointer-events-none opacity-50" : undefined}
+                        />
+                      </PaginationItem>
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                          aria-disabled={currentPage >= pageCount}
+                          className={currentPage >= pageCount ? "pointer-events-none opacity-50" : undefined}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
@@ -742,7 +855,6 @@ export default function DelegatesPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Size</TableHead>
                     <TableHead>Attended Before</TableHead>
-                    <TableHead>Policies</TableHead>
                     <TableHead>Delegates</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
@@ -751,15 +863,6 @@ export default function DelegatesPage() {
                   {delegations.map(delegation => {
                     const count = delegates.filter(d => d.delegation_id === delegation.id).length;
                     const advisor = [delegation.faculty_advisor_first_name, delegation.faculty_advisor_last_name].filter(Boolean).join(" ");
-                    const policies = [
-                      delegation.policy_ack_registration,
-                      delegation.policy_ack_payment,
-                      delegation.policy_ack_cancellation,
-                      delegation.policy_ack_conduct,
-                      delegation.policy_ack_photography
-                    ];
-                    const ackedCount = policies.filter(Boolean).length;
-                    const totalPolicies = policies.length;
                     return (
                       <TableRow key={delegation.id}>
                         <TableCell className="font-medium">{delegation.name}</TableCell>
@@ -771,11 +874,6 @@ export default function DelegatesPage() {
                         <TableCell>{delegation.delegation_size ?? "--"}</TableCell>
                         <TableCell>
                           {delegation.attended_before == null ? "--" : delegation.attended_before ? "Yes" : "No"}
-                        </TableCell>
-                        <TableCell>
-                          <span className={ackedCount === totalPolicies ? "text-emerald-600 font-medium" : "text-amber-600"}>
-                            {ackedCount}/{totalPolicies}
-                          </span>
                         </TableCell>
                         <TableCell>{count}</TableCell>
                         <TableCell>
@@ -822,6 +920,10 @@ export default function DelegatesPage() {
                   <Label>Contact role</Label>
                   <Input value={editDelegationDraft.contact_role ?? ""} onChange={e => setDelegationField("contact_role", e.target.value)} />
                 </div>
+                <div className="space-y-2">
+                  <Label>Contact phone</Label>
+                  <Input value={editDelegationDraft.contact_phone ?? ""} onChange={e => setDelegationField("contact_phone", e.target.value)} />
+                </div>
               </div>
 
               <Separator />
@@ -843,6 +945,25 @@ export default function DelegatesPage() {
                     min={1}
                     value={editDelegationDraft.delegation_size ?? ""}
                     onChange={e => setDelegationField("delegation_size", e.target.value ? Number(e.target.value) : null)}
+                  />
+                </div>
+                <div />
+                <div className="space-y-2">
+                  <Label>Delegation size (min)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editDelegationDraft.delegation_size_min ?? ""}
+                    onChange={e => setDelegationField("delegation_size_min", e.target.value ? Number(e.target.value) : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Delegation size (max)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={editDelegationDraft.delegation_size_max ?? ""}
+                    onChange={e => setDelegationField("delegation_size_max", e.target.value ? Number(e.target.value) : null)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -920,6 +1041,106 @@ export default function DelegatesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── View Dialog ──────────────────────────────────────────────────────── */}
+      <Dialog open={viewDelegate !== null} onOpenChange={open => { if (!open) closeView(); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {viewDelegate?.preferred_name ?? viewDelegate?.first_name} {viewDelegate?.last_name}
+            </DialogTitle>
+            <DialogDescription>Delegate record</DialogDescription>
+          </DialogHeader>
+
+          {viewDelegate && (() => {
+            const ch = assignedCharacterByDelegateId.get(viewDelegate.id);
+            const assignedCommitteeName = ch ? committeeMap.get(ch.committee_id)?.name ?? null : null;
+            const viewDelegationName = delegationMap.get(viewDelegate.delegation_id ?? "")?.name ?? "Independent Delegate";
+            const yesNo = (v: boolean | null) => (v == null ? null : v ? "Yes" : "No");
+            const ackNotAck = (v: boolean | null) => (v == null ? null : v ? "Acknowledged" : "Not acknowledged");
+            const linkField = (url: string | null) =>
+              url ? (
+                <a href={url} target="_blank" rel="noreferrer" className="text-[var(--ssicsim-brand-gold)] underline break-all">
+                  {url}
+                </a>
+              ) : null;
+
+            return (
+              <div className="space-y-5 pt-1">
+                {/* Personal info */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="First name" value={viewDelegate.first_name} />
+                  <Field label="Last name" value={viewDelegate.last_name} />
+                  <Field label="Full name" value={viewDelegate.full_name} />
+                  <Field label="Preferred name" value={viewDelegate.preferred_name} />
+                  <Field label="Grade" value={viewDelegate.grade} />
+                  <Field label="Email" value={viewDelegate.email} />
+                  <Field label="Phone" value={viewDelegate.phone} />
+                </div>
+
+                <Separator />
+
+                {/* Status & assignment */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Status" value={<Badge variant={statusBadge[viewDelegate.delegate_status]}>{viewDelegate.delegate_status}</Badge>} />
+                  <Field label="Experience" value={viewDelegate.delegate_experience} />
+                  <Field label="Delegation" value={viewDelegationName} />
+                  <Field label="Assigned committee" value={assignedCommitteeName} />
+                  <Field label="Assigned character" value={ch?.name ?? null} />
+                  <Field label="Submitted" value={formatDate(viewDelegate.date_applied)} />
+                </div>
+
+                <Separator />
+
+                {/* Committee preferences */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="1st preference" value={viewDelegate.first_committee} />
+                  <Field label="2nd preference" value={viewDelegate.second_committee} />
+                  <Field label="3rd preference" value={viewDelegate.third_committee} />
+                  <Field label="Committee selection acknowledged" value={ackNotAck(viewDelegate.committee_selection_ack)} />
+                </div>
+
+                <Separator />
+
+                {/* Compliance */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Code of conduct URL" value={linkField(viewDelegate.code_of_conduct_url)} span />
+                  <Field label="Code of conduct signed" value={yesNo(viewDelegate.code_of_conduct_signed)} />
+                  <Field label="Payment policy" value={ackNotAck(viewDelegate.payment_policy_ack)} />
+                  <Field label="Cancellation policy" value={ackNotAck(viewDelegate.cancellation_policy_ack)} />
+                </div>
+
+                <Separator />
+
+                {/* Financial aid */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Financial aid"
+                    value={viewDelegate.financial_aid_status ? (
+                      <Badge variant={financialAidBadge[viewDelegate.financial_aid_status]}>{viewDelegate.financial_aid_status}</Badge>
+                    ) : null}
+                  />
+                  <Field label="SEC reached out" value={yesNo(viewDelegate.financial_aid_contacted)} />
+                  <Field label="Payment receipt URL" value={linkField(viewDelegate.payment_receipt_url)} span />
+                  <Field label="Financial aid reason" value={viewDelegate.financial_aid_reason} span />
+                </div>
+
+                <Separator />
+
+                {/* Admin */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Heard about" value={viewDelegate.heard_about} />
+                </div>
+                <Field label="Notes" value={viewDelegate.notes} />
+
+                <div className="flex justify-end pt-1">
+                  <Button variant="ghost" onClick={closeView}>Close</Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {/* ── Edit Dialog ──────────────────────────────────────────────────────── */}
       <Dialog open={editDelegate !== null} onOpenChange={open => { if (!open) closeEdit(); }}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -944,6 +1165,10 @@ export default function DelegatesPage() {
                   <Input value={editDraft.last_name ?? ""} onChange={e => setField("last_name", e.target.value)} />
                 </div>
                 <div className="space-y-2">
+                  <Label>Full name</Label>
+                  <Input value={editDraft.full_name ?? ""} onChange={e => setField("full_name", e.target.value)} />
+                </div>
+                <div className="space-y-2">
                   <Label>Preferred name</Label>
                   <Input value={editDraft.preferred_name ?? ""} onChange={e => setField("preferred_name", e.target.value)} />
                 </div>
@@ -951,9 +1176,13 @@ export default function DelegatesPage() {
                   <Label>Grade</Label>
                   <Input value={editDraft.grade ?? ""} onChange={e => setField("grade", e.target.value)} />
                 </div>
-                <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-2">
                   <Label>Email</Label>
                   <Input value={editDraft.email ?? ""} onChange={e => setField("email", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Phone</Label>
+                  <Input value={editDraft.phone ?? ""} onChange={e => setField("phone", e.target.value)} />
                 </div>
               </div>
 
@@ -967,6 +1196,7 @@ export default function DelegatesPage() {
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Awaiting Payment">Awaiting Payment</SelectItem>
+                      <SelectItem value="Verify Payment">Verify Payment</SelectItem>
                       <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>
                       <SelectItem value="Assigned">Assigned</SelectItem>
                       <SelectItem value="Confirmed">Confirmed</SelectItem>
@@ -1011,6 +1241,20 @@ export default function DelegatesPage() {
                 <div className="space-y-2">
                   <Label>3rd preference</Label>
                   <Input value={editDraft.third_committee ?? ""} onChange={e => setField("third_committee", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Committee selection acknowledged</Label>
+                  <Select
+                    value={editDraft.committee_selection_ack == null ? "unset" : editDraft.committee_selection_ack ? "yes" : "no"}
+                    onValueChange={v => setField("committee_selection_ack", v === "unset" ? null : v === "yes")}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      <SelectItem value="yes">Acknowledged</SelectItem>
+                      <SelectItem value="no">Not acknowledged</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -1077,6 +1321,45 @@ export default function DelegatesPage() {
                       <SelectItem value="no">Not acknowledged</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Financial aid */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Financial aid</Label>
+                  <Select
+                    value={editDraft.financial_aid_status ?? "unset"}
+                    onValueChange={v => setField("financial_aid_status", v === "unset" ? null : v as FinancialAidStatus)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="unset">Not set</SelectItem>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                      <SelectItem value="Delegation Paying">Delegation Paying</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment receipt URL</Label>
+                  <Input value={editDraft.payment_receipt_url ?? ""} onChange={e => setField("payment_receipt_url", e.target.value)} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>Financial aid reason</Label>
+                  <Textarea value={editDraft.financial_aid_reason ?? ""} onChange={e => setField("financial_aid_reason", e.target.value)} rows={2} />
+                </div>
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <Checkbox
+                    id="financial-aid-contacted"
+                    checked={editDraft.financial_aid_contacted ?? false}
+                    onCheckedChange={checked => setField("financial_aid_contacted", checked === true)}
+                  />
+                  <Label htmlFor="financial-aid-contacted" className="font-normal cursor-pointer">
+                    A secretariat member has reached out to this delegate about their financial aid request, if applicable.
+                  </Label>
                 </div>
               </div>
 

@@ -50,16 +50,48 @@ OpenAPI docs: http://localhost:8000/docs
   - Otherwise, files are saved to `UPLOAD_DIR` and served from `UPLOAD_BASE_URL` (default `/uploads`). The static mount in `main.py` stays in place even when Supabase is enabled—it just isn’t used.
 
 ## Tests
+Tests run against a **real Postgres database**, not SQLite — `tests/conftest.py` requires an explicit `TEST_DATABASE_URL` pointing at a dedicated test database, and its fixture **drops every table on teardown**. It refuses to run if the database name doesn't contain `test`, and does *not* fall back to your real `DATABASE_URL` — never point it at your dev/prod database.
+
+One-time setup (only needed once per environment):
+```
+docker compose exec db psql -U postgres -c "CREATE DATABASE ssicsim_test;"
+```
+Run tests (from `backend/`, on the host — same `localhost:5432` reasoning as Alembic above):
 ```
 cd backend
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 pytest -q
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 TEST_DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/ssicsim_test pytest -q
 ```
-Uses SQLite in-memory + temp uploads; disabling auto-loaded plugins avoids global interference.
+Disabling auto-loaded plugins avoids global interference. Uploads go to a temp dir per test run.
 
 ## Migrations
+The repo-root `.env` sets `DATABASE_URL` to `postgresql+psycopg2://postgres:postgres@db:5432/ssicsim` — `db` is the Postgres service name in `docker-compose.yml` and only resolves inside the Docker network. Because of this, run Alembic **inside the backend container**, not from your host shell:
 ```
-cd backend
-alembic revision --autogenerate -m "message"
-alembic upgrade head
+docker compose exec backend alembic revision --autogenerate -m "message"
+docker compose exec backend alembic upgrade heads
 ```
+
 Ensure the DB `alembic_version` matches the baseline in `migrations/versions`.
+
+### Multiple heads
+If two branches/PRs each add a migration on top of the same parent revision, Alembic ends up with two heads and `revision --autogenerate` fails with:
+```
+Multiple heads are present; please specify the head revision on which the new revision should be based, or perform a merge.
+```
+Check the heads with:
+```
+docker compose exec backend alembic heads -v
+```
+Resolve it by creating a merge revision, then apply it before generating anything new:
+```
+docker compose exec backend alembic merge heads -m "merge_heads"
+docker compose exec backend alembic upgrade heads
+```
+After that, `alembic revision --autogenerate` will build on top of the merge point as normal.
+
+### Sanity-checking a migration
+After autogenerating and applying, confirm there's no remaining drift between the models and the DB:
+```
+docker compose exec backend alembic check
+```
+`No new upgrade operations detected.` means the migration fully captures the model changes.
+

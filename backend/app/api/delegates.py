@@ -5,8 +5,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_actor
 from app.database import get_db
 from app.models.delegate import Delegate
+from app.models.sec_member import SecMember
 from app.schemas import DelegateCreate, DelegateOut, DelegateUpdate
 from app.services import delegates
 
@@ -30,9 +32,12 @@ def get_delegate(delegate_id: UUID, db: Session = Depends(get_db)) -> Delegate:
 
 @router.patch("/{delegate_id}", response_model=DelegateOut)
 def update_delegate(
-    delegate_id: UUID, payload: DelegateUpdate, db: Session = Depends(get_db)
+    delegate_id: UUID,
+    payload: DelegateUpdate,
+    db: Session = Depends(get_db),
+    actor: SecMember | None = Depends(get_current_actor),
 ) -> Delegate:
-    return delegates.update_delegate(db, delegate_id, payload)
+    return delegates.update_delegate(db, delegate_id, payload, actor)
 
 
 @router.delete(

@@ -119,6 +119,12 @@ export default function EmailerPage() {
     [selectedDelegates]
   );
 
+  // delegates in the audience that are "Verify Payment" (candidates for → Awaiting Assignment)
+  const verifyPaymentInAudience = useMemo(
+    () => selectedDelegates.filter(d => d.delegate_status === "Verify Payment"),
+    [selectedDelegates]
+  );
+
   // ── recipient data builder ──────────────────────────────────────────────────
 
   function buildData(d: DelegateOut): RecipientData {
@@ -213,17 +219,28 @@ export default function EmailerPage() {
       // Show optimistic queued state for every recipient
       setResults(selectedDelegates.map(d => ({ email: d.email, success: true })));
 
-      // Promote Assigned → Confirmed if the template requests it
+      // Promote statuses if the template requests it: Assigned → Confirmed,
+      // and/or Verify Payment → Awaiting Assignment.
+      const promotions: { delegates: DelegateOut[]; status: DelegateStatus; label: string }[] = [];
       if (activeTemplate?.confirms_assigned && assignedInAudience.length > 0) {
+        promotions.push({ delegates: assignedInAudience, status: "Confirmed", label: "marked as Confirmed" });
+      }
+      if (activeTemplate?.confirms_payment && verifyPaymentInAudience.length > 0) {
+        promotions.push({ delegates: verifyPaymentInAudience, status: "Awaiting Assignment", label: "moved to Awaiting Assignment" });
+      }
+
+      if (promotions.length > 0) {
         setConfirmingStatus(true);
         try {
           await Promise.all(
-            assignedInAudience.map(d =>
-              updateDelegate.mutateAsync({ delegateId: d.id, data: { delegate_status: "Confirmed" } })
+            promotions.flatMap(({ delegates: ds, status }) =>
+              ds.map(d => updateDelegate.mutateAsync({ delegateId: d.id, data: { delegate_status: status } }))
             )
           );
           setConfirmStatusMsg(
-            `${assignedInAudience.length} delegate${assignedInAudience.length !== 1 ? "s" : ""} marked as Confirmed.`
+            promotions
+              .map(({ delegates: ds, label }) => `${ds.length} delegate${ds.length !== 1 ? "s" : ""} ${label}.`)
+              .join(" ")
           );
         } catch {
           setConfirmStatusMsg("Emails queued but status update failed — update manually.");
@@ -318,6 +335,7 @@ export default function EmailerPage() {
                       <SelectContent>
                         <SelectItem value="all">All Delegates</SelectItem>
                         <SelectItem value="Awaiting Payment">Awaiting Payment</SelectItem>
+                        <SelectItem value="Verify Payment">Verify Payment</SelectItem>
                         <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>
                         <SelectItem value="Assigned">Assigned</SelectItem>
                         <SelectItem value="Confirmed">Confirmed</SelectItem>
@@ -412,11 +430,18 @@ export default function EmailerPage() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-semibold text-[var(--ssicsim-brand-navy)]">{t.name}</p>
-                            {t.confirms_assigned && (
-                              <span className="shrink-0 rounded-full border border-[var(--ssicsim-brand-gold)]/40 bg-[var(--ssicsim-brand-gold-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ssicsim-brand-gold)]">
-                                Confirms
-                              </span>
-                            )}
+                            <span className="flex shrink-0 gap-1">
+                              {t.confirms_assigned && (
+                                <span className="rounded-full border border-[var(--ssicsim-brand-gold)]/40 bg-[var(--ssicsim-brand-gold-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ssicsim-brand-gold)]">
+                                  Confirms
+                                </span>
+                              )}
+                              {t.confirms_payment && (
+                                <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+                                  Payment
+                                </span>
+                              )}
+                            </span>
                           </div>
                           <p className="mt-1 text-xs text-[var(--ssicsim-text-muted)] font-mono leading-relaxed line-clamp-1">
                             {t.subject_template}
@@ -499,6 +524,18 @@ export default function EmailerPage() {
                     </p>
                     <p className="mt-0.5 text-sm text-[var(--ssicsim-text-muted)]">
                       After sending, <strong className="text-[var(--ssicsim-brand-navy)]">{assignedInAudience.length} Assigned delegate{assignedInAudience.length !== 1 ? "s" : ""}</strong> will be automatically moved to <strong className="text-[var(--ssicsim-brand-navy)]">Confirmed</strong>.
+                    </p>
+                  </div>
+                )}
+
+                {/* Confirms-payment callout */}
+                {activeTemplate?.confirms_payment && verifyPaymentInAudience.length > 0 && (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+                    <p className="text-sm font-semibold text-[var(--ssicsim-brand-navy)]">
+                      Status update included
+                    </p>
+                    <p className="mt-0.5 text-sm text-[var(--ssicsim-text-muted)]">
+                      After sending, <strong className="text-[var(--ssicsim-brand-navy)]">{verifyPaymentInAudience.length} Verify Payment delegate{verifyPaymentInAudience.length !== 1 ? "s" : ""}</strong> will be automatically moved to <strong className="text-[var(--ssicsim-brand-navy)]">Awaiting Assignment</strong>.
                     </p>
                   </div>
                 )}

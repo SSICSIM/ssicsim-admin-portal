@@ -8,14 +8,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.character import Character
+from app.models.committee import Committee
 from app.models.delegate import Delegate
-from app.models.enums import DelegateStatus
+from app.models.enums import DelegateStatus, EventType
+from app.models.sec_member import SecMember
 from app.schemas import (
     AssignmentBulkCreate,
     AssignmentCreate,
     AssignmentOut,
     AssignmentUpdate,
 )
+from app.services.event_logs import record_event
 from app.utilities.assignments import (
     assignment_from_character,
     build_bulk_assignments,
@@ -23,13 +26,26 @@ from app.utilities.assignments import (
 )
 
 
-def assign_delegate(db: Session, payload: AssignmentCreate) -> AssignmentOut:
+def _describe_assignment(db: Session, delegate: Delegate, character: Character) -> str:
+    committee = db.get(Committee, character.committee_id)
+    committee_name = committee.name if committee else "Unknown committee"
+    return f"{delegate.first_name} {delegate.last_name} assigned to {character.name} ({committee_name})"
+
+
+def assign_delegate(
+    db: Session, payload: AssignmentCreate, actor: SecMember | None = None
+) -> AssignmentOut:
     character, delegate = validate_assignment(
         db, character_id=payload.character_id, delegate_id=payload.delegate_id
     )
 
     character.delegate_id = payload.delegate_id
     delegate.delegate_status = DelegateStatus.ASSIGNED
+
+    record_event(
+        db, actor, EventType.ASSIGNMENT, "Delegate", str(delegate.id),
+        _describe_assignment(db, delegate, character),
+    )
 
     try:
         db.commit()
@@ -44,7 +60,7 @@ def assign_delegate(db: Session, payload: AssignmentCreate) -> AssignmentOut:
 
 
 def bulk_assign(
-    db: Session, payload: AssignmentBulkCreate
+    db: Session, payload: AssignmentBulkCreate, actor: SecMember | None = None
 ) -> tuple[list[AssignmentOut], list[str]]:
     results: list[AssignmentOut] = []
     assignment_pairs = [
@@ -57,6 +73,10 @@ def bulk_assign(
         delegate = db.get(Delegate, delegate_id)
         if delegate is not None:
             delegate.delegate_status = DelegateStatus.ASSIGNED
+            record_event(
+                db, actor, EventType.ASSIGNMENT, "Delegate", str(delegate.id),
+                _describe_assignment(db, delegate, character),
+            )
         results.append(assignment_from_character(character))
 
     try:
@@ -71,7 +91,10 @@ def bulk_assign(
 
 
 def update_assignment(
-    db: Session, delegate_id: UUID, payload: AssignmentUpdate
+    db: Session,
+    delegate_id: UUID,
+    payload: AssignmentUpdate,
+    actor: SecMember | None = None,
 ) -> AssignmentOut:
     current = db.scalar(select(Character).where(Character.delegate_id == delegate_id))
     if current is None:
@@ -87,6 +110,10 @@ def update_assignment(
     delegate = db.get(Delegate, delegate_id)
     if delegate is not None:
         delegate.delegate_status = DelegateStatus.ASSIGNED
+        record_event(
+            db, actor, EventType.ASSIGNMENT, "Delegate", str(delegate.id),
+            _describe_assignment(db, delegate, next_character),
+        )
     try:
         db.commit()
     except IntegrityError:
@@ -99,7 +126,9 @@ def update_assignment(
     return assignment_from_character(next_character)
 
 
-def delete_assignment(db: Session, delegate_id: UUID) -> None:
+def delete_assignment(
+    db: Session, delegate_id: UUID, actor: SecMember | None = None
+) -> None:
     current = db.scalar(select(Character).where(Character.delegate_id == delegate_id))
     if current is None:
         return
@@ -107,4 +136,8 @@ def delete_assignment(db: Session, delegate_id: UUID) -> None:
     delegate = db.get(Delegate, delegate_id)
     if delegate is not None:
         delegate.delegate_status = DelegateStatus.AWAITING_ASSIGNMENT
+        record_event(
+            db, actor, EventType.UNASSIGNMENT, "Delegate", str(delegate.id),
+            f"{delegate.first_name} {delegate.last_name} unassigned from {current.name}",
+        )
     db.commit()

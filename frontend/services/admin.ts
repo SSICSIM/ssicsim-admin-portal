@@ -15,6 +15,8 @@ import type {
   EmailTemplateCreate,
   EmailTemplateOut,
   EmailTemplateUpdate,
+  EventLogOut,
+  SecMemberOut,
   UUID
 } from "@/types/api";
 
@@ -69,5 +71,9 @@ export const adminService = {
     apiClient.post<EmailTemplateOut>("/api/email-templates", payload),
   updateEmailTemplate: (id: UUID, payload: EmailTemplateUpdate) =>
     apiClient.patch<EmailTemplateOut>(`/api/email-templates/${id}`, payload),
-  deleteEmailTemplate: (id: UUID) => apiClient.deleteEmpty(`/api/email-templates/${id}`)
+  deleteEmailTemplate: (id: UUID) => apiClient.deleteEmpty(`/api/email-templates/${id}`),
+
+  // ─── activity log ───────────────────────────────────────────────────────────
+  fetchEventLogs: () => apiClient.get<EventLogOut[]>("/api/logs"),
+  fetchSecMembers: () => apiClient.get<SecMemberOut[]>("/api/sec-members")
 };
