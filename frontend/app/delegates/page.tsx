@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
@@ -62,11 +62,18 @@ const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
   { label: "Confirmed",           value: "Confirmed" }
 ];
 
-const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info"> = {
+const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
   "Awaiting Payment":    "destructive",
+  "Verify Payment":      "default",
   "Awaiting Assignment": "info",
   Assigned:              "warning",
   Confirmed:             "success"
+};
+
+const financialAidBadge: Record<FinancialAidStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
+  Yes:                  "warning",
+  No:                   "default",
+  "Delegation Paying":   "secondary"
 };
 
 // ─── undo toast ───────────────────────────────────────────────────────────────
@@ -161,6 +168,17 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleDateString();
 }
 
+// ─── read-only field display (used by the View dialog) ────────────────────────
+
+function Field({ label, value, span }: { label: string; value: ReactNode; span?: boolean }) {
+  return (
+    <div className={span ? "space-y-1 sm:col-span-2" : "space-y-1"}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">{label}</p>
+      <p className="text-sm text-[var(--ssicsim-text)] whitespace-pre-wrap break-words">{value ?? "--"}</p>
+    </div>
+  );
+}
+
 // ─── shared table row ─────────────────────────────────────────────────────────
 
 function DelegateRow({
@@ -168,6 +186,7 @@ function DelegateRow({
   assignedCommittee,
   assignedCharacter,
   delegationName,
+  onView,
   onEdit,
   onAssign,
   onUnassign,
@@ -179,6 +198,7 @@ function DelegateRow({
   assignedCommittee: string | null;
   assignedCharacter: string | null;
   delegationName: string;
+  onView: () => void;
   onEdit: () => void;
   onAssign: () => void;
   onUnassign: () => void;
@@ -215,6 +235,7 @@ function DelegateRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
+            <DropdownMenuItem onSelect={e => { e.preventDefault(); setTimeout(onView, 0); }}>View</DropdownMenuItem>
             <DropdownMenuItem
               onSelect={e => { e.preventDefault(); setTimeout(onAssign, 0); }}
               disabled={delegate.delegate_status === "Awaiting Payment"}
@@ -326,6 +347,9 @@ export default function DelegatesPage() {
     const t = timers.current;
     return () => { t.forEach(clearTimeout); };
   }, []);
+
+  // ── delegate view dialog ───────────────────────────────────────────────────
+  const [viewDelegate, setViewDelegate] = useState<DelegateOut | null>(null);
 
   // ── delegate edit dialog ───────────────────────────────────────────────────
   const [editDelegate, setEditDelegate] = useState<DelegateOut | null>(null);
@@ -444,6 +468,7 @@ export default function DelegatesPage() {
       assignedCommittee:  com,
       assignedCharacter:  ch?.name ?? null,
       delegationName:     delegationMap.get(delegate.delegation_id ?? "")?.name ?? "Independent Delegate",
+      onView:             () => openView(delegate),
       onEdit:             () => openEdit(delegate),
       onAssign:           () => openAssignment(delegate.id),
       onUnassign:         () => startUnassign(delegate.id),
@@ -536,6 +561,14 @@ export default function DelegatesPage() {
   function closeEdit() {
     setEditDelegate(null);
     setEditError(null);
+  }
+
+  function openView(delegate: DelegateOut) {
+    setViewDelegate(delegate);
+  }
+
+  function closeView() {
+    setViewDelegate(null);
   }
 
   function setField<K extends keyof DelegateUpdate>(key: K, value: DelegateUpdate[K]) {
@@ -1005,6 +1038,106 @@ export default function DelegatesPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Dialog ──────────────────────────────────────────────────────── */}
+      <Dialog open={viewDelegate !== null} onOpenChange={open => { if (!open) closeView(); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {viewDelegate?.preferred_name ?? viewDelegate?.first_name} {viewDelegate?.last_name}
+            </DialogTitle>
+            <DialogDescription>Delegate record</DialogDescription>
+          </DialogHeader>
+
+          {viewDelegate && (() => {
+            const ch = assignedCharacterByDelegateId.get(viewDelegate.id);
+            const assignedCommitteeName = ch ? committeeMap.get(ch.committee_id)?.name ?? null : null;
+            const viewDelegationName = delegationMap.get(viewDelegate.delegation_id ?? "")?.name ?? "Independent Delegate";
+            const yesNo = (v: boolean | null) => (v == null ? null : v ? "Yes" : "No");
+            const ackNotAck = (v: boolean | null) => (v == null ? null : v ? "Acknowledged" : "Not acknowledged");
+            const linkField = (url: string | null) =>
+              url ? (
+                <a href={url} target="_blank" rel="noreferrer" className="text-[var(--ssicsim-brand-gold)] underline break-all">
+                  {url}
+                </a>
+              ) : null;
+
+            return (
+              <div className="space-y-5 pt-1">
+                {/* Personal info */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="First name" value={viewDelegate.first_name} />
+                  <Field label="Last name" value={viewDelegate.last_name} />
+                  <Field label="Full name" value={viewDelegate.full_name} />
+                  <Field label="Preferred name" value={viewDelegate.preferred_name} />
+                  <Field label="Grade" value={viewDelegate.grade} />
+                  <Field label="Email" value={viewDelegate.email} />
+                  <Field label="Phone" value={viewDelegate.phone} />
+                </div>
+
+                <Separator />
+
+                {/* Status & assignment */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Status" value={<Badge variant={statusBadge[viewDelegate.delegate_status]}>{viewDelegate.delegate_status}</Badge>} />
+                  <Field label="Experience" value={viewDelegate.delegate_experience} />
+                  <Field label="Delegation" value={viewDelegationName} />
+                  <Field label="Assigned committee" value={assignedCommitteeName} />
+                  <Field label="Assigned character" value={ch?.name ?? null} />
+                  <Field label="Submitted" value={formatDate(viewDelegate.date_applied)} />
+                </div>
+
+                <Separator />
+
+                {/* Committee preferences */}
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="1st preference" value={viewDelegate.first_committee} />
+                  <Field label="2nd preference" value={viewDelegate.second_committee} />
+                  <Field label="3rd preference" value={viewDelegate.third_committee} />
+                  <Field label="Committee selection acknowledged" value={ackNotAck(viewDelegate.committee_selection_ack)} />
+                </div>
+
+                <Separator />
+
+                {/* Compliance */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Code of conduct URL" value={linkField(viewDelegate.code_of_conduct_url)} span />
+                  <Field label="Code of conduct signed" value={yesNo(viewDelegate.code_of_conduct_signed)} />
+                  <Field label="Payment policy" value={ackNotAck(viewDelegate.payment_policy_ack)} />
+                  <Field label="Cancellation policy" value={ackNotAck(viewDelegate.cancellation_policy_ack)} />
+                </div>
+
+                <Separator />
+
+                {/* Financial aid */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    label="Financial aid"
+                    value={viewDelegate.financial_aid_status ? (
+                      <Badge variant={financialAidBadge[viewDelegate.financial_aid_status]}>{viewDelegate.financial_aid_status}</Badge>
+                    ) : null}
+                  />
+                  <Field label="SEC reached out" value={yesNo(viewDelegate.financial_aid_contacted)} />
+                  <Field label="Payment receipt URL" value={linkField(viewDelegate.payment_receipt_url)} span />
+                  <Field label="Financial aid reason" value={viewDelegate.financial_aid_reason} span />
+                </div>
+
+                <Separator />
+
+                {/* Admin */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Heard about" value={viewDelegate.heard_about} />
+                </div>
+                <Field label="Notes" value={viewDelegate.notes} />
+
+                <div className="flex justify-end pt-1">
+                  <Button variant="ghost" onClick={closeView}>Close</Button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
