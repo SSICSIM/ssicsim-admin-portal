@@ -29,10 +29,13 @@ class Delegation(Base):
     faculty_advisor_last_name: Mapped[str] = mapped_column(String(255), nullable=False)
     faculty_advisor_email: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_role: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Delegation details
     school_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     delegation_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    delegation_size_min: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    delegation_size_max: Mapped[int | None] = mapped_column(Integer, nullable=True)
     attended_before: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     payment_process: Mapped[str | None] = mapped_column(String(255), nullable=True)
 

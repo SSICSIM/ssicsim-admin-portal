@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import uuid
-
-import pytest
+from datetime import UTC, datetime
 
 
 def _make_committee(client, name: str = "GA"):
@@ -50,7 +48,7 @@ def _make_delegate(client, email: str = "delegate@example.com", delegation_id=No
             "first_committee": "C1",
             "second_committee": "C2",
             "third_committee": "C3",
-            "date_applied": datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
+            "date_applied": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
             "delegate_status": "Awaiting Assignment",
             "delegation_id": delegation_id,
         },
@@ -146,8 +144,8 @@ def test_email_templates_unique_name(client):
             "name": "Welcome",
             "subject_template": "Hi",
             "body_template": "Hello",
-            "created_at": datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
-            "updated_at": datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
+            "created_at": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
+            "updated_at": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
         },
     )
     assert first.status_code == 201
@@ -158,8 +156,8 @@ def test_email_templates_unique_name(client):
             "name": "Welcome",
             "subject_template": "Hi",
             "body_template": "Hello 2",
-            "created_at": datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
-            "updated_at": datetime(2024, 1, 1, tzinfo=timezone.utc).isoformat(),
+            "created_at": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
+            "updated_at": datetime(2024, 1, 1, tzinfo=UTC).isoformat(),
         },
     )
     assert conflict.status_code == 409

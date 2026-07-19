@@ -5,7 +5,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models.enums import DelegateExperience, DelegateStatus, EventType
+from app.models.enums import (
+    DelegateExperience,
+    DelegateStatus,
+    EventType,
+    FinancialAidStatus,
+)
 
 
 class HealthResponse(BaseModel):
@@ -63,8 +68,11 @@ class DelegationBase(BaseModel):
     faculty_advisor_last_name: str = Field(min_length=1, max_length=255)
     faculty_advisor_email: EmailStr
     contact_role: str | None = Field(default=None, max_length=255)
+    contact_phone: str | None = Field(default=None, max_length=64)
     school_address: str | None = None
     delegation_size: int | None = Field(default=None, ge=1)
+    delegation_size_min: int | None = Field(default=None, ge=1)
+    delegation_size_max: int | None = Field(default=None, ge=1)
     attended_before: bool | None = None
     payment_process: str | None = Field(default=None, max_length=255)
     policy_ack_registration: bool | None = None
@@ -87,8 +95,11 @@ class DelegationUpdate(BaseModel):
     faculty_advisor_last_name: str | None = Field(default=None, max_length=255)
     faculty_advisor_email: EmailStr | None = None
     contact_role: str | None = Field(default=None, max_length=255)
+    contact_phone: str | None = Field(default=None, max_length=64)
     school_address: str | None = None
     delegation_size: int | None = Field(default=None, ge=1)
+    delegation_size_min: int | None = Field(default=None, ge=1)
+    delegation_size_max: int | None = Field(default=None, ge=1)
     attended_before: bool | None = None
     payment_process: str | None = Field(default=None, max_length=255)
     policy_ack_registration: bool | None = None
@@ -116,10 +127,12 @@ class DelegateBase(BaseModel):
     preferred_name: str | None = Field(default=None, max_length=255)
     grade: str | None = Field(default=None, max_length=32)
     email: EmailStr
+    phone: str | None = Field(default=None, max_length=64)
     delegate_experience: DelegateExperience
     first_committee: str = Field(min_length=1, max_length=255)
     second_committee: str = Field(min_length=1, max_length=255)
     third_committee: str = Field(min_length=1, max_length=255)
+    committee_selection_ack: bool | None = None
     date_applied: datetime | None = None
     delegate_status: DelegateStatus
     delegation_id: UUID | None = None
@@ -127,6 +140,10 @@ class DelegateBase(BaseModel):
     code_of_conduct_signed: bool | None = None
     payment_policy_ack: bool | None = None
     cancellation_policy_ack: bool | None = None
+    financial_aid_status: FinancialAidStatus | None = None
+    financial_aid_reason: str | None = None
+    financial_aid_contacted: bool | None = None
+    payment_receipt_url: str | None = Field(default=None, max_length=1024)
     heard_about: str | None = Field(default=None, max_length=255)
     notes: str | None = None
 
@@ -142,10 +159,12 @@ class DelegateUpdate(BaseModel):
     preferred_name: str | None = Field(default=None, max_length=255)
     grade: str | None = Field(default=None, max_length=32)
     email: EmailStr | None = None
+    phone: str | None = Field(default=None, max_length=64)
     delegate_experience: DelegateExperience | None = None
     first_committee: str | None = Field(default=None, max_length=255)
     second_committee: str | None = Field(default=None, max_length=255)
     third_committee: str | None = Field(default=None, max_length=255)
+    committee_selection_ack: bool | None = None
     date_applied: datetime | None = None
     delegate_status: DelegateStatus | None = None
     delegation_id: UUID | None = None
@@ -153,6 +172,10 @@ class DelegateUpdate(BaseModel):
     code_of_conduct_signed: bool | None = None
     payment_policy_ack: bool | None = None
     cancellation_policy_ack: bool | None = None
+    financial_aid_status: FinancialAidStatus | None = None
+    financial_aid_reason: str | None = None
+    financial_aid_contacted: bool | None = None
+    payment_receipt_url: str | None = Field(default=None, max_length=1024)
     heard_about: str | None = Field(default=None, max_length=255)
     notes: str | None = None
 
@@ -253,6 +276,7 @@ class EmailTemplateBase(BaseModel):
     body_template: str
     placeholders: list[str] | None = None
     confirms_assigned: bool = False
+    confirms_payment: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -263,6 +287,7 @@ class EmailTemplateCreate(BaseModel):
     body_template: str
     placeholders: list[str] | None = None
     confirms_assigned: bool = False
+    confirms_payment: bool = False
 
 
 class EmailTemplateUpdate(BaseModel):
@@ -271,6 +296,7 @@ class EmailTemplateUpdate(BaseModel):
     body_template: str | None = None
     placeholders: list[str] | None = None
     confirms_assigned: bool | None = None
+    confirms_payment: bool | None = None
 
 
 class EmailTemplateOut(EmailTemplateBase):
