@@ -22,9 +22,7 @@ class Character(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     committee_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("committees.id", ondelete="CASCADE"),
-        nullable=False,
+        UUID(as_uuid=True), ForeignKey("committees.id", ondelete="CASCADE"), nullable=False
     )
     delegate_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("delegates.id", ondelete="SET NULL"), unique=True

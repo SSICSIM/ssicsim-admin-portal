@@ -26,18 +26,16 @@ const eventTypeFilters: { label: string; value: EventType | "all" }[] = [
   { label: "Status Change",   value: "Status Change" },
   { label: "Assignment",      value: "Assignment" },
   { label: "Unassignment",    value: "Unassignment" },
-  { label: "Financial Aid Contact", value: "Financial Aid Contact" },
   { label: "Committee Update", value: "Committee Update" },
   { label: "Email",           value: "Email" }
 ];
 
-const eventTypeBadge: Record<EventType, "success" | "warning" | "secondary" | "default" | "info"> = {
-  Assignment:              "success",
-  Unassignment:             "warning",
-  "Status Change":          "secondary",
-  "Financial Aid Contact":  "info",
-  "Committee Update":       "default",
-  Email:                     "default"
+const eventTypeBadge: Record<EventType, "success" | "warning" | "secondary" | "default"> = {
+  Assignment:         "success",
+  Unassignment:        "warning",
+  "Status Change":     "secondary",
+  "Committee Update":   "default",
+  Email:                "default"
 };
 
 export default function ActivityPage() {

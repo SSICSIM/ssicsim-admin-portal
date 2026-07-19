@@ -9,10 +9,12 @@ Create Date: 2026-07-18 01:43:42.021366
 from __future__ import annotations
 
 from alembic import op
+import sqlalchemy as sa
+
 
 # revision identifiers, used by Alembic.
-revision = "c3a8f6e4c397"
-down_revision = "8f6a0ef36163"
+revision = 'c3a8f6e4c397'
+down_revision = '8f6a0ef36163'
 branch_labels = None
 depends_on = None
 
@@ -26,3 +28,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     pass  # Postgres doesn't support removing enum values
+

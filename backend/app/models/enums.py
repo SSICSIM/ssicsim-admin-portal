@@ -29,4 +29,3 @@ class EventType(str, Enum):
     COMMITTEE_UPDATE = "Committee Update"
     STATUS_CHANGE = "Status Change"
     UNASSIGNMENT = "Unassignment"
-    FINANCIAL_AID_CONTACT = "Financial Aid Contact"

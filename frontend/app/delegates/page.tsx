@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
 import {
@@ -61,18 +62,11 @@ const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
   { label: "Confirmed",           value: "Confirmed" }
 ];
 
-const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
+const statusBadge: Record<DelegateStatus, "success" | "warning" | "secondary" | "destructive" | "info"> = {
   "Awaiting Payment":    "destructive",
-  "Verify Payment":      "default",
   "Awaiting Assignment": "info",
   Assigned:              "warning",
   Confirmed:             "success"
-};
-
-const financialAidBadge: Record<FinancialAidStatus, "success" | "warning" | "secondary" | "destructive" | "info" | "default"> = {
-  Yes:                 "warning",
-  No:                  "default",
-  "Delegation Paying":  "secondary"
 };
 
 // ─── undo toast ───────────────────────────────────────────────────────────────
@@ -134,7 +128,7 @@ function UnassignToast({ pending, onUndo }: { pending: PendingUnassign; onUndo: 
 
 // ─── sorting ──────────────────────────────────────────────────────────────────
 
-type SortKey = "name" | "grade" | "status" | "experience" | "delegation" | "committee" | "character" | "submitted" | "financial_aid";
+type SortKey = "name" | "grade" | "status" | "experience" | "delegation" | "committee" | "character" | "submitted";
 
 function SortableHead({
   label,
@@ -223,14 +217,8 @@ function DelegateRow({
           <DropdownMenuContent>
             <DropdownMenuItem
               onSelect={e => { e.preventDefault(); setTimeout(onAssign, 0); }}
-              disabled={delegate.delegate_status === "Awaiting Payment" || delegate.delegate_status === "Verify Payment"}
-              title={
-                delegate.delegate_status === "Awaiting Payment"
-                  ? "Payment required before assignment"
-                  : delegate.delegate_status === "Verify Payment"
-                    ? "Verify the submitted payment receipt before assignment"
-                    : undefined
-              }
+              disabled={delegate.delegate_status === "Awaiting Payment"}
+              title={delegate.delegate_status === "Awaiting Payment" ? "Payment required before assignment" : undefined}
             >
               {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
             </DropdownMenuItem>
@@ -278,7 +266,6 @@ function DelegateTableHead({
         <SortableHead label="Status" sortKeyName="status" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Experience" sortKeyName="experience" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Delegation" sortKeyName="delegation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
-        <SortableHead label="Financial Aid" sortKeyName="financial_aid" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Committee" sortKeyName="committee" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Character" sortKeyName="character" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Submitted" sortKeyName="submitted" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
@@ -414,7 +401,6 @@ export default function DelegatesPage() {
       }
       case "character": return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
       case "submitted": return d.date_applied ?? "";
-      case "financial_aid": return d.financial_aid_status ?? "";
     }
   }
 
@@ -429,7 +415,7 @@ export default function DelegatesPage() {
     });
   }, [filteredDelegates, sortKey, sortDir, delegationMap, assignedCharacterByDelegateId, committeeMap]);
 
-  useEffect(() => { setPage(1); }, [statusFilter, committeeFilterId, delegationFilterId, financialAidFilter, searchTerm, sortKey, sortDir]);
+  useEffect(() => { setPage(1); }, [statusFilter, committeeFilterId, searchTerm, sortKey, sortDir]);
 
   const pageCount    = Math.max(1, Math.ceil(sortedDelegates.length / PAGE_SIZE));
   const currentPage  = Math.min(page, pageCount);
@@ -765,28 +751,6 @@ export default function DelegatesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Delegation</Label>
-                <Select value={delegationFilterId} onValueChange={v => setDelegationFilterId(v as UUID | "all")}>
-                  <SelectTrigger><SelectValue placeholder="All delegations" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All delegations</SelectItem>
-                    {delegations.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Financial aid</Label>
-                <Select value={financialAidFilter} onValueChange={v => setFinancialAidFilter(v as FinancialAidStatus | "all")}>
-                  <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    <SelectItem value="Yes">Yes</SelectItem>
-                    <SelectItem value="No">No</SelectItem>
-                    <SelectItem value="Delegation Paying">Delegation Paying</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 md:col-span-2">
                 <Label>Search</Label>
                 <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Name or email" />
               </div>

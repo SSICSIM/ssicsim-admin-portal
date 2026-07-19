@@ -88,7 +88,6 @@ def update_delegate(
 
     old_status = delegate.delegate_status
     new_status = updates.get("delegate_status")
-    was_contacted = bool(delegate.financial_aid_contacted)
 
     for field, value in updates.items():
         if field == "email":
@@ -104,20 +103,6 @@ def update_delegate(
             "Delegate",
             str(delegate.id),
             f"{delegate.first_name} {delegate.last_name}: {old_status.value} → {new_status.value}",
-        )
-
-    if (
-        "financial_aid_contacted" in updates
-        and updates["financial_aid_contacted"]
-        and not was_contacted
-    ):
-        record_event(
-            db,
-            actor,
-            EventType.FINANCIAL_AID_CONTACT,
-            "Delegate",
-            str(delegate.id),
-            f"{delegate.first_name} {delegate.last_name}: SEC reached out regarding financial aid request",
         )
 
     try:

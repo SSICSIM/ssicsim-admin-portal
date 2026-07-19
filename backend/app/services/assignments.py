@@ -43,11 +43,7 @@ def assign_delegate(
     delegate.delegate_status = DelegateStatus.ASSIGNED
 
     record_event(
-        db,
-        actor,
-        EventType.ASSIGNMENT,
-        "Delegate",
-        str(delegate.id),
+        db, actor, EventType.ASSIGNMENT, "Delegate", str(delegate.id),
         _describe_assignment(db, delegate, character),
     )
 
@@ -78,11 +74,7 @@ def bulk_assign(
         if delegate is not None:
             delegate.delegate_status = DelegateStatus.ASSIGNED
             record_event(
-                db,
-                actor,
-                EventType.ASSIGNMENT,
-                "Delegate",
-                str(delegate.id),
+                db, actor, EventType.ASSIGNMENT, "Delegate", str(delegate.id),
                 _describe_assignment(db, delegate, character),
             )
         results.append(assignment_from_character(character))
@@ -119,11 +111,7 @@ def update_assignment(
     if delegate is not None:
         delegate.delegate_status = DelegateStatus.ASSIGNED
         record_event(
-            db,
-            actor,
-            EventType.ASSIGNMENT,
-            "Delegate",
-            str(delegate.id),
+            db, actor, EventType.ASSIGNMENT, "Delegate", str(delegate.id),
             _describe_assignment(db, delegate, next_character),
         )
     try:
@@ -149,11 +137,7 @@ def delete_assignment(
     if delegate is not None:
         delegate.delegate_status = DelegateStatus.AWAITING_ASSIGNMENT
         record_event(
-            db,
-            actor,
-            EventType.UNASSIGNMENT,
-            "Delegate",
-            str(delegate.id),
+            db, actor, EventType.UNASSIGNMENT, "Delegate", str(delegate.id),
             f"{delegate.first_name} {delegate.last_name} unassigned from {current.name}",
         )
     db.commit()

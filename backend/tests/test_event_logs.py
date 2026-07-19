@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from test_api import _make_character, _make_committee, _make_delegate
 
+
 ACTOR_HEADERS = {"X-Actor-Email": "actor@example.com", "X-Actor-Name": "Ada Actor"}
 
 
@@ -114,45 +115,12 @@ def test_assignment_and_unassignment_create_event_logs(client):
     assert logs[0]["event_type"] == "Assignment"
     assert committee["name"] in logs[0]["details"]
 
-    unassign_resp = client.delete(
-        f"/api/assignments/{delegate['id']}", headers=ACTOR_HEADERS
-    )
+    unassign_resp = client.delete(f"/api/assignments/{delegate['id']}", headers=ACTOR_HEADERS)
     assert unassign_resp.status_code == 204, unassign_resp.text
 
     logs = _logs(client)
     event_types = {log["event_type"] for log in logs}
     assert "Unassignment" in event_types
-
-
-def test_financial_aid_contacted_logs_event_once(client):
-    delegate = _make_delegate(client, email="aid1@example.com")
-    client.patch(
-        f"/api/delegates/{delegate['id']}",
-        json={"financial_aid_status": "Yes"},
-        headers=ACTOR_HEADERS,
-    )
-    assert _logs(client) == []  # setting status alone isn't "contacted"
-
-    resp = client.patch(
-        f"/api/delegates/{delegate['id']}",
-        json={"financial_aid_contacted": True},
-        headers=ACTOR_HEADERS,
-    )
-    assert resp.status_code == 200, resp.text
-
-    logs = _logs(client)
-    assert len(logs) == 1
-    assert logs[0]["event_type"] == "Financial Aid Contact"
-    assert logs[0]["target_id"] == delegate["id"]
-
-    # Saving again with contacted already true must not create a duplicate event
-    resp = client.patch(
-        f"/api/delegates/{delegate['id']}",
-        json={"financial_aid_contacted": True, "grade": "Grade 11"},
-        headers=ACTOR_HEADERS,
-    )
-    assert resp.status_code == 200, resp.text
-    assert len(_logs(client)) == 1
 
 
 def test_actor_with_single_word_name_gets_valid_last_name(client):
@@ -164,10 +132,7 @@ def test_actor_with_single_word_name_gets_valid_last_name(client):
     resp = client.patch(
         f"/api/delegates/{delegate['id']}",
         json={"delegate_status": "Assigned"},
-        headers={
-            "X-Actor-Email": "singleword@example.com",
-            "X-Actor-Name": "singleword",
-        },
+        headers={"X-Actor-Email": "singleword@example.com", "X-Actor-Name": "singleword"},
     )
     assert resp.status_code == 200, resp.text
 

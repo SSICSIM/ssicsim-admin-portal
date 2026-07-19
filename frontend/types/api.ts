@@ -135,7 +135,7 @@ export type EmailTemplateCreate = {
 
 export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 
-export type EventType = "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment" | "Financial Aid Contact";
+export type EventType = "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment";
 
 export type EventLogOut = {
   id: UUID;

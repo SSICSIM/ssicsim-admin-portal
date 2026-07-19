@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
@@ -44,11 +44,11 @@ def get_current_actor(
             last_name=last_name.strip() or "Member",
             email=email,
             role="SEC",
-            last_logged_in=datetime.now(UTC),
+            last_logged_in=datetime.now(timezone.utc),
         )
         db.add(actor)
     else:
-        actor.last_logged_in = datetime.now(UTC)
+        actor.last_logged_in = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(actor)
