@@ -209,7 +209,6 @@ function DelegateRow({
   return (
     <TableRow className={isPendingUnassign ? "opacity-40" : undefined}>
       <TableCell className="font-medium">{delegate.last_name}, {delegate.first_name}</TableCell>
-      <TableCell>{delegate.preferred_name ?? "--"}</TableCell>
       <TableCell>{delegate.grade ?? "--"}</TableCell>
       <TableCell className="max-w-[160px] truncate">{delegate.email}</TableCell>
       <TableCell>
@@ -281,12 +280,12 @@ function DelegateTableHead({
     <TableHeader>
       <TableRow>
         <SortableHead label="Delegate" sortKeyName="name" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
-        <TableHead>Preferred</TableHead>
         <SortableHead label="Grade" sortKeyName="grade" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <TableHead>Email</TableHead>
         <SortableHead label="Status" sortKeyName="status" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Experience" sortKeyName="experience" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Delegation" sortKeyName="delegation" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
+        <TableHead>Financial Aid</TableHead>
         <SortableHead label="Committee" sortKeyName="committee" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Character" sortKeyName="character" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
         <SortableHead label="Submitted" sortKeyName="submitted" activeKey={sortKey} activeDir={sortDir} onSort={onSort} />
@@ -1208,9 +1207,9 @@ export default function DelegatesPage() {
                   <Select value={editDraft.delegate_experience ?? ""} onValueChange={v => setField("delegate_experience", v as DelegateUpdate["delegate_experience"])}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Beginner">Beginner</SelectItem>
+                      <SelectItem value="Novice">Novice</SelectItem>
                       <SelectItem value="Intermediate">Intermediate</SelectItem>
-                      <SelectItem value="Expertise">Expertise</SelectItem>
+                      <SelectItem value="Advanced">Advanced</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
