@@ -38,7 +38,7 @@ def _build_inline_images() -> list[MIMEImage]:
     return images
 
 
-# Email layout: dark navy header with logo, 3px gold stripe, white body, small beige footer.
+# Email layout: gold header with logo, 3px gold stripe, white body, small beige footer.
 # Uses an inline-styled HTML table so it renders correctly across all major email clients.
 # Logo/footer icons are referenced via cid: and embedded as inline attachments by send_emails.
 def _render_html(body_text: str) -> str:
@@ -78,7 +78,7 @@ def _render_html(body_text: str) -> str:
 
           <!-- Header -->
           <tr>
-            <td style="background-color:#3d2b00;padding:18px 32px;
+            <td style="background-color:#A3841D;padding:18px 32px;
                        border-radius:12px 12px 0 0;text-align:center;">
               <img src="cid:ssicsim-logo" alt="SSICSIM" width="113" height="40" style="display:block;margin:0 auto;border:0;" />
             </td>
