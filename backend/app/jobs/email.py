@@ -78,7 +78,7 @@ def _render_html(body_text: str) -> str:
 
           <!-- Header -->
           <tr>
-            <td style="background-color:#F3C02C;padding:18px 32px;
+            <td style="background-color:#A3841D;padding:18px 32px;
                        border-radius:12px 12px 0 0;text-align:center;">
               <img src="cid:ssicsim-logo" alt="SSICSIM" width="113" height="40" style="display:block;margin:0 auto;border:0;" />
             </td>
