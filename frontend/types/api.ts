@@ -23,7 +23,7 @@ export type CommitteeCreate = Omit<CommitteeOut, "id" | "image_url"> & {
   image_url?: string | null;
 };
 
-export type DelegateExperience = "Beginner" | "Intermediate" | "Expertise";
+export type DelegateExperience = "Novice" | "Intermediate" | "Advanced";
 export type DelegateStatus = "Awaiting Payment" | "Verify Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
 export type FinancialAidStatus = "Yes" | "No" | "Delegation Paying";
 

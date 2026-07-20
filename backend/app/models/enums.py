@@ -4,9 +4,9 @@ from enum import Enum
 
 
 class DelegateExperience(str, Enum):
-    BEGINNER = "Beginner"
+    NOVICE = "Novice"
     INTERMEDIATE = "Intermediate"
-    EXPERTISE = "Expertise"
+    ADVANCED = "Advanced"
 
 
 class DelegateStatus(str, Enum):
