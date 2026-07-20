@@ -1208,9 +1208,9 @@ export default function DelegatesPage() {
                   <Select value={editDraft.delegate_experience ?? ""} onValueChange={v => setField("delegate_experience", v as DelegateUpdate["delegate_experience"])}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Beginner">Beginner</SelectItem>
+                      <SelectItem value="Novice">Novice</SelectItem>
                       <SelectItem value="Intermediate">Intermediate</SelectItem>
-                      <SelectItem value="Expertise">Expertise</SelectItem>
+                      <SelectItem value="Advanced">Advanced</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
