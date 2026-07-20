@@ -14,7 +14,7 @@ from app.database import Base
 class SecMember(Base):
     __tablename__ = "sec_members"
 
-    sec_member_id: Mapped[uuid.UUID] = mapped_column(
+    id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         primary_key=True,
         index=True,
