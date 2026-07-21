@@ -102,7 +102,10 @@ export default function CommitteeEditPage() {
   );
 
   // Handlers
-  const handleFormChange = (key: keyof CommitteeUpdate, value: CommitteeUpdate[keyof CommitteeUpdate]) => {
+  const handleFormChange = (
+    key: keyof CommitteeUpdate,
+    value: CommitteeUpdate[keyof CommitteeUpdate]
+  ) => {
     setFormState((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -218,7 +221,6 @@ export default function CommitteeEditPage() {
     );
   };
 
-
   if (committeeQuery.isLoading) {
     return (
       <main className="mx-auto max-w-5xl p-6">
@@ -260,7 +262,8 @@ export default function CommitteeEditPage() {
         <Alert className="border-emerald-300 bg-emerald-50">
           <AlertTitle>Characters ready</AlertTitle>
           <AlertDescription>
-            {committeeCharacters.length} character{committeeCharacters.length === 1 ? "" : "s"} loaded.
+            {committeeCharacters.length} character{committeeCharacters.length === 1 ? "" : "s"}{" "}
+            loaded.
           </AlertDescription>
         </Alert>
       )}
@@ -305,7 +308,10 @@ export default function CommitteeEditPage() {
                 min={0}
                 value={formState.max_delegates ?? ""}
                 onChange={(event) =>
-                  handleFormChange("max_delegates", event.target.value ? Number(event.target.value) : null)
+                  handleFormChange(
+                    "max_delegates",
+                    event.target.value ? Number(event.target.value) : null
+                  )
                 }
               />
             </div>
@@ -401,10 +407,18 @@ export default function CommitteeEditPage() {
 
           <div className="space-y-2">
             <Label>Committee image</Label>
-            <Input type="file" accept="image/*" onChange={(event) => setImageFile(event.target.files?.[0] ?? null)} />
+            <Input
+              type="file"
+              accept="image/*"
+              onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+            />
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" onClick={handleImageUpload} disabled={!imageFile || uploadImage.isPending}>
+            <Button
+              variant="secondary"
+              onClick={handleImageUpload}
+              disabled={!imageFile || uploadImage.isPending}
+            >
               {uploadImage.isPending ? "Uploading..." : "Upload image"}
             </Button>
             {uploadMessage ? <Badge variant="success">{uploadMessage}</Badge> : null}
@@ -417,7 +431,8 @@ export default function CommitteeEditPage() {
         <CardHeader>
           <CardTitle>Character Matrix CSV</CardTitle>
           <CardDescription>
-            CSV format: header must include <span className="font-semibold text-[var(--ssicsim-brand-navy)]">character_name</span>.
+            CSV format: header must include{" "}
+            <span className="font-semibold text-[var(--ssicsim-brand-navy)]">character_name</span>.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -427,7 +442,11 @@ export default function CommitteeEditPage() {
             onChange={(event) => setCsvFile(event.target.files?.[0] ?? null)}
           />
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" onClick={handleCsvUpload} disabled={!csvFile || createCharacter.isPending}>
+            <Button
+              variant="secondary"
+              onClick={handleCsvUpload}
+              disabled={!csvFile || createCharacter.isPending}
+            >
               {createCharacter.isPending ? "Uploading..." : "Upload CSV"}
             </Button>
             {csvProgress ? <Badge variant="success">{csvProgress}</Badge> : null}
@@ -458,7 +477,10 @@ export default function CommitteeEditPage() {
                 placeholder="Character name"
               />
             </div>
-            <Button onClick={handleAddCharacter} disabled={!newCharacterName.trim() || createCharacter.isPending}>
+            <Button
+              onClick={handleAddCharacter}
+              disabled={!newCharacterName.trim() || createCharacter.isPending}
+            >
               {createCharacter.isPending ? "Adding..." : "Add character"}
             </Button>
           </div>
@@ -483,9 +505,12 @@ export default function CommitteeEditPage() {
                       className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] px-3 py-2 transition-colors hover:border-[var(--ssicsim-brand-gold)]/50"
                     >
                       <div>
-                        <p className="font-medium text-[var(--ssicsim-brand-navy)]">{character.name}</p>
+                        <p className="font-medium text-[var(--ssicsim-brand-navy)]">
+                          {character.name}
+                        </p>
                         <p className="text-xs text-[var(--ssicsim-text-muted)]">
-                          Assigned to: {delegate ? `${delegate.last_name}, ${delegate.first_name}` : "--"}
+                          Assigned to:{" "}
+                          {delegate ? `${delegate.last_name}, ${delegate.first_name}` : "--"}
                           {delegate ? ` · ${delegate.delegate_experience}` : ""}
                         </p>
                       </div>
@@ -510,7 +535,9 @@ export default function CommitteeEditPage() {
                           </Button>
                         )}
                         {delegate ? (
-                          <span className="text-xs text-[var(--ssicsim-text-muted)]">Unassign before removing.</span>
+                          <span className="text-xs text-[var(--ssicsim-text-muted)]">
+                            Unassign before removing.
+                          </span>
                         ) : null}
                       </div>
                     </div>

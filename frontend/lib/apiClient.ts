@@ -45,13 +45,13 @@ async function requestEmpty(path: string, init?: RequestInit): Promise<void> {
 }
 
 export const apiClient = {
-  get: <T,>(path: string) => request<T>(path),
-  post: <T,>(path: string, body: unknown) =>
+  get: <T>(path: string) => request<T>(path),
+  post: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "POST", body: JSON.stringify(body) }),
-  patch: <T,>(path: string, body: unknown) =>
+  patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
-  delete: <T,>(path: string) => request<T>(path, { method: "DELETE" }),
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   deleteEmpty: (path: string) => requestEmpty(path, { method: "DELETE" }),
-  upload: <T,>(path: string, formData: FormData) =>
+  upload: <T>(path: string, formData: FormData) =>
     requestForm<T>(path, { method: "POST", body: formData })
 };

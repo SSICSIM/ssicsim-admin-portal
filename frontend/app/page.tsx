@@ -25,12 +25,17 @@ export default function HomePage() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[radial-gradient(circle,rgba(211,175,55,0.07)_0%,transparent_70%)]" />
         <p className="section-eyebrow">Control Center</p>
         <h1 className="section-title mt-2">Admin Portal</h1>
-        <p className="section-subtitle mt-2">Jump between committee management and delegate assignments.</p>
+        <p className="section-subtitle mt-2">
+          Jump between committee management and delegate assignments.
+        </p>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2">
         {sections.map((section) => (
-          <Card key={section.href} className="group transition-all duration-150 hover:border-[var(--ssicsim-brand-gold)]/40">
+          <Card
+            key={section.href}
+            className="group transition-all duration-150 hover:border-[var(--ssicsim-brand-gold)]/40"
+          >
             <CardHeader>
               <p className="section-eyebrow">{section.eyebrow}</p>
               <CardTitle className="mt-1">{section.title}</CardTitle>

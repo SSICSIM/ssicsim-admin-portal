@@ -242,8 +242,11 @@ export function useUploadCommitteeImage() {
 
 export function useQueueEmails() {
   return useMutation({
-    mutationFn: (payload: { recipients: Record<string, string>[]; subject: string; body: string }) =>
-      adminService.queueEmails(payload)
+    mutationFn: (payload: {
+      recipients: Record<string, string>[];
+      subject: string;
+      body: string;
+    }) => adminService.queueEmails(payload)
   });
 }
 
@@ -267,4 +270,3 @@ export function useSecMembers() {
     queryFn: () => adminService.fetchSecMembers()
   });
 }
-

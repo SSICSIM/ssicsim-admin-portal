@@ -112,18 +112,18 @@ const BLANK: FormState = {
 // ─── component ────────────────────────────────────────────────────────────────
 
 export default function TemplatesPage() {
-  const templatesQuery    = useEmailTemplates();
-  const createTemplate    = useCreateEmailTemplate();
-  const updateTemplate    = useUpdateEmailTemplate();
-  const deleteTemplate    = useDeleteEmailTemplate();
+  const templatesQuery = useEmailTemplates();
+  const createTemplate = useCreateEmailTemplate();
+  const updateTemplate = useUpdateEmailTemplate();
+  const deleteTemplate = useDeleteEmailTemplate();
 
   const templates = templatesQuery.data ?? [];
 
   // which template is being edited (null = none, "new" = create form)
-  const [editingId, setEditingId]   = useState<UUID | "new" | null>(null);
-  const [form, setForm]             = useState<FormState>(BLANK);
-  const [error, setError]           = useState<string | null>(null);
-  const [seeding, setSeeding]       = useState(false);
+  const [editingId, setEditingId] = useState<UUID | "new" | null>(null);
+  const [form, setForm] = useState<FormState>(BLANK);
+  const [error, setError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
 
   function startNew() {
     setForm(BLANK);
@@ -133,11 +133,11 @@ export default function TemplatesPage() {
 
   function startEdit(t: EmailTemplateOut) {
     setForm({
-      name:               t.name,
-      subject_template:   t.subject_template,
-      body_template:      t.body_template,
-      confirms_assigned:  t.confirms_assigned,
-      confirms_payment:   t.confirms_payment
+      name: t.name,
+      subject_template: t.subject_template,
+      body_template: t.body_template,
+      confirms_assigned: t.confirms_assigned,
+      confirms_payment: t.confirms_payment
     });
     setError(null);
     setEditingId(t.id);
@@ -178,7 +178,7 @@ export default function TemplatesPage() {
   async function handleSeedDefaults() {
     setSeeding(true);
     setError(null);
-    const existingNames = new Set(templates.map(t => t.name));
+    const existingNames = new Set(templates.map((t) => t.name));
     for (const seed of SEED_TEMPLATES) {
       if (!existingNames.has(seed.name)) {
         try {
@@ -197,7 +197,6 @@ export default function TemplatesPage() {
 
   return (
     <main className="page-shell max-w-4xl space-y-6">
-
       {/* Header */}
       <header className="relative overflow-hidden rounded-3xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-8 shadow-[var(--ssicsim-shadow)]">
         <div className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-[var(--ssicsim-brand-gold)] to-[var(--ssicsim-brand-gold-bright)]" />
@@ -206,7 +205,9 @@ export default function TemplatesPage() {
             <p className="section-eyebrow">Emailer</p>
             <h1 className="section-title mt-2">Email Templates</h1>
             <p className="section-subtitle mt-2">
-              Create and manage reusable templates. Use <span className="font-mono text-[var(--ssicsim-brand-gold)]">{`{placeholder}`}</span> syntax for personalisation.
+              Create and manage reusable templates. Use{" "}
+              <span className="font-mono text-[var(--ssicsim-brand-gold)]">{`{placeholder}`}</span>{" "}
+              syntax for personalisation.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -248,12 +249,13 @@ export default function TemplatesPage() {
         <div className="rounded-2xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-8 text-center">
           <p className="font-semibold text-[var(--ssicsim-brand-navy)]">No templates yet</p>
           <p className="mt-1 text-sm text-[var(--ssicsim-text-muted)]">
-            Click <strong>Add default templates</strong> to seed the built-in set, or create your own.
+            Click <strong>Add default templates</strong> to seed the built-in set, or create your
+            own.
           </p>
         </div>
       ) : (
         <div className="space-y-3">
-          {templates.map(t => (
+          {templates.map((t) => (
             <div key={t.id}>
               {editingId === t.id ? (
                 <TemplateForm
@@ -266,10 +268,7 @@ export default function TemplatesPage() {
                   isNew={false}
                 />
               ) : (
-                <TemplateCard
-                  template={t}
-                  onEdit={() => startEdit(t)}
-                />
+                <TemplateCard template={t} onEdit={() => startEdit(t)} />
               )}
             </div>
           ))}
@@ -281,13 +280,7 @@ export default function TemplatesPage() {
 
 // ─── TemplateCard ─────────────────────────────────────────────────────────────
 
-function TemplateCard({
-  template,
-  onEdit
-}: {
-  template: EmailTemplateOut;
-  onEdit: () => void;
-}) {
+function TemplateCard({ template, onEdit }: { template: EmailTemplateOut; onEdit: () => void }) {
   return (
     <div className="relative overflow-hidden rounded-2xl border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface)] p-5 shadow-[var(--ssicsim-shadow)]">
       <div className="pointer-events-none absolute left-0 right-0 top-0 h-[2px] bg-gradient-to-r from-[var(--ssicsim-brand-gold)] to-[var(--ssicsim-brand-gold-bright)]" />
@@ -360,7 +353,7 @@ function TemplateForm({
           <Input
             id="tpl-name"
             value={form.name}
-            onChange={e => set("name", e.target.value)}
+            onChange={(e) => set("name", e.target.value)}
             placeholder="e.g. Assignment Notification"
           />
         </div>
@@ -369,7 +362,7 @@ function TemplateForm({
           <Input
             id="tpl-subject"
             value={form.subject_template}
-            onChange={e => set("subject_template", e.target.value)}
+            onChange={(e) => set("subject_template", e.target.value)}
             placeholder="e.g. Your assignment — {committee}"
           />
         </div>
@@ -380,7 +373,7 @@ function TemplateForm({
         <textarea
           id="tpl-body"
           value={form.body_template}
-          onChange={e => set("body_template", e.target.value)}
+          onChange={(e) => set("body_template", e.target.value)}
           rows={10}
           className="w-full rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 py-2.5 font-mono text-sm text-[var(--ssicsim-text)] placeholder:text-[var(--ssicsim-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ssicsim-brand-gold)] focus-visible:ring-offset-2 resize-y"
           placeholder={"Dear {preferred_name},\n\n"}
@@ -388,10 +381,19 @@ function TemplateForm({
         <p className="text-xs text-[var(--ssicsim-text-muted)]">
           Available placeholders:{" "}
           {[
-            "preferred_name", "first_name", "last_name", "full_name",
-            "email", "grade", "committee", "character", "delegation"
-          ].map(p => (
-            <span key={p} className="font-mono">{`{${p}}`} </span>
+            "preferred_name",
+            "first_name",
+            "last_name",
+            "full_name",
+            "email",
+            "grade",
+            "committee",
+            "character",
+            "delegation"
+          ].map((p) => (
+            <span key={p} className="font-mono">
+              {`{${p}}`}{" "}
+            </span>
           ))}
         </p>
       </div>
@@ -400,7 +402,7 @@ function TemplateForm({
         <input
           type="checkbox"
           checked={form.confirms_assigned}
-          onChange={e => set("confirms_assigned", e.target.checked)}
+          onChange={(e) => set("confirms_assigned", e.target.checked)}
           className="h-4 w-4 accent-[var(--ssicsim-brand-gold)]"
         />
         <span className="text-sm font-medium text-[var(--ssicsim-text)]">
@@ -412,7 +414,7 @@ function TemplateForm({
         <input
           type="checkbox"
           checked={form.confirms_payment}
-          onChange={e => set("confirms_payment", e.target.checked)}
+          onChange={(e) => set("confirms_payment", e.target.checked)}
           className="h-4 w-4 accent-[var(--ssicsim-brand-gold)]"
         />
         <span className="text-sm font-medium text-[var(--ssicsim-text)]">
