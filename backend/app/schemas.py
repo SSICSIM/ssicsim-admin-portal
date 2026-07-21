@@ -218,7 +218,7 @@ class SecMemberBase(BaseModel):
     email: EmailStr
     role: str = Field(min_length=1, max_length=255)
     interview_slots: list[datetime] | None = None
-    interviewees : list[UUID] | None = None
+    interviewees: list[UUID] | None = None
     last_logged_in: datetime | None = None
 
 
@@ -232,7 +232,7 @@ class SecMemberUpdate(BaseModel):
     email: EmailStr | None = None
     role: str | None = Field(default=None, max_length=255)
     interview_slots: list[datetime] | None = None
-    interviewees : list[UUID] | None = None
+    interviewees: list[UUID] | None = None
     last_logged_in: datetime | None = None
 
 
