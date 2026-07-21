@@ -36,9 +36,7 @@ const nextConfig = {
       {
         // Apply to every route — tells crawlers not to index any page
         source: "/(.*)",
-        headers: [
-          { key: "X-Robots-Tag", value: "noindex, nofollow" }
-        ]
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]
       }
     ];
   }

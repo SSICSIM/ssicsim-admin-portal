@@ -1,6 +1,9 @@
 import type { CharacterCreate } from "@/types/api";
 
-export async function parseCharacterCsv(file: File, committeeId: string): Promise<CharacterCreate[]> {
+export async function parseCharacterCsv(
+  file: File,
+  committeeId: string
+): Promise<CharacterCreate[]> {
   const raw = await file.text();
   const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
   if (lines.length === 0) return [];

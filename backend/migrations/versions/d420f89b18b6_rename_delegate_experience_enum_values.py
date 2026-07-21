@@ -18,10 +18,26 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute(sa.text("ALTER TYPE delegate_experience_enum RENAME VALUE 'BEGINNER' TO 'NOVICE'"))
-    op.execute(sa.text("ALTER TYPE delegate_experience_enum RENAME VALUE 'EXPERTISE' TO 'ADVANCED'"))
+    op.execute(
+        sa.text(
+            "ALTER TYPE delegate_experience_enum RENAME VALUE 'BEGINNER' TO 'NOVICE'"
+        )
+    )
+    op.execute(
+        sa.text(
+            "ALTER TYPE delegate_experience_enum RENAME VALUE 'EXPERTISE' TO 'ADVANCED'"
+        )
+    )
 
 
 def downgrade() -> None:
-    op.execute(sa.text("ALTER TYPE delegate_experience_enum RENAME VALUE 'NOVICE' TO 'BEGINNER'"))
-    op.execute(sa.text("ALTER TYPE delegate_experience_enum RENAME VALUE 'ADVANCED' TO 'EXPERTISE'"))
+    op.execute(
+        sa.text(
+            "ALTER TYPE delegate_experience_enum RENAME VALUE 'NOVICE' TO 'BEGINNER'"
+        )
+    )
+    op.execute(
+        sa.text(
+            "ALTER TYPE delegate_experience_enum RENAME VALUE 'ADVANCED' TO 'EXPERTISE'"
+        )
+    )

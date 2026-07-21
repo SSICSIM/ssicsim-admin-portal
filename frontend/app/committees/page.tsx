@@ -7,7 +7,14 @@ import { useCharacters, useCommittees, useCreateCommittee } from "@/hooks/useAdm
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,12 +44,17 @@ export default function CommitteesPage() {
 
   const allCommittees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
   const committees = useMemo(
-    () => allCommittees.filter((committee) => committee.name.toLowerCase().includes(filter.toLowerCase())),
+    () =>
+      allCommittees.filter((committee) =>
+        committee.name.toLowerCase().includes(filter.toLowerCase())
+      ),
     [allCommittees, filter]
   );
 
   const stats = useMemo(() => {
-    const missingCharacters = allCommittees.filter((committee) => (characterCounts.get(committee.id) ?? 0) === 0).length;
+    const missingCharacters = allCommittees.filter(
+      (committee) => (characterCounts.get(committee.id) ?? 0) === 0
+    ).length;
     return {
       totalCommittees: allCommittees.length,
       totalCharacters: (charactersQuery.data ?? []).length,
@@ -113,7 +125,9 @@ export default function CommitteesPage() {
                   <Input
                     id="committee-create-name"
                     value={formState.name}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, name: event.target.value }))}
+                    onChange={(event) =>
+                      setFormState((prev) => ({ ...prev, name: event.target.value }))
+                    }
                   />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -122,7 +136,9 @@ export default function CommitteesPage() {
                     <Input
                       id="committee-create-director"
                       value={formState.director_name}
-                      onChange={(event) => setFormState((prev) => ({ ...prev, director_name: event.target.value }))}
+                      onChange={(event) =>
+                        setFormState((prev) => ({ ...prev, director_name: event.target.value }))
+                      }
                     />
                   </div>
                 </div>
@@ -131,7 +147,9 @@ export default function CommitteesPage() {
                   <Input
                     id="committee-create-short"
                     value={formState.small_description}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, small_description: event.target.value }))}
+                    onChange={(event) =>
+                      setFormState((prev) => ({ ...prev, small_description: event.target.value }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
@@ -139,7 +157,9 @@ export default function CommitteesPage() {
                   <Textarea
                     id="committee-create-long"
                     value={formState.large_description}
-                    onChange={(event) => setFormState((prev) => ({ ...prev, large_description: event.target.value }))}
+                    onChange={(event) =>
+                      setFormState((prev) => ({ ...prev, large_description: event.target.value }))
+                    }
                     rows={5}
                   />
                 </div>
@@ -190,7 +210,11 @@ export default function CommitteesPage() {
                 {committees.length} committee{committees.length === 1 ? "" : "s"} shown
               </p>
             </div>
-            {createMessage ? <Badge className="mt-4" variant="success">{createMessage}</Badge> : null}
+            {createMessage ? (
+              <Badge className="mt-4" variant="success">
+                {createMessage}
+              </Badge>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -242,7 +266,10 @@ export default function CommitteesPage() {
                       <p className="font-medium text-[var(--ssicsim-brand-navy)]">{count}</p>
                     </div>
                     <div>
-                      <Link className="text-sm font-semibold" href={`/committees/${committee.id}/edit`}>
+                      <Link
+                        className="text-sm font-semibold"
+                        href={`/committees/${committee.id}/edit`}
+                      >
                         Open full details
                       </Link>
                     </div>

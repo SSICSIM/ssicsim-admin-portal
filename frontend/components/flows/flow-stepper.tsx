@@ -48,8 +48,8 @@ export function FlowStepper({
               isActive
                 ? "bg-brand-gold-soft text-brand-navy"
                 : isComplete
-                ? "cursor-pointer text-white/70 hover:bg-white/10"
-                : "cursor-default text-white/35"
+                  ? "cursor-pointer text-white/70 hover:bg-white/10"
+                  : "cursor-default text-white/35"
             )}
           >
             <span
@@ -58,8 +58,8 @@ export function FlowStepper({
                 isActive
                   ? "border-brand-gold bg-brand-gold text-white"
                   : isComplete
-                  ? "border-white/50 text-white/60"
-                  : "border-white/20 text-white/25"
+                    ? "border-white/50 text-white/60"
+                    : "border-white/20 text-white/25"
               )}
             >
               {s.number}

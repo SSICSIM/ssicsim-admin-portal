@@ -24,7 +24,8 @@ export const adminService = {
   // ─── committees ─────────────────────────────────────────────────────────────
   fetchCommittees: () => apiClient.get<CommitteeOut[]>("/api/committees"),
   fetchCommittee: (id: UUID) => apiClient.get<CommitteeOut>(`/api/committees/${id}`),
-  createCommittee: (payload: CommitteeCreate) => apiClient.post<CommitteeOut>("/api/committees", payload),
+  createCommittee: (payload: CommitteeCreate) =>
+    apiClient.post<CommitteeOut>("/api/committees", payload),
   updateCommittee: (id: UUID, payload: CommitteeUpdate) =>
     apiClient.patch<CommitteeOut>(`/api/committees/${id}`, payload),
   uploadCommitteeImage: (committeeId: UUID, formData: FormData) =>
@@ -32,12 +33,14 @@ export const adminService = {
 
   // ─── characters ─────────────────────────────────────────────────────────────
   fetchCharacters: () => apiClient.get<CharacterOut[]>("/api/characters"),
-  createCharacter: (payload: CharacterCreate) => apiClient.post<CharacterOut>("/api/characters", payload),
+  createCharacter: (payload: CharacterCreate) =>
+    apiClient.post<CharacterOut>("/api/characters", payload),
   deleteCharacter: (characterId: UUID) => apiClient.deleteEmpty(`/api/characters/${characterId}`),
 
   // ─── delegates ──────────────────────────────────────────────────────────────
   fetchDelegates: () => apiClient.get<DelegateOut[]>("/api/delegates"),
-  createDelegate: (payload: DelegateCreate) => apiClient.post<DelegateOut>("/api/delegates", payload),
+  createDelegate: (payload: DelegateCreate) =>
+    apiClient.post<DelegateOut>("/api/delegates", payload),
   updateDelegate: (delegateId: UUID, payload: DelegateUpdate) =>
     apiClient.patch<DelegateOut>(`/api/delegates/${delegateId}`, payload),
   deleteDelegate: (delegateId: UUID) => apiClient.deleteEmpty(`/api/delegates/${delegateId}`),
@@ -48,7 +51,8 @@ export const adminService = {
     apiClient.patch<DelegationOut>(`/api/delegations/${id}`, payload),
 
   // ─── assignments ────────────────────────────────────────────────────────────
-  createAssignment: (payload: AssignmentCreate) => apiClient.post<AssignmentOut>("/api/assignments", payload),
+  createAssignment: (payload: AssignmentCreate) =>
+    apiClient.post<AssignmentOut>("/api/assignments", payload),
   updateAssignment: (delegateId: UUID, characterId: UUID) =>
     apiClient.patch<AssignmentOut>(`/api/assignments/${delegateId}`, { character_id: characterId }),
   deleteAssignment: (delegateId: UUID) => apiClient.deleteEmpty(`/api/assignments/${delegateId}`),

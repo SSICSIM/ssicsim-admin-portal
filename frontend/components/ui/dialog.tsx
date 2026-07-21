@@ -56,7 +56,10 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-bold text-[var(--ssicsim-brand-navy)] [font-family:var(--font-heading)]", className)}
+    className={cn(
+      "text-lg font-bold text-[var(--ssicsim-brand-navy)] [font-family:var(--font-heading)]",
+      className
+    )}
     {...props}
   />
 ));
@@ -74,11 +77,4 @@ const DialogDescription = React.forwardRef<
 ));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
-export {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-};
+export { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription };

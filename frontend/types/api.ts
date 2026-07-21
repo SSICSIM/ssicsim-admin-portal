@@ -24,7 +24,8 @@ export type CommitteeCreate = Omit<CommitteeOut, "id" | "image_url"> & {
 };
 
 export type DelegateExperience = "Novice" | "Intermediate" | "Advanced";
-export type DelegateStatus = "Awaiting Payment" | "Verify Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
+export type DelegateStatus =
+  "Awaiting Payment" | "Verify Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
 export type FinancialAidStatus = "Yes" | "No" | "Delegation Paying";
 
 export type DelegateOut = {
@@ -135,7 +136,8 @@ export type EmailTemplateCreate = {
 
 export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 
-export type EventType = "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment";
+export type EventType =
+  "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment";
 
 export type EventLogOut = {
   id: UUID;
@@ -155,4 +157,3 @@ export type SecMemberOut = {
   role: string;
   last_logged_in: string | null;
 };
-
