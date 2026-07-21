@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from test_api import _make_character, _make_committee, _make_delegate
 
-
 ACTOR_HEADERS = {"X-Actor-Email": "actor@example.com", "X-Actor-Name": "Ada Actor"}
 
 
@@ -115,7 +114,9 @@ def test_assignment_and_unassignment_create_event_logs(client):
     assert logs[0]["event_type"] == "Assignment"
     assert committee["name"] in logs[0]["details"]
 
-    unassign_resp = client.delete(f"/api/assignments/{delegate['id']}", headers=ACTOR_HEADERS)
+    unassign_resp = client.delete(
+        f"/api/assignments/{delegate['id']}", headers=ACTOR_HEADERS
+    )
     assert unassign_resp.status_code == 204, unassign_resp.text
 
     logs = _logs(client)
@@ -132,7 +133,10 @@ def test_actor_with_single_word_name_gets_valid_last_name(client):
     resp = client.patch(
         f"/api/delegates/{delegate['id']}",
         json={"delegate_status": "Assigned"},
-        headers={"X-Actor-Email": "singleword@example.com", "X-Actor-Name": "singleword"},
+        headers={
+            "X-Actor-Email": "singleword@example.com",
+            "X-Actor-Name": "singleword",
+        },
     )
     assert resp.status_code == 200, resp.text
 

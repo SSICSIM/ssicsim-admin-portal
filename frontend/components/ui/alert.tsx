@@ -17,11 +17,16 @@ const Alert = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivEleme
 );
 Alert.displayName = "Alert";
 
-const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
-  ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("mb-1 font-semibold text-[var(--ssicsim-brand-navy)]", className)} {...props} />
-  )
-);
+const AlertTitle = React.forwardRef<
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
+>(({ className, ...props }, ref) => (
+  <p
+    ref={ref}
+    className={cn("mb-1 font-semibold text-[var(--ssicsim-brand-navy)]", className)}
+    {...props}
+  />
+));
 AlertTitle.displayName = "AlertTitle";
 
 const AlertDescription = React.forwardRef<

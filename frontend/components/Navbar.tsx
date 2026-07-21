@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/committees", label: "Committees" },
-  { href: "/delegates",  label: "Delegates" },
-  { href: "/emailer",    label: "Emailer" },
-  { href: "/activity",   label: "Activity" }
+  { href: "/delegates", label: "Delegates" },
+  { href: "/emailer", label: "Emailer" },
+  { href: "/activity", label: "Activity" }
 ];
 
 export function Navbar() {
