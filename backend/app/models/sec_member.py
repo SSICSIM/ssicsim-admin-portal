@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
@@ -27,4 +27,12 @@ class SecMember(Base):
         String(255), unique=True, index=True, nullable=False
     )
     role: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    interview_slots: Mapped[list[datetime] | None] = mapped_column(
+        ARRAY(DateTime(timezone=True))
+    )
+    interviewees: Mapped[list[uuid.UUID] | None] = mapped_column(
+        ARRAY(UUID(as_uuid=True))
+    )
+
     last_logged_in: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
