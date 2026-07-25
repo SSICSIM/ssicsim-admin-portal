@@ -28,11 +28,8 @@ class SecMember(Base):
     )
     role: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    interview_slots: Mapped[list[datetime] | None] = mapped_column(
-        ARRAY(DateTime(timezone=True))
-    )
-    interviewees: Mapped[list[uuid.UUID] | None] = mapped_column(
-        ARRAY(UUID(as_uuid=True))
+    availability: Mapped[list[tuple[datetime, datetime]] | None] = mapped_column(
+        ARRAY(DateTime(timezone=True), dimensions=2)
     )
 
     last_logged_in: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
