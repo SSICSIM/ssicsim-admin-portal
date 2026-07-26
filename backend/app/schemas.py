@@ -5,7 +5,6 @@ from uuid import UUID
 
 from app.custom_types import PydanticDateTimeTZRange
 from pydantic import BaseModel, EmailStr, Field
-from psycopg.types.range import DateTimeTZRange
 
 from app.models.enums import (
     DelegateExperience,
@@ -199,7 +198,7 @@ class ApplicantBase(BaseModel):
     first_committee: str | None = Field(default=None, min_length=1, max_length=255)
     second_committee: str | None = Field(default=None, min_length=1, max_length=255)
     third_committee: str | None = Field(default=None, min_length=1, max_length=255)
-    availability: list[DateTimeTZRange] | None = None
+    availability: list[PydanticDateTimeTZRange] | None = None
 
 
 class ApplicantCreate(ApplicantBase):
@@ -214,7 +213,7 @@ class ApplicantUpdate(BaseModel):
     first_committee: str | None = Field(default=None, min_length=1, max_length=255)
     second_committee: str | None = Field(default=None, min_length=1, max_length=255)
     third_committee: str | None = Field(default=None, min_length=1, max_length=255)
-    availability: list[DateTimeTZRange] | None = None
+    availability: list[PydanticDateTimeTZRange] | None = None
 
 
 class ApplicantOut(ApplicantBase):
@@ -373,7 +372,7 @@ class InterviewBase(BaseModel):
     sec_member_id2: UUID | None = None
     isConfirmed1: bool | None = None
     isConfirmed2: bool | None = None
-    availability: list[tuple[datetime, datetime]] | None = None
+    interviewDateTime: datetime | None = None
 
 
 class InterviewCreate(InterviewBase):
@@ -386,11 +385,11 @@ class InterviewUpdate(BaseModel):
     sec_member_id2: UUID | None = None
     isConfirmed1: bool | None = None
     isConfirmed2: bool | None = None
-    availability: list[tuple[datetime, datetime]] | None = None
+    interviewDateTime: datetime | None = None
 
 
 class InterviewOut(InterviewBase):
-    id: UUID
+    pass
 
     class Config:
         from_attributes = True
