@@ -5,6 +5,7 @@ from uuid import UUID
 
 from app.custom_types import PydanticDateTimeTZRange
 from pydantic import BaseModel, EmailStr, Field
+from psycopg.types.range import DateTimeTZRange
 
 from app.models.enums import (
     DelegateExperience,
@@ -198,6 +199,7 @@ class ApplicantBase(BaseModel):
     first_committee: str | None = Field(default=None, min_length=1, max_length=255)
     second_committee: str | None = Field(default=None, min_length=1, max_length=255)
     third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    availability: list[DateTimeTZRange] | None = None
 
 
 class ApplicantCreate(ApplicantBase):
@@ -212,6 +214,7 @@ class ApplicantUpdate(BaseModel):
     first_committee: str | None = Field(default=None, min_length=1, max_length=255)
     second_committee: str | None = Field(default=None, min_length=1, max_length=255)
     third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    availability: list[DateTimeTZRange] | None = None
 
 
 class ApplicantOut(ApplicantBase):
