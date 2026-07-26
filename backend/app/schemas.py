@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
-from psycopg.types.range import DateTimeTZRange
+from psycopg2.extras import DateTimeTZRange
 
 from app.models.enums import (
     DelegateExperience,
