@@ -3,13 +3,15 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from psycopg2.extras import DateTimeTZRange
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, TSTZRANGE
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
 from app.database import Base
+from app.models.enums import ApplicantStatus
 
 
 class Applicant(Base):
@@ -37,6 +39,14 @@ class Applicant(Base):
     first_committee: Mapped[str] = mapped_column(String(255), nullable=False)
     second_committee: Mapped[str] = mapped_column(String(255), nullable=False)
     third_committee: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    applicant_status: Mapped[ApplicantStatus | None] = mapped_column(
+        Enum(ApplicantStatus, name="applicant_status_enum", native_enum=True)
+        nullable=True
+
+    availability: Mapped[list[DateTimeTZRange] | None] = mapped_column(
+        ARRAY(TSTZRANGE)
+    )
 
 
 
