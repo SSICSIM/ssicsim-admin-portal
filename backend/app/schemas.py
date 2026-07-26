@@ -329,3 +329,33 @@ class AssignmentOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class InterviewBase(BaseModel):
+    applicant_id: UUID | None = None
+    sec_member_id1: UUID | None = None
+    sec_member_id2: UUID | None = None
+    isConfirmed1: bool | None = None
+    isConfirmed2: bool | None = None
+    availability: list[tuple[datetime, datetime]] | None = None
+
+
+class InterviewCreate(InterviewBase):
+    pass
+
+
+class InterviewUpdate(BaseModel):
+    applicant_id: UUID | None = None
+    sec_member_id1: UUID | None = None
+    sec_member_id2: UUID | None = None
+    isConfirmed1: bool | None = None
+    isConfirmed2: bool | None = None
+    availability: list[tuple[datetime, datetime]] | None = None
+
+
+class InterviewOut(InterviewBase):
+    id: UUID
+
+    class Config:
+        from_attributes = True
+
