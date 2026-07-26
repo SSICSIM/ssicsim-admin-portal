@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
+from app.custom_types import PydanticDateTimeTZRange
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models.enums import (
@@ -217,7 +218,7 @@ class SecMemberBase(BaseModel):
     last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr
     role: str = Field(min_length=1, max_length=255)
-    availability: list[tuple[datetime, datetime]] | None = None
+    availability: list[PydanticDateTimeTZRange] | None = None
     last_logged_in: datetime | None = None
 
 
@@ -230,7 +231,7 @@ class SecMemberUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = None
     role: str | None = Field(default=None, max_length=255)
-    availability: list[tuple[datetime, datetime]] | None = None
+    availability: list[PydanticDateTimeTZRange] | None = None
     last_logged_in: datetime | None = None
 
 

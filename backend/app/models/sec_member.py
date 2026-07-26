@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from psycopg2.extras import DateTimeTZRange
 from sqlalchemy import DateTime, String
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID, TSTZRANGE
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
@@ -28,8 +29,8 @@ class SecMember(Base):
     )
     role: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    availability: Mapped[list[tuple[datetime, datetime]] | None] = mapped_column(
-        ARRAY(DateTime(timezone=True), dimensions=2)
+    availability: Mapped[list[DateTimeTZRange] | None] = mapped_column(
+        ARRAY(TSTZRANGE)
     )
 
     last_logged_in: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
