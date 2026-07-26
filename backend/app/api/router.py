@@ -12,6 +12,7 @@ from app.api.email_templates import router as email_templates_router
 from app.api.event_logs import router as event_logs_router
 from app.api.health import router as health_router
 from app.api.sec_members import router as sec_members_router
+from app.api.applicants import router as applicants_router
 from app.api.interviews import router as interviews_router
 from app.auth import require_admin_token
 
@@ -29,3 +30,4 @@ api_router.include_router(interviews_router)
 api_router.include_router(email_templates_router)
 api_router.include_router(email_router)
 api_router.include_router(event_logs_router)
+api_router.include_router(applicants_router) 

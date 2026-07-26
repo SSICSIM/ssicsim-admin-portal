@@ -11,6 +11,7 @@ from app.models.enums import (
     DelegateStatus,
     EventType,
     FinancialAidStatus,
+    ApplicantStatus
 )
 
 
@@ -182,6 +183,38 @@ class DelegateUpdate(BaseModel):
 
 
 class DelegateOut(DelegateBase):
+    id: UUID
+
+    class Config:
+        from_attributes = True
+
+
+# Applicant schemas
+class ApplicantBase(BaseModel):
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    roles_of_interest: list[str] | None = None
+    first_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    second_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class ApplicantCreate(ApplicantBase):
+    applicant_status: ApplicantStatus = ApplicantStatus.APPLIED
+
+
+class ApplicantUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: EmailStr | None
+    roles_of_interest: list[str] | None = None
+    first_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    second_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+
+
+class ApplicantOut(ApplicantBase):
     id: UUID
 
     class Config:
