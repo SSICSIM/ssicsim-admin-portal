@@ -12,7 +12,7 @@ from app.schemas import InterviewCreate, InterviewUpdate
 
 
 def list_interviews(db: Session) -> list[Interview]:
-    return db.scalars(select(Interview).order_by(Interview.interviewDateTime)).all()
+    return db.scalars(select(Interview)).all()
 
 
 def create_interview(db: Session, payload: InterviewCreate) -> Interview:
@@ -21,8 +21,11 @@ def create_interview(db: Session, payload: InterviewCreate) -> Interview:
         sec_member_id1=payload.sec_member_id1,
         sec_member_id2=payload.sec_member_id2,
         isConfirmed1=payload.isConfirmed1,
-        isConfirmed2=payload.isConfirmed2
+        isConfirmed2=payload.isConfirmed2,
+        interviewDateTime=payload.interviewDateTime
     )
+    if(interview.sec_member_id1 == interview.sec_member_id2) :
+        raise HTTPException(status_code=409, detail="Secretariat IDs must be different")
     db.add(interview)
     try:
         db.commit()
@@ -60,11 +63,14 @@ def update_interview(
     interview = get_interview_by_applicant(db, applicant_id)
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(interview, field, value)
+    if interview.sec_member_id2 == interview.sec_member_id1 :
+        raise HTTPException(status_code=409, detail="Secretariat IDs must be different")
+
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Interview already exists already exists")
+        raise HTTPException(status_code=409, detail="Interview already exists")
     db.refresh(interview)
     return interview
 
