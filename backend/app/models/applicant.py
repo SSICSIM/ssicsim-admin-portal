@@ -41,8 +41,9 @@ class Applicant(Base):
     third_committee: Mapped[str] = mapped_column(String(255), nullable=False)
 
     applicant_status: Mapped[ApplicantStatus | None] = mapped_column(
-        Enum(ApplicantStatus, name="applicant_status_enum", native_enum=True)
+        Enum(ApplicantStatus, name="applicant_status_enum", native_enum=True),
         nullable=True
+    )
 
     availability: Mapped[list[DateTimeTZRange] | None] = mapped_column(
         ARRAY(TSTZRANGE)

@@ -21,7 +21,7 @@ def list_applicant(db: Session = Depends(get_db)) -> list[Applicant]:
 def create_applicant(payload: ApplicantCreate, db: Session = Depends(get_db)) -> Applicant:
     return applicants.create_applicant(db, payload)
 
-@router.get("/{applicant_id}", reponse_model=ApplicantOut)
+@router.get("/{applicant_id}", response_model=ApplicantOut)
 def get_applicant(applicant_id: UUID, db: Session = Depends(get_db)) -> Applicant:
     return applicants.get_applicant(db, applicant_id)
 
@@ -34,7 +34,7 @@ def update_applicant(
     return applicants.update_applicant(db, applicant_id, payload)
 
 @router.delete(
-    "/{delegate_id}", status_code=204, response_model=None, reponse_class=Response
+    "/{delegate_id}", status_code=204, response_model=None, response_class=Response
 )
 def delete_applicant(applicant_id: UUID, db: Session = Depends(get_db)) -> Response:
     applicants.delete_applicant(db, applicant_id)
