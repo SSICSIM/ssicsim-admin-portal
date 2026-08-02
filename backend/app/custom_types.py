@@ -33,7 +33,7 @@ class PydanticDateTimeTZRange:
                 return value
 
             # 2. Handle shorthand arrays from curl/JSON: [start, end]
-            if isinstance(value, (list, tuple)) and len(value) == 2:
+            if isinstance(value, list | tuple) and len(value) == 2:
                 lower_val, upper_val = value[0], value[1]
                 if Psycopg3Range:
                     return Psycopg3Range(lower_val, upper_val, bounds="[)")
