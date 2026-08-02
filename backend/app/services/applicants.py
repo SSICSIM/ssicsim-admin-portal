@@ -13,10 +13,11 @@ from app.schemas import ApplicantCreate, ApplicantUpdate
 from app.services.event_logs import record_event
 
 
-def list_applicants(db : Session) -> list[Applicant]:
+def list_applicants(db: Session) -> list[Applicant]:
     return db.scalars(
-            select(Applicant).order_by(Applicant.last_name, Applicant.first_name)
-        ).all()
+        select(Applicant).order_by(Applicant.last_name, Applicant.first_name)
+    ).all()
+
 
 def get_applicant(db, applicant_id):
     applicant = db.get(Applicant, applicant_id)
@@ -35,7 +36,7 @@ def create_applicant(db: Session, payload: ApplicantCreate) -> Applicant:
         second_committee=payload.second_committee,
         third_committee=payload.third_committee,
         applicant_status=payload.applicant_status,
-        availability=payload.availability
+        availability=payload.availability,
     )
 
     db.add(applicant)
@@ -49,7 +50,9 @@ def create_applicant(db: Session, payload: ApplicantCreate) -> Applicant:
     return applicant
 
 
-def update_applicant(db: Session, applicant_id: UUID, payload: ApplicantUpdate) -> Applicant:
+def update_applicant(
+    db: Session, applicant_id: UUID, payload: ApplicantUpdate
+) -> Applicant:
     applicant = get_applicant(db, applicant_id)
     updates = payload.model_dump(exclude_none=True)
 
@@ -68,7 +71,7 @@ def update_applicant(db: Session, applicant_id: UUID, payload: ApplicantUpdate) 
             EventType.STATUS_CHANGE,
             "Applicant",
             str(applicant.id),
-            f"{applicant.first_name} {applicant.last_name}: {old_status.value} → {new_status.value}"
+            f"{applicant.first_name} {applicant.last_name}: {old_status.value} → {new_status.value}",
         )
 
     try:
@@ -91,4 +94,3 @@ def delete_applicant(db: Session, applicant_id: UUID) -> None:
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Unable to delete applicant")
-
