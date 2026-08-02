@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
 
 from psycopg2.extras import DateTimeTZRange
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.dialects.postgresql import ARRAY, TSTZRANGE
+from sqlalchemy import Enum, String
+from sqlalchemy.dialects.postgresql import ARRAY, TSTZRANGE, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
@@ -27,7 +25,7 @@ class Applicant(Base):
 
     first_name: Mapped[str] = mapped_column(String(255), nullable=False)
     last_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    
+
     email: Mapped[str] = mapped_column(
         String(255), unique=True, index=True, nullable=False
     )
@@ -42,12 +40,7 @@ class Applicant(Base):
 
     applicant_status: Mapped[ApplicantStatus | None] = mapped_column(
         Enum(ApplicantStatus, name="applicant_status_enum", native_enum=True),
-        nullable=True
+        nullable=True,
     )
 
-    availability: Mapped[list[DateTimeTZRange] | None] = mapped_column(
-        ARRAY(TSTZRANGE)
-    )
-
-
-
+    availability: Mapped[list[DateTimeTZRange] | None] = mapped_column(ARRAY(TSTZRANGE))

@@ -3,15 +3,15 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from app.custom_types import PydanticDateTimeTZRange
 from pydantic import BaseModel, EmailStr, Field
 
+from app.custom_types import PydanticDateTimeTZRange
 from app.models.enums import (
+    ApplicantStatus,
     DelegateExperience,
     DelegateStatus,
     EventType,
     FinancialAidStatus,
-    ApplicantStatus
 )
 
 
@@ -393,4 +393,3 @@ class InterviewOut(InterviewBase):
 
     class Config:
         from_attributes = True
-

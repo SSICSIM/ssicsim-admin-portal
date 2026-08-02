@@ -43,4 +43,3 @@ class ApplicantStatus(str, Enum):
     OFFERED = "Offered"
     CONFIRMED = "Confirmed"
     WITHDRAWN = "Withdrawn"
-

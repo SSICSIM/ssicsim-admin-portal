@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select, or_
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -22,16 +22,18 @@ def create_interview(db: Session, payload: InterviewCreate) -> Interview:
         sec_member_id2=payload.sec_member_id2,
         isConfirmed1=payload.isConfirmed1,
         isConfirmed2=payload.isConfirmed2,
-        interviewDateTime=payload.interviewDateTime
+        interviewDateTime=payload.interviewDateTime,
     )
-    if(interview.sec_member_id1 == interview.sec_member_id2) :
+    if interview.sec_member_id1 == interview.sec_member_id2:
         raise HTTPException(status_code=409, detail="Secretariat IDs must be different")
     db.add(interview)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Interview for applicant already exists")
+        raise HTTPException(
+            status_code=409, detail="Interview for applicant already exists"
+        )
     db.refresh(interview)
     return interview
 
@@ -45,10 +47,7 @@ def get_interview_by_applicant(db: Session, applicant_id: UUID) -> Interview:
 
 def get_interview_by_sec(db: Session, sec_id: UUID) -> Interview:
     stmt = select(Interview).where(
-        or_(
-            Interview.sec_member_id1 == sec_id, 
-            Interview.sec_member_id2 == sec_id
-        )
+        or_(Interview.sec_member_id1 == sec_id, Interview.sec_member_id2 == sec_id)
     )
 
     interviews = db.scalars(stmt).all()
@@ -63,7 +62,7 @@ def update_interview(
     interview = get_interview_by_applicant(db, applicant_id)
     for field, value in payload.model_dump(exclude_none=True).items():
         setattr(interview, field, value)
-    if interview.sec_member_id2 == interview.sec_member_id1 :
+    if interview.sec_member_id2 == interview.sec_member_id1:
         raise HTTPException(status_code=409, detail="Secretariat IDs must be different")
 
     try:
