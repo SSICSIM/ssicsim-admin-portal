@@ -45,7 +45,7 @@ def get_interview_by_applicant(db: Session, applicant_id: UUID) -> Interview:
     return interview
 
 
-def get_interview_by_sec(db: Session, sec_id: UUID) -> Interview:
+def get_interview_by_sec(db: Session, sec_id: UUID) -> list[Interview]:
     stmt = select(Interview).where(
         or_(Interview.sec_member_id1 == sec_id, Interview.sec_member_id2 == sec_id)
     )

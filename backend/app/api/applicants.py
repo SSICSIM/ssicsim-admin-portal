@@ -38,7 +38,7 @@ def update_applicant(
 
 
 @router.delete(
-    "/{delegate_id}", status_code=204, response_model=None, response_class=Response
+    "/{applicant_id}", status_code=204, response_model=None, response_class=Response
 )
 def delete_applicant(applicant_id: UUID, db: Session = Depends(get_db)) -> Response:
     applicants.delete_applicant(db, applicant_id)
