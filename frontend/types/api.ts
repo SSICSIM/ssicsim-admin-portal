@@ -27,6 +27,7 @@ export type DelegateExperience = "Novice" | "Intermediate" | "Advanced";
 export type DelegateStatus =
   "Awaiting Payment" | "Verify Payment" | "Awaiting Assignment" | "Assigned" | "Confirmed";
 export type FinancialAidStatus = "Yes" | "No" | "Delegation Paying";
+export type RegistrationPeriod = "Early Bird" | "Regular" | "Late";
 
 export type DelegateOut = {
   id: UUID;
@@ -43,6 +44,7 @@ export type DelegateOut = {
   third_committee: string | null;
   committee_selection_ack: boolean | null;
   date_applied: string | null;
+  registration_period: RegistrationPeriod | null;
   delegate_status: DelegateStatus;
   delegation_id: UUID | null;
   code_of_conduct_url: string | null;
@@ -85,7 +87,10 @@ export type DelegationUpdate = Partial<Omit<DelegationOut, "id">>;
 
 export type DelegateUpdate = Partial<Omit<DelegateOut, "id">>;
 
-export type DelegateCreate = Omit<DelegateOut, "id" | "date_applied"> & {
+export type DelegateCreate = Omit<
+  DelegateOut,
+  "id" | "date_applied" | "registration_period"
+> & {
   date_applied?: string | null;
 };
 

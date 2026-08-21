@@ -10,6 +10,7 @@ from app.models.enums import (
     DelegateStatus,
     EventType,
     FinancialAidStatus,
+    RegistrationPeriod,
 )
 
 
@@ -166,6 +167,7 @@ class DelegateUpdate(BaseModel):
     third_committee: str | None = Field(default=None, max_length=255)
     committee_selection_ack: bool | None = None
     date_applied: datetime | None = None
+    registration_period: RegistrationPeriod | None = None
     delegate_status: DelegateStatus | None = None
     delegation_id: UUID | None = None
     code_of_conduct_url: str | None = Field(default=None, max_length=1024)
@@ -182,6 +184,7 @@ class DelegateUpdate(BaseModel):
 
 class DelegateOut(DelegateBase):
     id: UUID
+    registration_period: RegistrationPeriod | None = None
 
     class Config:
         from_attributes = True
