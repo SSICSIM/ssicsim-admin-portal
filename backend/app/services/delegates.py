@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -18,7 +18,7 @@ from app.services.event_logs import record_event
 
 
 def _ensure_aware(dt: datetime) -> datetime:
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _compute_registration_period(applied_at: datetime) -> RegistrationPeriod:
@@ -57,7 +57,7 @@ def _validate_delegation(db: Session, delegation_id: UUID | None) -> None:
 
 def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
     _validate_delegation(db, payload.delegation_id)
-    applied_at = payload.date_applied or datetime.now(timezone.utc)
+    applied_at = payload.date_applied or datetime.now(UTC)
     delegate = Delegate(
         first_name=payload.first_name,
         last_name=payload.last_name,

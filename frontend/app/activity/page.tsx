@@ -53,8 +53,8 @@ export default function ActivityPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
 
-  const eventLogs = eventLogsQuery.data ?? [];
-  const secMembers = secMembersQuery.data ?? [];
+  const eventLogs = useMemo(() => eventLogsQuery.data ?? [], [eventLogsQuery.data]);
+  const secMembers = useMemo(() => secMembersQuery.data ?? [], [secMembersQuery.data]);
 
   const secMemberMap = useMemo(() => new Map(secMembers.map((m) => [m.id, m])), [secMembers]);
 

@@ -87,10 +87,7 @@ export type DelegationUpdate = Partial<Omit<DelegationOut, "id">>;
 
 export type DelegateUpdate = Partial<Omit<DelegateOut, "id">>;
 
-export type DelegateCreate = Omit<
-  DelegateOut,
-  "id" | "date_applied" | "registration_period"
-> & {
+export type DelegateCreate = Omit<DelegateOut, "id" | "date_applied" | "registration_period"> & {
   date_applied?: string | null;
 };
 

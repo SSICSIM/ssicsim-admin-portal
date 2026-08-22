@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
 import {
@@ -463,8 +462,8 @@ export default function DelegatesPage() {
   // ── filters ────────────────────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<DelegateStatus | "all">("all");
   const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
-  const [delegationFilterId, setDelegationFilterId] = useState<UUID | "all">("all");
-  const [financialAidFilter, setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
+  const [delegationFilterId, _setDelegationFilterId] = useState<UUID | "all">("all");
+  const [financialAidFilter, _setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   // ── sorting & pagination ───────────────────────────────────────────────────
@@ -522,10 +521,10 @@ export default function DelegatesPage() {
   const [editDelegationError, setEditDelegationError] = useState<string | null>(null);
 
   // ── derived data ───────────────────────────────────────────────────────────
-  const committees = committeesQuery.data ?? [];
-  const characters = charactersQuery.data ?? [];
-  const delegates = delegatesQuery.data ?? [];
-  const delegations = delegationsQuery.data ?? [];
+  const committees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
+  const characters = useMemo(() => charactersQuery.data ?? [], [charactersQuery.data]);
+  const delegates = useMemo(() => delegatesQuery.data ?? [], [delegatesQuery.data]);
+  const delegations = useMemo(() => delegationsQuery.data ?? [], [delegationsQuery.data]);
 
   const committeeMap = useMemo(() => new Map(committees.map((c) => [c.id, c])), [committees]);
   const delegateMap = useMemo(() => new Map(delegates.map((d) => [d.id, d])), [delegates]);
@@ -585,30 +584,33 @@ export default function DelegatesPage() {
     return counts;
   }, [delegates]);
 
-  function sortValue(d: DelegateOut, key: SortKey): string {
-    switch (key) {
-      case "name":
-        return `${d.last_name}, ${d.first_name}`.toLowerCase();
-      case "grade":
-        return d.grade ?? "";
-      case "status":
-        return d.delegate_status;
-      case "experience":
-        return d.delegate_experience;
-      case "delegation":
-        return delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate";
-      case "committee": {
-        const ch = assignedCharacterByDelegateId.get(d.id);
-        return ch ? (committeeMap.get(ch.committee_id)?.name ?? "") : "";
+  const sortValue = useCallback(
+    (d: DelegateOut, key: SortKey): string => {
+      switch (key) {
+        case "name":
+          return `${d.last_name}, ${d.first_name}`.toLowerCase();
+        case "grade":
+          return d.grade ?? "";
+        case "status":
+          return d.delegate_status;
+        case "experience":
+          return d.delegate_experience;
+        case "delegation":
+          return delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate";
+        case "committee": {
+          const ch = assignedCharacterByDelegateId.get(d.id);
+          return ch ? (committeeMap.get(ch.committee_id)?.name ?? "") : "";
+        }
+        case "character":
+          return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
+        case "submitted":
+          return d.date_applied ?? "";
+        case "registration":
+          return d.registration_period ?? "";
       }
-      case "character":
-        return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
-      case "submitted":
-        return d.date_applied ?? "";
-      case "registration":
-        return d.registration_period ?? "";
-    }
-  }
+    },
+    [delegationMap, assignedCharacterByDelegateId, committeeMap]
+  );
 
   const sortedDelegates = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -619,14 +621,7 @@ export default function DelegatesPage() {
       if (av > bv) return dir;
       return 0;
     });
-  }, [
-    filteredDelegates,
-    sortKey,
-    sortDir,
-    delegationMap,
-    assignedCharacterByDelegateId,
-    committeeMap
-  ]);
+  }, [filteredDelegates, sortKey, sortDir, sortValue]);
 
   useEffect(() => {
     setPage(1);
@@ -1514,7 +1509,9 @@ export default function DelegatesPage() {
                       label="Registration period"
                       value={
                         viewDelegate.registration_period ? (
-                          <Badge variant={registrationPeriodBadge[viewDelegate.registration_period]}>
+                          <Badge
+                            variant={registrationPeriodBadge[viewDelegate.registration_period]}
+                          >
                             {viewDelegate.registration_period}
                           </Badge>
                         ) : null
