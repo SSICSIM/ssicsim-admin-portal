@@ -23,6 +23,12 @@ class FinancialAidStatus(str, Enum):
     DELEGATION_PAYING = "Delegation Paying"
 
 
+class RegistrationPeriod(str, Enum):
+    EARLY_BIRD = "Early Bird"
+    REGULAR = "Regular"
+    LATE = "Late"
+
+
 class EventType(str, Enum):
     ASSIGNMENT = "Assignment"
     EMAIL = "Email"
