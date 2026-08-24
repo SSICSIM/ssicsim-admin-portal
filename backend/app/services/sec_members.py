@@ -29,6 +29,7 @@ def create_sec_member(db: Session, payload: SecMemberCreate) -> SecMember:
         email=str(payload.email),
         role=payload.role,
         last_logged_in=payload.last_logged_in,
+        availability=payload.availability,
     )
     db.add(sec_member)
     try:

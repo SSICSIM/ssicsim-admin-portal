@@ -5,7 +5,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.custom_types import PydanticDateTimeTZRange
 from app.models.enums import (
+    ApplicantStatus,
     DelegateExperience,
     DelegateStatus,
     EventType,
@@ -190,6 +192,40 @@ class DelegateOut(DelegateBase):
         from_attributes = True
 
 
+# Applicant schemas
+class ApplicantBase(BaseModel):
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    roles_of_interest: list[str] | None = None
+    first_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    second_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    availability: list[PydanticDateTimeTZRange] | None = None
+
+
+class ApplicantCreate(ApplicantBase):
+    applicant_status: ApplicantStatus = ApplicantStatus.APPLIED
+
+
+class ApplicantUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: EmailStr | None
+    roles_of_interest: list[str] | None = None
+    first_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    second_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    availability: list[PydanticDateTimeTZRange] | None = None
+
+
+class ApplicantOut(ApplicantBase):
+    id: UUID
+
+    class Config:
+        from_attributes = True
+
+
 # Character schemas
 class CharacterBase(BaseModel):
     name: str = Field(default="Character", min_length=1, max_length=255)
@@ -220,6 +256,7 @@ class SecMemberBase(BaseModel):
     last_name: str = Field(min_length=1, max_length=255)
     email: EmailStr
     role: str = Field(min_length=1, max_length=255)
+    availability: list[PydanticDateTimeTZRange] | None = None
     last_logged_in: datetime | None = None
 
 
@@ -232,6 +269,7 @@ class SecMemberUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=255)
     email: EmailStr | None = None
     role: str | None = Field(default=None, max_length=255)
+    availability: list[PydanticDateTimeTZRange] | None = None
     last_logged_in: datetime | None = None
 
 
@@ -326,6 +364,35 @@ class AssignmentOut(BaseModel):
     delegate_id: UUID
     character_id: UUID
     committee_id: UUID
+
+    class Config:
+        from_attributes = True
+
+
+class InterviewBase(BaseModel):
+    applicant_id: UUID | None = None
+    sec_member_id1: UUID | None = None
+    sec_member_id2: UUID | None = None
+    isConfirmed1: bool | None = None
+    isConfirmed2: bool | None = None
+    interviewDateTime: datetime | None = None
+
+
+class InterviewCreate(InterviewBase):
+    pass
+
+
+class InterviewUpdate(BaseModel):
+    applicant_id: UUID | None = None
+    sec_member_id1: UUID | None = None
+    sec_member_id2: UUID | None = None
+    isConfirmed1: bool | None = None
+    isConfirmed2: bool | None = None
+    interviewDateTime: datetime | None = None
+
+
+class InterviewOut(InterviewBase):
+    pass
 
     class Config:
         from_attributes = True
