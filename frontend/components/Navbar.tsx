@@ -62,9 +62,12 @@ export function Navbar() {
           {session ? (
             <>
               {session.user?.image ? (
-                <img
+                <Image
                   src={session.user.image}
                   alt={session.user.name ?? "User"}
+                  width={28}
+                  height={28}
+                  unoptimized
                   className="h-7 w-7 rounded-full ring-1 ring-[var(--ssicsim-border)]"
                 />
               ) : null}

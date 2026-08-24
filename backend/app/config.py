@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -27,6 +28,13 @@ class Settings(BaseSettings):
     admin_api_token: str | None = None
     gmail_user: str | None = None
     gmail_app_password: str | None = None
+
+    # Registration period cutoffs (inclusive). A delegate applying on or before
+    # `registration_early_bird_deadline` is Early Bird, on or before
+    # `registration_regular_deadline` is Regular, otherwise Late. Leave unset to
+    # skip that cutoff (e.g. no early bird deadline configured yet this cycle).
+    registration_early_bird_deadline: datetime | None = None
+    registration_regular_deadline: datetime | None = None
 
     @property
     def cors_origins_list(self) -> list[str]:

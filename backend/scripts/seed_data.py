@@ -14,6 +14,7 @@ from app.models.delegate import Delegate
 from app.models.delegation import Delegation
 from app.models.email_template import EmailTemplate
 from app.models.enums import DelegateExperience, DelegateStatus
+from app.services.delegates import _compute_registration_period
 
 COMMITTEES = [
     {
@@ -182,6 +183,66 @@ DELEGATES = [
         "heard_about": "Newsletter",
         "notes": "First time MUN.",
     },
+    {
+        "first_name": "Priya",
+        "last_name": "Anand",
+        "full_name": "Priya Anand",
+        "preferred_name": "Priya",
+        "grade": "Grade 11",
+        "delegation_name": "Sentosa",
+        "email": "priya.anand@example.com",
+        "delegate_experience": DelegateExperience.INTERMEDIATE,
+        "first_committee": "Security Council",
+        "second_committee": "WHO Emergency Session",
+        "third_committee": "UN Women Summit",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/priya.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "School announcement",
+        "notes": "Registered during the early bird window.",
+        "date_applied": datetime(2026, 5, 15, tzinfo=UTC),
+    },
+    {
+        "first_name": "Diego",
+        "last_name": "Ramirez",
+        "full_name": "Diego Ramirez",
+        "preferred_name": "Diego",
+        "grade": "Grade 10",
+        "delegation_name": "CodeX",
+        "email": "diego.ramirez@example.com",
+        "delegate_experience": DelegateExperience.NOVICE,
+        "first_committee": "WHO Emergency Session",
+        "second_committee": "Security Council",
+        "third_committee": "UN Women Summit",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/diego.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "Friend",
+        "notes": "Registered during the regular window.",
+        "date_applied": datetime(2026, 7, 1, tzinfo=UTC),
+    },
+    {
+        "first_name": "Freya",
+        "last_name": "Olsen",
+        "full_name": "Freya Olsen",
+        "preferred_name": "Freya",
+        "grade": "Grade 12",
+        "delegation_name": "Westmount Collegiate Institute",
+        "email": "freya.olsen@example.com",
+        "delegate_experience": DelegateExperience.ADVANCED,
+        "first_committee": "UN Women Summit",
+        "second_committee": "Security Council",
+        "third_committee": "WHO Emergency Session",
+        "delegate_status": DelegateStatus.AWAITING_ASSIGNMENT,
+        "code_of_conduct_url": "https://example.com/coc/freya.pdf",
+        "payment_policy_ack": True,
+        "cancellation_policy_ack": True,
+        "heard_about": "Advisor",
+        "notes": "Registered after the regular deadline.",
+        "date_applied": datetime(2026, 8, 15, tzinfo=UTC),
+    },
 ]
 
 
@@ -302,11 +363,13 @@ def seed_delegates(db):
             continue
         payload_copy = payload.copy()
         delegation_name = payload_copy.pop("delegation_name", None)
+        applied_at = payload_copy.pop("date_applied", None) or datetime.now(UTC)
         db.add(
             Delegate(
                 **payload_copy,
                 delegation_id=delegation_map.get(delegation_name),
-                date_applied=datetime.now(UTC),
+                date_applied=applied_at,
+                registration_period=_compute_registration_period(applied_at),
             )
         )
 
