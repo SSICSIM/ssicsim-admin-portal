@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -7,12 +8,31 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.delegate import Delegate
 from app.models.delegation import Delegation
-from app.models.enums import EventType
+from app.models.enums import EventType, RegistrationPeriod
 from app.models.sec_member import SecMember
 from app.schemas import DelegateCreate, DelegateUpdate
 from app.services.event_logs import record_event
+
+
+def _ensure_aware(dt: datetime) -> datetime:
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def _compute_registration_period(applied_at: datetime) -> RegistrationPeriod:
+    applied_at = _ensure_aware(applied_at)
+    early_bird_deadline = settings.registration_early_bird_deadline
+    regular_deadline = settings.registration_regular_deadline
+
+    if early_bird_deadline and applied_at <= _ensure_aware(early_bird_deadline):
+        return RegistrationPeriod.EARLY_BIRD
+    if regular_deadline and applied_at <= _ensure_aware(regular_deadline):
+        return RegistrationPeriod.REGULAR
+    if regular_deadline:
+        return RegistrationPeriod.LATE
+    return RegistrationPeriod.REGULAR
 
 
 def list_delegates(db: Session) -> list[Delegate]:
@@ -37,6 +57,7 @@ def _validate_delegation(db: Session, delegation_id: UUID | None) -> None:
 
 def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
     _validate_delegation(db, payload.delegation_id)
+    applied_at = payload.date_applied or datetime.now(UTC)
     delegate = Delegate(
         first_name=payload.first_name,
         last_name=payload.last_name,
@@ -50,7 +71,8 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         second_committee=payload.second_committee,
         third_committee=payload.third_committee,
         committee_selection_ack=payload.committee_selection_ack,
-        date_applied=payload.date_applied,
+        date_applied=applied_at,
+        registration_period=_compute_registration_period(applied_at),
         delegate_status=payload.delegate_status,
         delegation_id=payload.delegation_id,
         code_of_conduct_url=payload.code_of_conduct_url,

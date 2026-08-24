@@ -58,10 +58,10 @@ export default function EmailerPage() {
   const queueEmails = useQueueEmails();
   const updateDelegate = useUpdateDelegate();
 
-  const committees = committeesQuery.data ?? [];
-  const delegates = delegatesQuery.data ?? [];
-  const delegations = delegationsQuery.data ?? [];
-  const characters = charactersQuery.data ?? [];
+  const committees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
+  const delegates = useMemo(() => delegatesQuery.data ?? [], [delegatesQuery.data]);
+  const delegations = useMemo(() => delegationsQuery.data ?? [], [delegationsQuery.data]);
+  const characters = useMemo(() => charactersQuery.data ?? [], [charactersQuery.data]);
   const dbTemplates = templatesQuery.data ?? [];
 
   // step

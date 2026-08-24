@@ -9,7 +9,12 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
 from app.database import Base
-from app.models.enums import DelegateExperience, DelegateStatus, FinancialAidStatus
+from app.models.enums import (
+    DelegateExperience,
+    DelegateStatus,
+    FinancialAidStatus,
+    RegistrationPeriod,
+)
 
 
 class Delegate(Base):
@@ -39,6 +44,10 @@ class Delegate(Base):
     third_committee: Mapped[str] = mapped_column(String(255), nullable=False)
     committee_selection_ack: Mapped[bool | None] = mapped_column(nullable=True)
     date_applied: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    registration_period: Mapped[RegistrationPeriod | None] = mapped_column(
+        Enum(RegistrationPeriod, name="registration_period_enum", native_enum=True),
+        nullable=True,
+    )
     delegate_status: Mapped[DelegateStatus] = mapped_column(
         Enum(DelegateStatus, name="delegate_status_enum", native_enum=True),
         default=DelegateStatus.AWAITING_PAYMENT,

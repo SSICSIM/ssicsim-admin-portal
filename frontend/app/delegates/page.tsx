@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
 import {
@@ -23,6 +22,7 @@ import type {
   DelegationOut,
   DelegationUpdate,
   FinancialAidStatus,
+  RegistrationPeriod,
   UUID
 } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -103,6 +103,15 @@ const financialAidBadge: Record<
   "Delegation Paying": "secondary"
 };
 
+const registrationPeriodBadge: Record<
+  RegistrationPeriod,
+  "success" | "warning" | "secondary" | "destructive" | "info" | "default"
+> = {
+  "Early Bird": "success",
+  Regular: "default",
+  Late: "warning"
+};
+
 // ─── undo toast ───────────────────────────────────────────────────────────────
 
 const UNDO_WINDOW_MS = 5_000;
@@ -170,7 +179,8 @@ type SortKey =
   | "delegation"
   | "committee"
   | "character"
-  | "submitted";
+  | "submitted"
+  | "registration";
 
 function SortableHead({
   label,
@@ -274,6 +284,15 @@ function DelegateRow({
       <TableCell>{assignedCharacter ?? "--"}</TableCell>
       <TableCell className="whitespace-nowrap text-xs text-[var(--ssicsim-text-muted)]">
         {formatDate(delegate.date_applied)}
+      </TableCell>
+      <TableCell>
+        {delegate.registration_period ? (
+          <Badge variant={registrationPeriodBadge[delegate.registration_period]}>
+            {delegate.registration_period}
+          </Badge>
+        ) : (
+          "--"
+        )}
       </TableCell>
       <TableCell className="text-right">
         <DropdownMenu modal={false}>
@@ -414,6 +433,13 @@ function DelegateTableHead({
           activeDir={sortDir}
           onSort={onSort}
         />
+        <SortableHead
+          label="Reg. Period"
+          sortKeyName="registration"
+          activeKey={sortKey}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
         <TableHead></TableHead>
       </TableRow>
     </TableHeader>
@@ -436,8 +462,8 @@ export default function DelegatesPage() {
   // ── filters ────────────────────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<DelegateStatus | "all">("all");
   const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
-  const [delegationFilterId, setDelegationFilterId] = useState<UUID | "all">("all");
-  const [financialAidFilter, setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
+  const [delegationFilterId, _setDelegationFilterId] = useState<UUID | "all">("all");
+  const [financialAidFilter, _setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   // ── sorting & pagination ───────────────────────────────────────────────────
@@ -495,10 +521,10 @@ export default function DelegatesPage() {
   const [editDelegationError, setEditDelegationError] = useState<string | null>(null);
 
   // ── derived data ───────────────────────────────────────────────────────────
-  const committees = committeesQuery.data ?? [];
-  const characters = charactersQuery.data ?? [];
-  const delegates = delegatesQuery.data ?? [];
-  const delegations = delegationsQuery.data ?? [];
+  const committees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
+  const characters = useMemo(() => charactersQuery.data ?? [], [charactersQuery.data]);
+  const delegates = useMemo(() => delegatesQuery.data ?? [], [delegatesQuery.data]);
+  const delegations = useMemo(() => delegationsQuery.data ?? [], [delegationsQuery.data]);
 
   const committeeMap = useMemo(() => new Map(committees.map((c) => [c.id, c])), [committees]);
   const delegateMap = useMemo(() => new Map(delegates.map((d) => [d.id, d])), [delegates]);
@@ -558,28 +584,33 @@ export default function DelegatesPage() {
     return counts;
   }, [delegates]);
 
-  function sortValue(d: DelegateOut, key: SortKey): string {
-    switch (key) {
-      case "name":
-        return `${d.last_name}, ${d.first_name}`.toLowerCase();
-      case "grade":
-        return d.grade ?? "";
-      case "status":
-        return d.delegate_status;
-      case "experience":
-        return d.delegate_experience;
-      case "delegation":
-        return delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate";
-      case "committee": {
-        const ch = assignedCharacterByDelegateId.get(d.id);
-        return ch ? (committeeMap.get(ch.committee_id)?.name ?? "") : "";
+  const sortValue = useCallback(
+    (d: DelegateOut, key: SortKey): string => {
+      switch (key) {
+        case "name":
+          return `${d.last_name}, ${d.first_name}`.toLowerCase();
+        case "grade":
+          return d.grade ?? "";
+        case "status":
+          return d.delegate_status;
+        case "experience":
+          return d.delegate_experience;
+        case "delegation":
+          return delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate";
+        case "committee": {
+          const ch = assignedCharacterByDelegateId.get(d.id);
+          return ch ? (committeeMap.get(ch.committee_id)?.name ?? "") : "";
+        }
+        case "character":
+          return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
+        case "submitted":
+          return d.date_applied ?? "";
+        case "registration":
+          return d.registration_period ?? "";
       }
-      case "character":
-        return assignedCharacterByDelegateId.get(d.id)?.name ?? "";
-      case "submitted":
-        return d.date_applied ?? "";
-    }
-  }
+    },
+    [delegationMap, assignedCharacterByDelegateId, committeeMap]
+  );
 
   const sortedDelegates = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
@@ -590,14 +621,7 @@ export default function DelegatesPage() {
       if (av > bv) return dir;
       return 0;
     });
-  }, [
-    filteredDelegates,
-    sortKey,
-    sortDir,
-    delegationMap,
-    assignedCharacterByDelegateId,
-    committeeMap
-  ]);
+  }, [filteredDelegates, sortKey, sortDir, sortValue]);
 
   useEffect(() => {
     setPage(1);
@@ -729,6 +753,7 @@ export default function DelegatesPage() {
       second_committee: delegate.second_committee,
       third_committee: delegate.third_committee,
       committee_selection_ack: delegate.committee_selection_ack,
+      registration_period: delegate.registration_period,
       delegation_id: delegate.delegation_id,
       code_of_conduct_url: delegate.code_of_conduct_url,
       payment_policy_ack: delegate.payment_policy_ack,
@@ -936,6 +961,7 @@ export default function DelegatesPage() {
       "phone",
       "delegate_experience",
       "delegate_status",
+      "registration_period",
       "first_committee",
       "second_committee",
       "third_committee",
@@ -1479,6 +1505,18 @@ export default function DelegatesPage() {
                     <Field label="Assigned committee" value={assignedCommitteeName} />
                     <Field label="Assigned character" value={ch?.name ?? null} />
                     <Field label="Submitted" value={formatDate(viewDelegate.date_applied)} />
+                    <Field
+                      label="Registration period"
+                      value={
+                        viewDelegate.registration_period ? (
+                          <Badge
+                            variant={registrationPeriodBadge[viewDelegate.registration_period]}
+                          >
+                            {viewDelegate.registration_period}
+                          </Badge>
+                        ) : null
+                      }
+                    />
                   </div>
 
                   <Separator />
@@ -1692,6 +1730,28 @@ export default function DelegatesPage() {
                           {d.name}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Registration period</Label>
+                  <Select
+                    value={editDraft.registration_period ?? "__unset__"}
+                    onValueChange={(v) =>
+                      setField(
+                        "registration_period",
+                        v === "__unset__" ? null : (v as RegistrationPeriod)
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Not set" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__unset__">Not set</SelectItem>
+                      <SelectItem value="Early Bird">Early Bird</SelectItem>
+                      <SelectItem value="Regular">Regular</SelectItem>
+                      <SelectItem value="Late">Late</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
