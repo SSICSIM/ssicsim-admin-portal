@@ -37,7 +37,7 @@ def get_interview_by_applicant(
 
 # get interview by secretariat id
 @router.get("/sec/{sec_id}", response_model=InterviewOut)
-def get_interview_by_sec(sec_id: UUID, db: Session = Depends(get_db)) -> Interview:
+def get_interview_by_sec(sec_id: UUID, db: Session = Depends(get_db)) -> list[Interview]:
     return interviews.get_interview_by_sec(db, sec_id)
 
 

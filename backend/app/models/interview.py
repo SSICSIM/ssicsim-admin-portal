@@ -15,7 +15,7 @@ class Interview(Base):
 
     applicant_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("applicants.id", ondelete="SET NULL"),
+        ForeignKey("applicants.id", ondelete="SET CASCADE"),
         primary_key=True,
     )
     sec_member_id1: Mapped[uuid.UUID | None] = mapped_column(
