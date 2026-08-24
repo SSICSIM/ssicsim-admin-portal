@@ -5,7 +5,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.custom_types import PydanticDateTimeTZRange
 from app.models.enums import (
+    ApplicantStatus,
     DelegateExperience,
     DelegateStatus,
     EventType,
@@ -185,6 +187,40 @@ class DelegateUpdate(BaseModel):
 class DelegateOut(DelegateBase):
     id: UUID
     registration_period: RegistrationPeriod | None = None
+
+    class Config:
+        from_attributes = True
+
+
+# Applicant schemas
+class ApplicantBase(BaseModel):
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    roles_of_interest: list[str] | None = None
+    first_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    second_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    availability: list[PydanticDateTimeTZRange] | None = None
+
+
+class ApplicantCreate(ApplicantBase):
+    applicant_status: ApplicantStatus = ApplicantStatus.APPLIED
+
+
+class ApplicantUpdate(BaseModel):
+    first_name: str | None = Field(default=None, min_length=1, max_length=255)
+    last_name: str | None = Field(default=None, min_length=1, max_length=255)
+    email: EmailStr | None
+    roles_of_interest: list[str] | None = None
+    first_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    second_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    third_committee: str | None = Field(default=None, min_length=1, max_length=255)
+    availability: list[PydanticDateTimeTZRange] | None = None
+
+
+class ApplicantOut(ApplicantBase):
+    id: UUID
 
     class Config:
         from_attributes = True

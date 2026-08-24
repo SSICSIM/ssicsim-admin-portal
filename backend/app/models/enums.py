@@ -35,3 +35,17 @@ class EventType(str, Enum):
     COMMITTEE_UPDATE = "Committee Update"
     STATUS_CHANGE = "Status Change"
     UNASSIGNMENT = "Unassignment"
+
+
+class ApplicantStatus(str, Enum):
+    APPLIED = "Applied"
+    INTERVIEW_TIMES_SENT = "Interview Times Sent"
+    INTERVIEW_TIMES_CONFIRMED = "Interview Times Confirmed"
+    INTERVIEW_CONFIRMED = "Interview Confirmed"
+    INTERVIEW_CONCLUDED = "Interview Concluded"
+    INTERVIEW_RESCHEDULED = "Interview Rescheduled"
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+    OFFERED = "Offered"
+    CONFIRMED = "Confirmed"
+    WITHDRAWN = "Withdrawn"
