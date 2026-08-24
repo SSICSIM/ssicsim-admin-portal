@@ -287,7 +287,10 @@ function DelegateRow({
       </TableCell>
       <TableCell>
         {delegate.registration_period ? (
-          <Badge variant={registrationPeriodBadge[delegate.registration_period]}>
+          <Badge
+            variant={registrationPeriodBadge[delegate.registration_period]}
+            className="whitespace-nowrap"
+          >
             {delegate.registration_period}
           </Badge>
         ) : (
@@ -1511,6 +1514,7 @@ export default function DelegatesPage() {
                         viewDelegate.registration_period ? (
                           <Badge
                             variant={registrationPeriodBadge[viewDelegate.registration_period]}
+                            className="whitespace-nowrap"
                           >
                             {viewDelegate.registration_period}
                           </Badge>
