@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     admin_api_token: str | None = None
     gmail_user: str | None = None
     gmail_app_password: str | None = None
+    google_service_account_json_b64: str | None = None
+    google_sheet_id: str | None = None
+    google_sheet_worksheet: str = "Delegates"
 
     # Registration period cutoffs (inclusive). A delegate applying on or before
     # `registration_early_bird_deadline` is Early Bird, on or before
