@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -14,7 +15,10 @@ from app.models.delegation import Delegation
 from app.models.enums import EventType, RegistrationPeriod
 from app.models.sec_member import SecMember
 from app.schemas import DelegateCreate, DelegateUpdate
+from app.services import google_sheets
 from app.services.event_logs import record_event
+
+logger = logging.getLogger(__name__)
 
 
 def _assume_utc_if_naive(dt: datetime) -> datetime:
@@ -93,6 +97,12 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         db.rollback()
         raise HTTPException(status_code=409, detail="Delegate email already exists")
     db.refresh(delegate)
+
+    try:
+        google_sheets.append_delegate_row(delegate)
+    except Exception:
+        logger.exception("Failed to sync delegate %s to Google Sheet", delegate.id)
+
     return delegate
 
 
