@@ -17,18 +17,18 @@ from app.schemas import DelegateCreate, DelegateUpdate
 from app.services.event_logs import record_event
 
 
-def _ensure_aware(dt: datetime) -> datetime:
+def _assume_utc_if_naive(dt: datetime) -> datetime:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _compute_registration_period(applied_at: datetime) -> RegistrationPeriod:
-    applied_at = _ensure_aware(applied_at)
+    applied_at = _assume_utc_if_naive(applied_at)
     early_bird_deadline = settings.registration_early_bird_deadline
     regular_deadline = settings.registration_regular_deadline
 
-    if early_bird_deadline and applied_at <= _ensure_aware(early_bird_deadline):
+    if early_bird_deadline and applied_at <= _assume_utc_if_naive(early_bird_deadline):
         return RegistrationPeriod.EARLY_BIRD
-    if regular_deadline and applied_at <= _ensure_aware(regular_deadline):
+    if regular_deadline and applied_at <= _assume_utc_if_naive(regular_deadline):
         return RegistrationPeriod.REGULAR
     if regular_deadline:
         return RegistrationPeriod.LATE
