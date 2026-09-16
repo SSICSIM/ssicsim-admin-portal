@@ -41,6 +41,7 @@ Notes:
 - `docs/DOCKER.md`
 - `backend/db.md`
 - `documentation/frontend-pages.md` — how to build a new admin page (or multi-step flow) and the Tailwind design tokens
+- `documentation/whats-new-testing-guide.md` — manual testing walkthrough for the character priority/experience, CSV export, assignment flow, and bulk delegate editing features
 
 ## Task List
 

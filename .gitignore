@@ -11,6 +11,7 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+.claude/
 
 # Node / Next
 node_modules/

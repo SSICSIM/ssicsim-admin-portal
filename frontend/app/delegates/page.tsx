@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
 
 import {
   useAssignDelegate,
+  useBulkEditDelegates,
   useCharacters,
   useCommittees,
   useDeleteAssignment,
@@ -16,6 +18,9 @@ import {
   useUpdateDelegation
 } from "@/hooks/useAdminQueries";
 import type {
+  CharacterOut,
+  CommitteeOut,
+  DelegateBulkEditItem,
   DelegateOut,
   DelegateStatus,
   DelegateUpdate,
@@ -69,8 +74,20 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  buildCharacterAssignmentRows,
+  buildFinancialRows,
+  downloadCsv,
+  paymentStatusLabel,
+  REGISTRATION_PRICES
+} from "@/utils/csv";
+import {
+  buildCharactersByCommittee,
+  formatExperience,
+  sortCharactersByPriorityDesc
+} from "@/utils/committee";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -103,6 +120,13 @@ const financialAidBadge: Record<
   "Delegation Paying": "secondary"
 };
 
+const financialAidFilters: { label: string; value: FinancialAidStatus | "all" }[] = [
+  { label: "All financial aid", value: "all" },
+  { label: "Financial aid: Yes", value: "Yes" },
+  { label: "Financial aid: No", value: "No" },
+  { label: "Delegation paying", value: "Delegation Paying" }
+];
+
 const registrationPeriodBadge: Record<
   RegistrationPeriod,
   "success" | "warning" | "secondary" | "destructive" | "info" | "default"
@@ -111,6 +135,31 @@ const registrationPeriodBadge: Record<
   Regular: "default",
   Late: "warning"
 };
+
+const ALL_STATUSES: DelegateStatus[] = [
+  "Awaiting Payment",
+  "Verify Payment",
+  "Awaiting Assignment",
+  "Assigned",
+  "Confirmed"
+];
+
+// ─── inline edit-table mode ─────────────────────────────────────────────────
+
+// `committeeFilter` is UI-only (narrows the Character dropdown) and is never
+// sent to the backend — only `status`/`characterId`/`unassign` become a
+// DelegateBulkEditItem field.
+type PendingDelegateEdit = {
+  status?: DelegateStatus;
+  committeeFilter?: UUID;
+  characterId?: UUID;
+  unassign?: boolean;
+};
+
+function pendingEditHasChange(edit: PendingDelegateEdit | undefined): boolean {
+  if (!edit) return false;
+  return edit.status !== undefined || edit.characterId !== undefined || edit.unassign === true;
+}
 
 // ─── undo toast ───────────────────────────────────────────────────────────────
 
@@ -245,7 +294,17 @@ function DelegateRow({
   onUnassign,
   onDelete,
   unassigning,
-  isPendingUnassign
+  isPendingUnassign,
+  editMode,
+  committees,
+  charactersByCommittee,
+  assignedCommitteeId,
+  assignedCharacterId,
+  pendingEdit,
+  onStageStatus,
+  onStageCommitteeFilter,
+  onStageCharacter,
+  onStageUnassign
 }: {
   delegate: DelegateOut;
   assignedCommittee: string | null;
@@ -258,7 +317,27 @@ function DelegateRow({
   onDelete: () => void;
   unassigning: boolean;
   isPendingUnassign: boolean;
+  editMode?: boolean;
+  committees?: CommitteeOut[];
+  charactersByCommittee?: Map<UUID, CharacterOut[]>;
+  assignedCommitteeId?: UUID | null;
+  assignedCharacterId?: UUID | null;
+  pendingEdit?: PendingDelegateEdit;
+  onStageStatus?: (status: DelegateStatus) => void;
+  onStageCommitteeFilter?: (committeeId: UUID) => void;
+  onStageCharacter?: (characterId: UUID) => void;
+  onStageUnassign?: () => void;
 }) {
+  const isLocked = editMode && delegate.delegate_status === "Confirmed" && !pendingEdit?.unassign;
+  const effectiveCommitteeId = pendingEdit?.unassign
+    ? (pendingEdit.committeeFilter ?? "")
+    : (pendingEdit?.committeeFilter ?? assignedCommitteeId ?? "");
+  const availableCharacters = sortCharactersByPriorityDesc(
+    (charactersByCommittee?.get(effectiveCommitteeId as UUID) ?? []).filter(
+      (c) => !c.delegate_id || c.id === assignedCharacterId
+    )
+  );
+
   return (
     <TableRow className={isPendingUnassign ? "opacity-40" : undefined}>
       <TableCell className="font-medium">
@@ -267,7 +346,26 @@ function DelegateRow({
       <TableCell>{delegate.grade ?? "--"}</TableCell>
       <TableCell className="max-w-[160px] truncate">{delegate.email}</TableCell>
       <TableCell>
-        <Badge variant={statusBadge[delegate.delegate_status]}>{delegate.delegate_status}</Badge>
+        {editMode ? (
+          <Select
+            value={pendingEdit?.status ?? delegate.delegate_status}
+            onValueChange={(v) => onStageStatus?.(v as DelegateStatus)}
+            disabled={isLocked}
+          >
+            <SelectTrigger className="h-8 w-full min-w-[160px] [&>span]:whitespace-nowrap">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ALL_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Badge variant={statusBadge[delegate.delegate_status]}>{delegate.delegate_status}</Badge>
+        )}
       </TableCell>
       <TableCell>{delegate.delegate_experience}</TableCell>
       <TableCell>{delegationName}</TableCell>
@@ -280,8 +378,59 @@ function DelegateRow({
           "--"
         )}
       </TableCell>
-      <TableCell>{assignedCommittee ?? "--"}</TableCell>
-      <TableCell>{assignedCharacter ?? "--"}</TableCell>
+      <TableCell>
+        {editMode ? (
+          isLocked ? (
+            <Button size="sm" variant="ghost" onClick={onStageUnassign}>
+              Unassign to edit
+            </Button>
+          ) : (
+            <Select
+              value={effectiveCommitteeId || undefined}
+              onValueChange={(v) => onStageCommitteeFilter?.(v as UUID)}
+            >
+              <SelectTrigger className="h-8 w-full min-w-[140px] [&>span]:whitespace-nowrap">
+                <SelectValue placeholder="Committee" />
+              </SelectTrigger>
+              <SelectContent>
+                {(committees ?? []).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        ) : (
+          (assignedCommittee ?? "--")
+        )}
+      </TableCell>
+      <TableCell>
+        {editMode ? (
+          isLocked ? (
+            "--"
+          ) : (
+            <Select
+              value={pendingEdit?.characterId ?? assignedCharacterId ?? undefined}
+              onValueChange={(v) => onStageCharacter?.(v as UUID)}
+              disabled={!effectiveCommitteeId}
+            >
+              <SelectTrigger className="h-8 w-full min-w-[160px] [&>span]:whitespace-nowrap">
+                <SelectValue placeholder="Character" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableCharacters.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name} (P{c.priority ?? "–"} · {formatExperience(c.experience)})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )
+        ) : (
+          (assignedCharacter ?? "--")
+        )}
+      </TableCell>
       <TableCell className="whitespace-nowrap text-xs text-[var(--ssicsim-text-muted)]">
         {formatDate(delegate.date_applied)}
       </TableCell>
@@ -454,6 +603,7 @@ function DelegateTableHead({
 export default function DelegatesPage() {
   const committeesQuery = useCommittees();
   const charactersQuery = useCharacters();
+  const bulkEditDelegates = useBulkEditDelegates();
   const delegatesQuery = useDelegates();
   const delegationsQuery = useDelegations();
   const assignDelegate = useAssignDelegate();
@@ -465,8 +615,8 @@ export default function DelegatesPage() {
   // ── filters ────────────────────────────────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<DelegateStatus | "all">("all");
   const [committeeFilterId, setCommitteeFilterId] = useState<UUID | "all">("all");
-  const [delegationFilterId, _setDelegationFilterId] = useState<UUID | "all">("all");
-  const [financialAidFilter, _setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
+  const [delegationFilterId, setDelegationFilterId] = useState<UUID | "all">("all");
+  const [financialAidFilter, setFinancialAidFilter] = useState<FinancialAidStatus | "all">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   // ── sorting & pagination ───────────────────────────────────────────────────
@@ -486,8 +636,6 @@ export default function DelegatesPage() {
   // ── assignment flow ────────────────────────────────────────────────────────
   const [assignmentOpen, setAssignmentOpen] = useState(false);
   const [assignmentDelegateId, setAssignmentDelegateId] = useState<UUID | null>(null);
-  const [flowOpen, setFlowOpen] = useState(false);
-  const [flowIndex, setFlowIndex] = useState(0);
   const [committeeId, setCommitteeId] = useState<UUID | "">("");
   const [characterId, setCharacterId] = useState<UUID | "">("");
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -523,6 +671,20 @@ export default function DelegatesPage() {
   const [editDelegationDraft, setEditDelegationDraft] = useState<DelegationUpdate>({});
   const [editDelegationError, setEditDelegationError] = useState<string | null>(null);
 
+  // ── inline edit-table mode ─────────────────────────────────────────────────
+  const [editTableMode, setEditTableMode] = useState(false);
+  const [pendingEdits, setPendingEdits] = useState<Map<UUID, PendingDelegateEdit>>(new Map());
+  const [editConfirmOpen, setEditConfirmOpen] = useState(false);
+  const [bulkEditError, setBulkEditError] = useState<string | null>(null);
+  const [bulkEditWarnings, setBulkEditWarnings] = useState<string[]>([]);
+  const [noCharactersWarning, setNoCharactersWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!noCharactersWarning) return;
+    const t = setTimeout(() => setNoCharactersWarning(null), 5000);
+    return () => clearTimeout(t);
+  }, [noCharactersWarning]);
+
   // ── derived data ───────────────────────────────────────────────────────────
   const committees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
   const characters = useMemo(() => charactersQuery.data ?? [], [charactersQuery.data]);
@@ -540,6 +702,8 @@ export default function DelegatesPage() {
     });
     return map;
   }, [characters]);
+
+  const charactersByCommittee = useMemo(() => buildCharactersByCommittee(characters), [characters]);
 
   const filteredDelegates = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -573,11 +737,6 @@ export default function DelegatesPage() {
     financialAidFilter,
     assignedCharacterByDelegateId
   ]);
-
-  const needsAssignment = useMemo(
-    () => filteredDelegates.filter((d) => d.delegate_status === "Awaiting Assignment"),
-    [filteredDelegates]
-  );
 
   const statusCounts = useMemo(() => {
     const counts = new Map<DelegateStatus, number>();
@@ -628,7 +787,15 @@ export default function DelegatesPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, committeeFilterId, searchTerm, sortKey, sortDir]);
+  }, [
+    statusFilter,
+    committeeFilterId,
+    delegationFilterId,
+    financialAidFilter,
+    searchTerm,
+    sortKey,
+    sortDir
+  ]);
 
   const pageCount = Math.max(1, Math.ceil(sortedDelegates.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
@@ -639,8 +806,10 @@ export default function DelegatesPage() {
 
   const filteredCharacters = useMemo(
     () =>
-      characters.filter(
-        (c) => (!committeeId || c.committee_id === committeeId) && c.delegate_id == null
+      sortCharactersByPriorityDesc(
+        characters.filter(
+          (c) => (!committeeId || c.committee_id === committeeId) && c.delegate_id == null
+        )
       ),
     [characters, committeeId]
   );
@@ -680,8 +849,128 @@ export default function DelegatesPage() {
         setDeleteError(null);
       },
       unassigning: false,
-      isPendingUnassign: pendingUnassigns.some((p) => p.delegateId === delegate.id)
+      isPendingUnassign: pendingUnassigns.some((p) => p.delegateId === delegate.id),
+      editMode: editTableMode,
+      committees,
+      charactersByCommittee,
+      assignedCommitteeId: ch?.committee_id ?? null,
+      assignedCharacterId: ch?.id ?? null,
+      pendingEdit: pendingEdits.get(delegate.id),
+      onStageStatus: (status: DelegateStatus) => updatePendingEdit(delegate.id, { status }),
+      onStageCommitteeFilter: (committeeFilter: UUID) => {
+        updatePendingEdit(delegate.id, { committeeFilter, characterId: undefined });
+        const available = (charactersByCommittee.get(committeeFilter) ?? []).filter(
+          (c) => !c.delegate_id
+        );
+        if (available.length === 0) {
+          const committeeName = committeeMap.get(committeeFilter)?.name ?? "This committee";
+          setNoCharactersWarning(`${committeeName} has no available characters left to assign.`);
+        }
+      },
+      onStageCharacter: (characterId: UUID) => updatePendingEdit(delegate.id, { characterId }),
+      onStageUnassign: () =>
+        updatePendingEdit(delegate.id, {
+          unassign: true,
+          committeeFilter: undefined,
+          characterId: undefined
+        })
     };
+  }
+
+  // ── inline edit-table mode ─────────────────────────────────────────────────
+
+  function updatePendingEdit(delegateId: UUID, patch: Partial<PendingDelegateEdit>) {
+    setPendingEdits((prev) => {
+      const next = new Map(prev);
+      next.set(delegateId, { ...next.get(delegateId), ...patch });
+      return next;
+    });
+  }
+
+  function revertPendingEdit(delegateId: UUID) {
+    setPendingEdits((prev) => {
+      const next = new Map(prev);
+      next.delete(delegateId);
+      return next;
+    });
+  }
+
+  function toggleEditTableMode() {
+    if (!editTableMode) {
+      setEditTableMode(true);
+      return;
+    }
+    if (pendingEdits.size === 0) {
+      setEditTableMode(false);
+      return;
+    }
+    setBulkEditError(null);
+    setEditConfirmOpen(true);
+  }
+
+  function buildBulkEditItems(): DelegateBulkEditItem[] {
+    const items: DelegateBulkEditItem[] = [];
+    pendingEdits.forEach((edit, delegateId) => {
+      if (!pendingEditHasChange(edit)) return;
+      const original = delegateMap.get(delegateId);
+      const item: DelegateBulkEditItem = { delegate_id: delegateId };
+      if (edit.status && edit.status !== original?.delegate_status) {
+        item.delegate_status = edit.status;
+      }
+      if (edit.unassign) item.unassign = true;
+      if (edit.characterId) item.character_id = edit.characterId;
+      items.push(item);
+    });
+    return items;
+  }
+
+  function describePendingChange(delegateId: UUID, edit: PendingDelegateEdit): string[] {
+    const delegate = delegateMap.get(delegateId);
+    if (!delegate) return [];
+    const lines: string[] = [];
+    if (edit.status && edit.status !== delegate.delegate_status) {
+      lines.push(`Status: ${delegate.delegate_status} → ${edit.status}`);
+    }
+    const currentCharacter = assignedCharacterByDelegateId.get(delegateId);
+    if (edit.unassign || edit.characterId) {
+      const from = currentCharacter ? currentCharacter.name : "Unassigned";
+      const to = edit.characterId
+        ? (characters.find((c) => c.id === edit.characterId)?.name ?? "Unknown")
+        : "Unassigned";
+      if (from !== to) lines.push(`Character: ${from} → ${to}`);
+    }
+    return lines;
+  }
+
+  async function confirmBulkEdit() {
+    setBulkEditError(null);
+    const items = buildBulkEditItems();
+    if (items.length === 0) {
+      setEditConfirmOpen(false);
+      setEditTableMode(false);
+      setPendingEdits(new Map());
+      return;
+    }
+    try {
+      const result = await bulkEditDelegates.mutateAsync({ items });
+      setEditConfirmOpen(false);
+      setEditTableMode(false);
+      setPendingEdits(new Map());
+      // Some rows can be silently skipped server-side (Confirmed without
+      // unassign, a character taken mid-batch, a duplicate character choice,
+      // etc.) — surface those instead of letting the admin assume everything
+      // they staged actually applied.
+      setBulkEditWarnings(result.warnings);
+    } catch (err) {
+      setBulkEditError(err instanceof Error ? err.message : "Unable to save changes.");
+    }
+  }
+
+  function discardAllPendingEdits() {
+    setPendingEdits(new Map());
+    setEditConfirmOpen(false);
+    setEditTableMode(false);
+    setBulkEditError(null);
   }
 
   // ── unassign with undo ─────────────────────────────────────────────────────
@@ -861,30 +1150,6 @@ export default function DelegatesPage() {
     setAssignmentOpen(true);
   }
 
-  function openFlow() {
-    setFlowIndex(0);
-    setAssignmentDelegateId(needsAssignment[0]?.id ?? null);
-    setCommitteeId("");
-    setCharacterId("");
-    setSubmitMessage(null);
-    setSubmitError(null);
-    setFlowOpen(true);
-  }
-
-  function moveFlow(dir: "next" | "prev") {
-    if (!needsAssignment.length) return;
-    const next = Math.min(
-      Math.max(flowIndex + (dir === "next" ? 1 : -1), 0),
-      needsAssignment.length - 1
-    );
-    setFlowIndex(next);
-    setAssignmentDelegateId(needsAssignment[next]?.id ?? null);
-    setCommitteeId("");
-    setCharacterId("");
-    setSubmitMessage(null);
-    setSubmitError(null);
-  }
-
   async function handleAssign() {
     if (!assignmentDelegateId || !characterId) return;
     setSubmitMessage(null);
@@ -933,17 +1198,6 @@ export default function DelegatesPage() {
 
       setAssignmentOpen(false);
       setCharacterId("");
-      if (flowOpen) {
-        const nextIndex = Math.min(flowIndex + 1, needsAssignment.length - 1);
-        if (nextIndex !== flowIndex) {
-          setFlowIndex(nextIndex);
-          setAssignmentDelegateId(needsAssignment[nextIndex]?.id ?? null);
-          setSubmitMessage(null);
-          setSubmitError(null);
-          return;
-        }
-        setFlowOpen(false);
-      }
       setAssignmentDelegateId(null);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Unable to assign.");
@@ -981,26 +1235,36 @@ export default function DelegatesPage() {
       "notes"
     ];
     const rows = delegates.map((d) =>
-      headers
-        .map((k) => {
-          if (k === "delegation") {
-            const name = d.delegation_id ? delegationMap.get(d.delegation_id)?.name : "";
-            return `"${(name ?? "").replaceAll('"', '""')}"`;
-          }
-          const v = (d as Record<string, unknown>)[k];
-          return `"${String(v ?? "").replaceAll('"', '""')}"`;
-        })
-        .join(",")
+      headers.map((k) => {
+        if (k === "delegation") {
+          return d.delegation_id ? (delegationMap.get(d.delegation_id)?.name ?? "") : "";
+        }
+        return String((d as Record<string, unknown>)[k] ?? "");
+      })
     );
-    const csv = [headers.join(","), ...rows].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "delegates-export.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv("delegates-export.csv", headers, rows);
+  }
+
+  function exportDelegationFinancial(delegationId?: UUID) {
+    const { headers, rows } = buildFinancialRows(delegates, delegationMap, { delegationId });
+    const suffix = delegationId ? (delegationMap.get(delegationId)?.name ?? "delegation") : "all";
+    downloadCsv(`financial-${suffix.toLowerCase().replaceAll(/\s+/g, "-")}.csv`, headers, rows);
+  }
+
+  function exportDelegationCharacterAssignments(delegationId?: UUID) {
+    const { headers, rows } = buildCharacterAssignmentRows(
+      delegates,
+      characters,
+      committeeMap,
+      delegationMap,
+      { delegationId }
+    );
+    const suffix = delegationId ? (delegationMap.get(delegationId)?.name ?? "delegation") : "all";
+    downloadCsv(
+      `character-assignments-${suffix.toLowerCase().replaceAll(/\s+/g, "-")}.csv`,
+      headers,
+      rows
+    );
   }
 
   const selectedDelegate = assignmentDelegateId ? delegateMap.get(assignmentDelegateId) : null;
@@ -1025,15 +1289,54 @@ export default function DelegatesPage() {
       {/* Delegates: filters + table */}
       <section id="delegates-table">
         <Card>
-          <CardHeader>
-            <CardTitle>Delegates</CardTitle>
-            <CardDescription>
-              Search, filter, and bulk-manage delegates · {sortedDelegates.length} of{" "}
-              {delegates.length} shown
-              {statusFilter !== "all" ? ` · ${statusFilter}` : ""}
-            </CardDescription>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Delegates</CardTitle>
+              <CardDescription>
+                Search, filter, and bulk-manage delegates · {sortedDelegates.length} of{" "}
+                {delegates.length} shown
+                {statusFilter !== "all" ? ` · ${statusFilter}` : ""}
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {editTableMode && pendingEdits.size > 0 && (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setBulkEditError(null);
+                    setEditConfirmOpen(true);
+                  }}
+                >
+                  Save changes ({pendingEdits.size})
+                </Button>
+              )}
+              <Button variant={editTableMode ? "ghost" : "secondary"} onClick={toggleEditTableMode}>
+                {editTableMode ? "Exit edit mode" : "Edit table"}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
+            {bulkEditWarnings.length > 0 && (
+              <Alert className="border-amber-300 bg-amber-50">
+                <AlertTitle>
+                  {bulkEditWarnings.length} row{bulkEditWarnings.length === 1 ? "" : "s"} skipped
+                </AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc space-y-1 pl-4">
+                    {bulkEditWarnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                  <button
+                    type="button"
+                    className="mt-2 text-xs font-semibold underline"
+                    onClick={() => setBulkEditWarnings([])}
+                  >
+                    Dismiss
+                  </button>
+                </AlertDescription>
+              </Alert>
+            )}
             <Tabs
               value={statusFilter}
               onValueChange={(v) => setStatusFilter(v as DelegateStatus | "all")}
@@ -1050,7 +1353,7 @@ export default function DelegatesPage() {
                 ))}
               </TabsList>
             </Tabs>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-2">
                 <Label>Committee</Label>
                 <Select
@@ -1071,6 +1374,43 @@ export default function DelegatesPage() {
                 </Select>
               </div>
               <div className="space-y-2">
+                <Label>Delegation</Label>
+                <Select
+                  value={delegationFilterId}
+                  onValueChange={(v) => setDelegationFilterId(v as UUID | "all")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All delegations" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All delegations</SelectItem>
+                    {delegations.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Financial aid</Label>
+                <Select
+                  value={financialAidFilter}
+                  onValueChange={(v) => setFinancialAidFilter(v as FinancialAidStatus | "all")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All financial aid" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {financialAidFilters.map((f) => (
+                      <SelectItem key={f.value} value={f.value}>
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>Search</Label>
                 <Input
                   value={searchTerm}
@@ -1079,8 +1419,8 @@ export default function DelegatesPage() {
                 />
               </div>
               <div className="flex items-end justify-end gap-2 flex-wrap">
-                <Button variant="secondary" onClick={openFlow}>
-                  Assignment flow
+                <Button variant="secondary" asChild>
+                  <Link href="/assignments">Assignment flow</Link>
                 </Button>
                 <Button variant="ghost" onClick={exportDelegates}>
                   Export CSV
@@ -1141,9 +1481,19 @@ export default function DelegatesPage() {
       {/* Delegations */}
       <section id="delegations">
         <Card>
-          <CardHeader>
-            <CardTitle>Delegations</CardTitle>
-            <CardDescription>Delegation roster and faculty advisors.</CardDescription>
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+            <div>
+              <CardTitle>Delegations</CardTitle>
+              <CardDescription>Delegation roster and faculty advisors.</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" onClick={() => exportDelegationFinancial()}>
+                Export all financial (CSV)
+              </Button>
+              <Button variant="ghost" onClick={() => exportDelegationCharacterAssignments()}>
+                Export all assignments (CSV)
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {delegationsQuery.isLoading ? (
@@ -1224,218 +1574,311 @@ export default function DelegatesPage() {
           </DialogHeader>
 
           {editDelegation && (
-            <div className="space-y-5 pt-1">
-              {/* Contact info */}
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Advisor first name</Label>
-                  <Input
-                    value={editDelegationDraft.faculty_advisor_first_name ?? ""}
-                    onChange={(e) =>
-                      setDelegationField("faculty_advisor_first_name", e.target.value)
-                    }
-                  />
+            <Tabs defaultValue="overview" className="pt-1">
+              <TabsList>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="financial">Financial</TabsTrigger>
+                <TabsTrigger value="assignments">Character Assignments</TabsTrigger>
+              </TabsList>
+              <TabsContent value="overview" className="space-y-5 pt-4">
+                {/* Contact info */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Advisor first name</Label>
+                    <Input
+                      value={editDelegationDraft.faculty_advisor_first_name ?? ""}
+                      onChange={(e) =>
+                        setDelegationField("faculty_advisor_first_name", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Advisor last name</Label>
+                    <Input
+                      value={editDelegationDraft.faculty_advisor_last_name ?? ""}
+                      onChange={(e) =>
+                        setDelegationField("faculty_advisor_last_name", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Advisor email</Label>
+                    <Input
+                      value={editDelegationDraft.faculty_advisor_email ?? ""}
+                      onChange={(e) => setDelegationField("faculty_advisor_email", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contact role</Label>
+                    <Input
+                      value={editDelegationDraft.contact_role ?? ""}
+                      onChange={(e) => setDelegationField("contact_role", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contact phone</Label>
+                    <Input
+                      value={editDelegationDraft.contact_phone ?? ""}
+                      onChange={(e) => setDelegationField("contact_phone", e.target.value)}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Advisor last name</Label>
-                  <Input
-                    value={editDelegationDraft.faculty_advisor_last_name ?? ""}
-                    onChange={(e) =>
-                      setDelegationField("faculty_advisor_last_name", e.target.value)
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Advisor email</Label>
-                  <Input
-                    value={editDelegationDraft.faculty_advisor_email ?? ""}
-                    onChange={(e) => setDelegationField("faculty_advisor_email", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Contact role</Label>
-                  <Input
-                    value={editDelegationDraft.contact_role ?? ""}
-                    onChange={(e) => setDelegationField("contact_role", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Contact phone</Label>
-                  <Input
-                    value={editDelegationDraft.contact_phone ?? ""}
-                    onChange={(e) => setDelegationField("contact_phone", e.target.value)}
-                  />
-                </div>
-              </div>
 
-              <Separator />
+                <Separator />
 
-              {/* Delegation details */}
-              <div className="grid gap-4 sm:grid-cols-2">
+                {/* Delegation details */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>School address</Label>
+                    <Textarea
+                      value={editDelegationDraft.school_address ?? ""}
+                      onChange={(e) => setDelegationField("school_address", e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payment process</Label>
+                    <Input
+                      value={editDelegationDraft.payment_process ?? ""}
+                      onChange={(e) => setDelegationField("payment_process", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Delegation size</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editDelegationDraft.delegation_size ?? ""}
+                      onChange={(e) =>
+                        setDelegationField(
+                          "delegation_size",
+                          e.target.value ? Number(e.target.value) : null
+                        )
+                      }
+                    />
+                  </div>
+                  <div />
+                  <div className="space-y-2">
+                    <Label>Delegation size (min)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editDelegationDraft.delegation_size_min ?? ""}
+                      onChange={(e) =>
+                        setDelegationField(
+                          "delegation_size_min",
+                          e.target.value ? Number(e.target.value) : null
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Delegation size (max)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={editDelegationDraft.delegation_size_max ?? ""}
+                      onChange={(e) =>
+                        setDelegationField(
+                          "delegation_size_max",
+                          e.target.value ? Number(e.target.value) : null
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Attended before</Label>
+                    <Select
+                      value={
+                        editDelegationDraft.attended_before == null
+                          ? "unset"
+                          : editDelegationDraft.attended_before
+                            ? "yes"
+                            : "no"
+                      }
+                      onValueChange={(v) =>
+                        setDelegationField("attended_before", v === "unset" ? null : v === "yes")
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unset">Not set</SelectItem>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Heard about</Label>
+                    <Input
+                      value={editDelegationDraft.heard_about ?? ""}
+                      onChange={(e) => setDelegationField("heard_about", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Policy acknowledgments */}
+                <div>
+                  <p className="text-sm font-semibold text-[var(--ssicsim-brand-navy)] mb-3">
+                    Policy Acknowledgments
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {(
+                      [
+                        { key: "policy_ack_registration", label: "Registration policy" },
+                        { key: "policy_ack_payment", label: "Payment policy" },
+                        { key: "policy_ack_cancellation", label: "Cancellation policy" },
+                        { key: "policy_ack_conduct", label: "Code of conduct" },
+                        { key: "policy_ack_photography", label: "Photography / media release" }
+                      ] as { key: keyof DelegationUpdate; label: string }[]
+                    ).map(({ key, label }) => (
+                      <div key={key} className="space-y-1.5">
+                        <Label>{label}</Label>
+                        <Select
+                          value={
+                            editDelegationDraft[key] == null
+                              ? "unset"
+                              : editDelegationDraft[key]
+                                ? "yes"
+                                : "no"
+                          }
+                          onValueChange={(v) =>
+                            setDelegationField(key, v === "unset" ? null : v === "yes")
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unset">Not set</SelectItem>
+                            <SelectItem value="yes">Acknowledged</SelectItem>
+                            <SelectItem value="no">Not acknowledged</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Notes */}
                 <div className="space-y-2">
-                  <Label>School address</Label>
+                  <Label>Notes</Label>
                   <Textarea
-                    value={editDelegationDraft.school_address ?? ""}
-                    onChange={(e) => setDelegationField("school_address", e.target.value)}
-                    rows={2}
+                    value={editDelegationDraft.notes ?? ""}
+                    onChange={(e) => setDelegationField("notes", e.target.value)}
+                    rows={3}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Payment process</Label>
-                  <Input
-                    value={editDelegationDraft.payment_process ?? ""}
-                    onChange={(e) => setDelegationField("payment_process", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Delegation size</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={editDelegationDraft.delegation_size ?? ""}
-                    onChange={(e) =>
-                      setDelegationField(
-                        "delegation_size",
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-                <div />
-                <div className="space-y-2">
-                  <Label>Delegation size (min)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={editDelegationDraft.delegation_size_min ?? ""}
-                    onChange={(e) =>
-                      setDelegationField(
-                        "delegation_size_min",
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Delegation size (max)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={editDelegationDraft.delegation_size_max ?? ""}
-                    onChange={(e) =>
-                      setDelegationField(
-                        "delegation_size_max",
-                        e.target.value ? Number(e.target.value) : null
-                      )
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Attended before</Label>
-                  <Select
-                    value={
-                      editDelegationDraft.attended_before == null
-                        ? "unset"
-                        : editDelegationDraft.attended_before
-                          ? "yes"
-                          : "no"
-                    }
-                    onValueChange={(v) =>
-                      setDelegationField("attended_before", v === "unset" ? null : v === "yes")
-                    }
+
+                <div className="flex flex-wrap items-center gap-3 pt-1">
+                  <Button onClick={handleSaveDelegation} disabled={updateDelegation.isPending}>
+                    {updateDelegation.isPending ? "Saving…" : "Save changes"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={closeDelegationEdit}
+                    disabled={updateDelegation.isPending}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unset">Not set</SelectItem>
-                      <SelectItem value="yes">Yes</SelectItem>
-                      <SelectItem value="no">No</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    Cancel
+                  </Button>
+                  {editDelegationError && (
+                    <span className="text-xs text-red-600">{editDelegationError}</span>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label>Heard about</Label>
-                  <Input
-                    value={editDelegationDraft.heard_about ?? ""}
-                    onChange={(e) => setDelegationField("heard_about", e.target.value)}
-                  />
+              </TabsContent>
+
+              <TabsContent value="financial" className="space-y-3 pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-[var(--ssicsim-text-muted)]">
+                    Registration period, computed price, and payment status for this
+                    delegation&apos;s delegates.
+                  </p>
+                  <Button
+                    variant="ghost"
+                    onClick={() => exportDelegationFinancial(editDelegation.id)}
+                  >
+                    Export CSV
+                  </Button>
                 </div>
-              </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Delegate</TableHead>
+                      <TableHead>Reg. Period</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Financial Aid</TableHead>
+                      <TableHead>Payment</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {delegates
+                      .filter((d) => d.delegation_id === editDelegation.id)
+                      .map((d) => (
+                        <TableRow key={d.id}>
+                          <TableCell>{d.full_name || `${d.first_name} ${d.last_name}`}</TableCell>
+                          <TableCell>{d.registration_period ?? "--"}</TableCell>
+                          <TableCell>
+                            {d.registration_period
+                              ? `$${REGISTRATION_PRICES[d.registration_period]}`
+                              : "--"}
+                          </TableCell>
+                          <TableCell>{d.financial_aid_status ?? "--"}</TableCell>
+                          <TableCell>{paymentStatusLabel(d)}</TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </TabsContent>
 
-              <Separator />
-
-              {/* Policy acknowledgments */}
-              <div>
-                <p className="text-sm font-semibold text-[var(--ssicsim-brand-navy)] mb-3">
-                  Policy Acknowledgments
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {(
-                    [
-                      { key: "policy_ack_registration", label: "Registration policy" },
-                      { key: "policy_ack_payment", label: "Payment policy" },
-                      { key: "policy_ack_cancellation", label: "Cancellation policy" },
-                      { key: "policy_ack_conduct", label: "Code of conduct" },
-                      { key: "policy_ack_photography", label: "Photography / media release" }
-                    ] as { key: keyof DelegationUpdate; label: string }[]
-                  ).map(({ key, label }) => (
-                    <div key={key} className="space-y-1.5">
-                      <Label>{label}</Label>
-                      <Select
-                        value={
-                          editDelegationDraft[key] == null
-                            ? "unset"
-                            : editDelegationDraft[key]
-                              ? "yes"
-                              : "no"
-                        }
-                        onValueChange={(v) =>
-                          setDelegationField(key, v === "unset" ? null : v === "yes")
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="unset">Not set</SelectItem>
-                          <SelectItem value="yes">Acknowledged</SelectItem>
-                          <SelectItem value="no">Not acknowledged</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+              <TabsContent value="assignments" className="space-y-3 pt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-[var(--ssicsim-text-muted)]">
+                    Finalized committee and character assignments for this delegation.
+                  </p>
+                  <Button
+                    variant="ghost"
+                    onClick={() => exportDelegationCharacterAssignments(editDelegation.id)}
+                  >
+                    Export CSV
+                  </Button>
                 </div>
-              </div>
-
-              <Separator />
-
-              {/* Notes */}
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea
-                  value={editDelegationDraft.notes ?? ""}
-                  onChange={(e) => setDelegationField("notes", e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 pt-1">
-                <Button onClick={handleSaveDelegation} disabled={updateDelegation.isPending}>
-                  {updateDelegation.isPending ? "Saving…" : "Save changes"}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={closeDelegationEdit}
-                  disabled={updateDelegation.isPending}
-                >
-                  Cancel
-                </Button>
-                {editDelegationError && (
-                  <span className="text-xs text-red-600">{editDelegationError}</span>
-                )}
-              </div>
-            </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Delegate</TableHead>
+                      <TableHead>Committee</TableHead>
+                      <TableHead>Character</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {delegates
+                      .filter(
+                        (d) =>
+                          d.delegation_id === editDelegation.id &&
+                          assignedCharacterByDelegateId.has(d.id)
+                      )
+                      .map((d) => {
+                        const ch = assignedCharacterByDelegateId.get(d.id)!;
+                        return (
+                          <TableRow key={d.id}>
+                            <TableCell>{d.full_name || `${d.first_name} ${d.last_name}`}</TableCell>
+                            <TableCell>{committeeMap.get(ch.committee_id)?.name ?? "--"}</TableCell>
+                            <TableCell>
+                              {ch.name} (P{ch.priority ?? "–"} · {formatExperience(ch.experience)})
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                  </TableBody>
+                </Table>
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
@@ -2084,7 +2527,7 @@ export default function DelegatesPage() {
                 <SelectContent>
                   {filteredCharacters.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name}
+                      {c.name} (P{c.priority ?? "–"} · {formatExperience(c.experience)})
                       {prevAssignment?.characterId === c.id ? " ↩ previous" : ""}
                     </SelectItem>
                   ))}
@@ -2148,122 +2591,69 @@ export default function DelegatesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Assignment Flow Dialog ────────────────────────────────────────────── */}
-      <Dialog open={flowOpen} onOpenChange={setFlowOpen}>
-        <DialogContent>
+      {/* ── Batch Edit Confirm Dialog ────────────────────────────────────────── */}
+      <Dialog
+        open={editConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open) setEditConfirmOpen(false);
+        }}
+      >
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Assignment Flow</DialogTitle>
-            <DialogDescription>Assign delegates one by one in sequence.</DialogDescription>
+            <DialogTitle>Confirm {pendingEdits.size} change(s)</DialogTitle>
+            <DialogDescription>
+              Review what will change before saving. This will be recorded as one batched
+              activity-log entry.
+            </DialogDescription>
           </DialogHeader>
-          {needsAssignment.length === 0 ? (
-            <Alert>
-              <AlertTitle>No delegates waiting</AlertTitle>
-              <AlertDescription>All delegates have assignments.</AlertDescription>
-            </Alert>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm">
-                <p className="text-[var(--ssicsim-text-muted)]">Committee open seats</p>
-                <div className="mt-2 space-y-1 text-xs">
-                  {committeeStats
-                    .sort((a, b) => b.openCount - a.openCount)
-                    .slice(0, 6)
-                    .map((s) => (
-                      <div key={s.id} className="flex items-center justify-between gap-2">
-                        <span>{s.name}</span>
-                        <span className="text-[var(--ssicsim-text-muted)]">
-                          {s.openCount} open · {s.occupiedPercent}%
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-              {selectedDelegate && (
-                <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm">
-                  <p className="font-medium text-[var(--ssicsim-brand-navy)]">
-                    {selectedDelegate.last_name}, {selectedDelegate.first_name}
-                  </p>
-                  <p className="text-[var(--ssicsim-text-muted)]">
-                    Preferences:{" "}
-                    {[
-                      selectedDelegate.first_committee,
-                      selectedDelegate.second_committee,
-                      selectedDelegate.third_committee
-                    ]
-                      .filter(Boolean)
-                      .join(" / ") || "--"}
-                  </p>
-                  <p className="text-[var(--ssicsim-text-muted)]">
-                    Delegation:{" "}
-                    {delegationMap.get(selectedDelegate.delegation_id ?? "")?.name ??
-                      "Independent Delegate"}
-                  </p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <Label>Committee</Label>
-                <Select value={committeeId} onValueChange={setCommitteeId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select committee" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {committees.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Character</Label>
-                <Select value={characterId} onValueChange={setCharacterId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select character" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredCharacters.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  onClick={handleAssign}
-                  disabled={!assignmentDelegateId || !characterId || assignDelegate.isPending}
-                >
-                  {assignDelegate.isPending ? "Assigning…" : "Assign delegate"}
-                </Button>
-                <Button variant="ghost" onClick={() => moveFlow("prev")} disabled={flowIndex <= 0}>
-                  Previous
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => moveFlow("next")}
-                  disabled={flowIndex >= needsAssignment.length - 1}
-                >
-                  Next
-                </Button>
-                {submitMessage && <Badge variant="success">{submitMessage}</Badge>}
-              </div>
-              {committeeId && filteredCharacters.length === 0 && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  No remaining characters.
-                </div>
-              )}
-              {submitError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {submitError}
-                </div>
-              )}
-              <p className="text-xs text-[var(--ssicsim-text-muted)]">
-                Delegate {flowIndex + 1} of {needsAssignment.length}
-              </p>
-            </div>
-          )}
+          <div className="space-y-2">
+            {Array.from(pendingEdits.entries())
+              .filter(([, edit]) => pendingEditHasChange(edit))
+              .map(([delegateId, edit]) => {
+                const delegate = delegateMap.get(delegateId);
+                if (!delegate) return null;
+                const lines = describePendingChange(delegateId, edit);
+                if (lines.length === 0) return null;
+                return (
+                  <div
+                    key={delegateId}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3 text-sm"
+                  >
+                    <div>
+                      <p className="font-medium text-[var(--ssicsim-brand-navy)]">
+                        {delegate.last_name}, {delegate.first_name}
+                      </p>
+                      {lines.map((line, i) => (
+                        <p key={i} className="text-xs text-[var(--ssicsim-text-muted)]">
+                          {line}
+                        </p>
+                      ))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0 p-0"
+                      aria-label="Revert this change"
+                      onClick={() => revertPendingEdit(delegateId)}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                );
+              })}
+          </div>
+          {bulkEditError && <p className="text-xs text-red-600">{bulkEditError}</p>}
+          <div className="flex flex-wrap justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setEditConfirmOpen(false)}>
+              Keep editing
+            </Button>
+            <Button variant="danger" onClick={discardAllPendingEdits}>
+              Discard all & exit
+            </Button>
+            <Button onClick={confirmBulkEdit} disabled={bulkEditDelegates.isPending}>
+              {bulkEditDelegates.isPending ? "Saving…" : "Confirm changes"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2322,11 +2712,16 @@ export default function DelegatesPage() {
       </Dialog>
 
       {/* ── Undo toast stack ──────────────────────────────────────────────── */}
-      {pendingUnassigns.length > 0 && (
+      {(pendingUnassigns.length > 0 || noCharactersWarning) && (
         <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
           {pendingUnassigns.map((p) => (
             <UnassignToast key={p.uid} pending={p} onUndo={() => undoUnassign(p.uid)} />
           ))}
+          {noCharactersWarning && (
+            <div className="w-72 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+              {noCharactersWarning}
+            </div>
+          )}
         </div>
       )}
     </main>

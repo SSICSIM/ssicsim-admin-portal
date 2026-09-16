@@ -91,17 +91,25 @@ export type DelegateCreate = Omit<DelegateOut, "id" | "date_applied" | "registra
   date_applied?: string | null;
 };
 
+export type CharacterExperience = "Beginner" | "Intermediate" | "Advanced";
+
 export type CharacterOut = {
   id: UUID;
   name: string;
   committee_id: UUID;
   delegate_id: UUID | null;
+  priority: number | null;
+  // A character can suit more than one experience level (e.g. "Beginner or
+  // Advanced"), so this is always a list — empty means none set.
+  experience: CharacterExperience[];
 };
 
 export type CharacterCreate = {
   name: string;
   committee_id: UUID;
   delegate_id?: UUID | null;
+  priority?: number | null;
+  experience?: CharacterExperience[];
 };
 
 export type AssignmentCreate = {
@@ -113,6 +121,23 @@ export type AssignmentOut = {
   delegate_id: UUID;
   character_id: UUID;
   committee_id: UUID;
+};
+
+export type DelegateBulkEditItem = {
+  delegate_id: UUID;
+  delegate_status?: DelegateStatus | null;
+  character_id?: UUID | null;
+  unassign?: boolean;
+};
+
+export type DelegateBulkEditRequest = {
+  items: DelegateBulkEditItem[];
+};
+
+export type DelegateBulkEditResult = {
+  updated: DelegateOut[];
+  warnings: string[];
+  batch_id: UUID | null;
 };
 
 export type EmailTemplateOut = {
@@ -139,7 +164,7 @@ export type EmailTemplateCreate = {
 export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 
 export type EventType =
-  "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment";
+  "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment" | "Batch Edit";
 
 export type EventLogOut = {
   id: UUID;
@@ -149,6 +174,7 @@ export type EventLogOut = {
   target_type: string | null;
   target_id: string | null;
   details: string | null;
+  batch_id: UUID | null;
 };
 
 export type SecMemberOut = {
