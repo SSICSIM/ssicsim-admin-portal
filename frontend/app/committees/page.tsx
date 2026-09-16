@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { useCharacters, useCommittees, useCreateCommittee } from "@/hooks/useAdminQueries";
+import { CommitteeFillChart } from "@/components/CommitteeFillChart";
+import { buildCharactersByCommittee, computeCommitteeFill } from "@/utils/committee";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +43,11 @@ export default function CommitteesPage() {
     });
     return counts;
   }, [charactersQuery.data]);
+
+  const charactersByCommittee = useMemo(
+    () => buildCharactersByCommittee(charactersQuery.data ?? []),
+    [charactersQuery.data]
+  );
 
   const allCommittees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
   const committees = useMemo(
@@ -241,6 +248,7 @@ export default function CommitteesPage() {
             {committees.map((committee) => {
               const count = characterCounts.get(committee.id) ?? 0;
               const isReady = count > 0;
+              const fillStats = computeCommitteeFill(charactersByCommittee.get(committee.id) ?? []);
               return (
                 <Card key={committee.id}>
                   <CardHeader className="pb-4">
@@ -264,6 +272,10 @@ export default function CommitteesPage() {
                       </p>
                       <p className="text-[var(--ssicsim-text-muted)]">Characters</p>
                       <p className="font-medium text-[var(--ssicsim-brand-navy)]">{count}</p>
+                      <p className="text-[var(--ssicsim-text-muted)]">Assigned</p>
+                      <p className="font-medium text-[var(--ssicsim-brand-navy)]">
+                        {fillStats.filled} of {fillStats.total}
+                      </p>
                     </div>
                     <div>
                       <Link
@@ -273,6 +285,7 @@ export default function CommitteesPage() {
                         Open full details
                       </Link>
                     </div>
+                    <CommitteeFillChart stats={fillStats} />
                   </CardContent>
                 </Card>
               );

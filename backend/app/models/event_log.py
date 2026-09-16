@@ -36,3 +36,6 @@ class EventLog(Base):
     target_type: Mapped[str | None] = mapped_column(String(255))
     target_id: Mapped[str | None] = mapped_column(String(255))
     details: Mapped[str | None] = mapped_column(Text)
+    batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), index=True, nullable=True
+    )

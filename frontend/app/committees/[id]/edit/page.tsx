@@ -14,17 +14,30 @@ import {
   useUpdateCommittee,
   useUploadCommitteeImage
 } from "@/hooks/useAdminQueries";
-import type { CommitteeUpdate, UUID } from "@/types/api";
+import type { CharacterExperience, CommitteeUpdate, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { parseCharacterCsv } from "@/utils/csv";
-import { buildDelegateMap, filterCharactersByCommittee } from "@/utils/committee";
+import {
+  buildDelegateMap,
+  filterCharactersByCommittee,
+  formatExperience,
+  sortCharactersByPriorityDesc
+} from "@/utils/committee";
 
 const emptyForm: CommitteeUpdate = {
   name: "",
@@ -66,7 +79,10 @@ export default function CommitteeEditPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvProgress, setCsvProgress] = useState<string | null>(null);
   const [csvError, setCsvError] = useState<string | null>(null);
+  const [csvWarnings, setCsvWarnings] = useState<string[]>([]);
   const [newCharacterName, setNewCharacterName] = useState("");
+  const [newCharacterPriority, setNewCharacterPriority] = useState("");
+  const [newCharacterExperience, setNewCharacterExperience] = useState<CharacterExperience[]>([]);
   const [characterMessage, setCharacterMessage] = useState<string | null>(null);
   const [characterError, setCharacterError] = useState<string | null>(null);
 
@@ -99,6 +115,30 @@ export default function CommitteeEditPage() {
   const delegateMap = useMemo(
     () => buildDelegateMap(delegatesQuery.data ?? []),
     [delegatesQuery.data]
+  );
+
+  const [characterPriorityFilter, setCharacterPriorityFilter] = useState<string>("all");
+  const [characterExperienceFilter, setCharacterExperienceFilter] = useState<
+    CharacterExperience | "all"
+  >("all");
+
+  const filteredCommitteeCharacters = useMemo(
+    () =>
+      sortCharactersByPriorityDesc(
+        committeeCharacters.filter((c) => {
+          if (characterPriorityFilter !== "all" && c.priority !== Number(characterPriorityFilter)) {
+            return false;
+          }
+          if (
+            characterExperienceFilter !== "all" &&
+            !c.experience.includes(characterExperienceFilter)
+          ) {
+            return false;
+          }
+          return true;
+        })
+      ),
+    [committeeCharacters, characterPriorityFilter, characterExperienceFilter]
   );
 
   // Handlers
@@ -140,8 +180,10 @@ export default function CommitteeEditPage() {
     if (!committeeId || !csvFile) return;
     setCsvError(null);
     setCsvProgress(null);
+    setCsvWarnings([]);
     try {
-      const entries = await parseCharacterCsv(csvFile, committeeId);
+      const { characters: entries, warnings } = await parseCharacterCsv(csvFile, committeeId);
+      setCsvWarnings(warnings);
       if (entries.length === 0) {
         setCsvError("CSV file contained no character names.");
         return;
@@ -197,13 +239,23 @@ export default function CommitteeEditPage() {
         createCharacter.mutateAsync({
           name: newCharacterName.trim(),
           committee_id: committeeId,
-          delegate_id: null
+          delegate_id: null,
+          priority: newCharacterPriority ? Number(newCharacterPriority) : null,
+          experience: newCharacterExperience
         }),
       "Character added.",
       "Unable to add character."
     );
     setNewCharacterName("");
+    setNewCharacterPriority("");
+    setNewCharacterExperience([]);
   };
+
+  function toggleNewCharacterExperience(level: CharacterExperience) {
+    setNewCharacterExperience((prev) =>
+      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
+    );
+  }
 
   const handleRemoveCharacter = async (characterId: UUID) => {
     await runCharacterMutation(
@@ -433,6 +485,10 @@ export default function CommitteeEditPage() {
           <CardDescription>
             CSV format: header must include{" "}
             <span className="font-semibold text-[var(--ssicsim-brand-navy)]">character_name</span>.
+            Optional{" "}
+            <span className="font-semibold text-[var(--ssicsim-brand-navy)]">priority</span> (1-5)
+            and <span className="font-semibold text-[var(--ssicsim-brand-navy)]">experience</span>{" "}
+            (Beginner/Intermediate/Advanced) columns are also supported.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -452,6 +508,18 @@ export default function CommitteeEditPage() {
             {csvProgress ? <Badge variant="success">{csvProgress}</Badge> : null}
             {csvError ? <Badge variant="warning">{csvError}</Badge> : null}
           </div>
+          {csvWarnings.length > 0 && (
+            <Alert className="border-amber-300 bg-amber-50">
+              <AlertTitle>{csvWarnings.length} row(s) had issues</AlertTitle>
+              <AlertDescription>
+                <ul className="list-disc space-y-1 pl-4">
+                  {csvWarnings.map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
         </CardContent>
       </Card>
 
@@ -477,6 +545,34 @@ export default function CommitteeEditPage() {
                 placeholder="Character name"
               />
             </div>
+            <div className="w-28 space-y-2">
+              <Label htmlFor="new-character-priority">Priority</Label>
+              <Input
+                id="new-character-priority"
+                type="number"
+                min={1}
+                max={5}
+                value={newCharacterPriority}
+                onChange={(event) => setNewCharacterPriority(event.target.value)}
+                placeholder="1-5"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Experience (select any that apply)</Label>
+              <div className="flex flex-wrap gap-4">
+                {(["Beginner", "Intermediate", "Advanced"] as CharacterExperience[]).map(
+                  (level) => (
+                    <label key={level} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={newCharacterExperience.includes(level)}
+                        onCheckedChange={() => toggleNewCharacterExperience(level)}
+                      />
+                      {level}
+                    </label>
+                  )
+                )}
+              </div>
+            </div>
             <Button
               onClick={handleAddCharacter}
               disabled={!newCharacterName.trim() || createCharacter.isPending}
@@ -490,12 +586,54 @@ export default function CommitteeEditPage() {
             {characterError ? <Badge variant="warning">{characterError}</Badge> : null}
           </div>
 
+          {committeeCharacters.length > 0 && (
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="w-40 space-y-2">
+                <Label>Filter by priority</Label>
+                <Select value={characterPriorityFilter} onValueChange={setCharacterPriorityFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All priorities</SelectItem>
+                    {[5, 4, 3, 2, 1].map((p) => (
+                      <SelectItem key={p} value={String(p)}>
+                        P{p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-48 space-y-2">
+                <Label>Filter by experience</Label>
+                <Select
+                  value={characterExperienceFilter}
+                  onValueChange={(v) => setCharacterExperienceFilter(v as CharacterExperience)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All experience levels</SelectItem>
+                    <SelectItem value="Beginner">Beginner</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate</SelectItem>
+                    <SelectItem value="Advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           {committeeCharacters.length === 0 ? (
             <p className="text-sm text-[var(--ssicsim-text-muted)]">No characters yet.</p>
+          ) : filteredCommitteeCharacters.length === 0 ? (
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">
+              No characters match the selected filters.
+            </p>
           ) : (
             <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-3">
               <div className="grid gap-2 text-sm">
-                {committeeCharacters.map((character) => {
+                {filteredCommitteeCharacters.map((character) => {
                   const delegate = character.delegate_id
                     ? delegateMap.get(character.delegate_id)
                     : null;
@@ -506,7 +644,8 @@ export default function CommitteeEditPage() {
                     >
                       <div>
                         <p className="font-medium text-[var(--ssicsim-brand-navy)]">
-                          {character.name}
+                          {character.name} (P{character.priority ?? "–"} ·{" "}
+                          {formatExperience(character.experience)})
                         </p>
                         <p className="text-xs text-[var(--ssicsim-text-muted)]">
                           Assigned to:{" "}

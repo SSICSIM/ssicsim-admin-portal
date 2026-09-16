@@ -9,6 +9,8 @@ import type {
   CommitteeUpdate,
   DelegationOut,
   DelegationUpdate,
+  DelegateBulkEditRequest,
+  DelegateBulkEditResult,
   DelegateCreate,
   DelegateOut,
   DelegateUpdate,
@@ -44,6 +46,8 @@ export const adminService = {
   updateDelegate: (delegateId: UUID, payload: DelegateUpdate) =>
     apiClient.patch<DelegateOut>(`/api/delegates/${delegateId}`, payload),
   deleteDelegate: (delegateId: UUID) => apiClient.deleteEmpty(`/api/delegates/${delegateId}`),
+  bulkEditDelegates: (payload: DelegateBulkEditRequest) =>
+    apiClient.post<DelegateBulkEditResult>("/api/delegates/bulk-edit", payload),
 
   // ─── delegations ────────────────────────────────────────────────────────────
   fetchDelegations: () => apiClient.get<DelegationOut[]>("/api/delegations"),

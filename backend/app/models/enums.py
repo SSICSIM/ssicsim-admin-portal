@@ -35,3 +35,10 @@ class EventType(str, Enum):
     COMMITTEE_UPDATE = "Committee Update"
     STATUS_CHANGE = "Status Change"
     UNASSIGNMENT = "Unassignment"
+    BATCH_EDIT = "Batch Edit"
+
+
+class CharacterExperience(str, Enum):
+    BEGINNER = "Beginner"
+    INTERMEDIATE = "Intermediate"
+    ADVANCED = "Advanced"

@@ -50,6 +50,8 @@ def create_character(db: Session, payload: CharacterCreate) -> Character:
         name=payload.name,
         committee_id=payload.committee_id,
         delegate_id=payload.delegate_id,
+        priority=payload.priority,
+        experience=payload.experience,
     )
     db.add(character)
     try:

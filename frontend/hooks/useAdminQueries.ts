@@ -9,6 +9,7 @@ import type {
   CommitteeCreate,
   CommitteeUpdate,
   DelegationUpdate,
+  DelegateBulkEditRequest,
   DelegateCreate,
   DelegateUpdate,
   EmailTemplateCreate,
@@ -151,6 +152,18 @@ export function useDeleteDelegate() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
       queryClient.invalidateQueries({ queryKey: queryKeys.characters });
+    }
+  });
+}
+
+export function useBulkEditDelegates() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: DelegateBulkEditRequest) => adminService.bulkEditDelegates(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
+      queryClient.invalidateQueries({ queryKey: queryKeys.characters });
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventLogs });
     }
   });
 }
