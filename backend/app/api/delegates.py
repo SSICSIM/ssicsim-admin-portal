@@ -9,7 +9,13 @@ from app.auth import get_current_actor
 from app.database import get_db
 from app.models.delegate import Delegate
 from app.models.sec_member import SecMember
-from app.schemas import DelegateCreate, DelegateOut, DelegateUpdate
+from app.schemas import (
+    DelegateBulkEditRequest,
+    DelegateBulkEditResult,
+    DelegateCreate,
+    DelegateOut,
+    DelegateUpdate,
+)
 from app.services import delegates
 
 router = APIRouter(prefix="/delegates", tags=["delegates"])
@@ -23,6 +29,16 @@ def list_delegates(db: Session = Depends(get_db)) -> list[Delegate]:
 @router.post("", response_model=DelegateOut, status_code=201)
 def create_delegate(payload: DelegateCreate, db: Session = Depends(get_db)) -> Delegate:
     return delegates.create_delegate(db, payload)
+
+
+@router.post("/bulk-edit", response_model=DelegateBulkEditResult)
+def bulk_edit_delegates(
+    payload: DelegateBulkEditRequest,
+    db: Session = Depends(get_db),
+    actor: SecMember | None = Depends(get_current_actor),
+) -> DelegateBulkEditResult:
+    updated, warnings, batch_id = delegates.bulk_edit_delegates(db, payload, actor)
+    return DelegateBulkEditResult(updated=updated, warnings=warnings, batch_id=batch_id)
 
 
 @router.get("/{delegate_id}", response_model=DelegateOut)

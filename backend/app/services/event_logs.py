@@ -23,6 +23,7 @@ def record_event(
     target_type: str,
     target_id: str,
     details: str,
+    batch_id: UUID | None = None,
 ) -> None:
     # Adds to the session without committing — the caller's existing commit
     # persists this alongside the state change it describes, atomically.
@@ -33,6 +34,7 @@ def record_event(
             target_type=target_type,
             target_id=target_id,
             details=details,
+            batch_id=batch_id,
         )
     )
 

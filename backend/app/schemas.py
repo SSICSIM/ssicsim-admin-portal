@@ -6,6 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field
 
 from app.models.enums import (
+    CharacterExperience,
     DelegateExperience,
     DelegateStatus,
     EventType,
@@ -195,6 +196,8 @@ class CharacterBase(BaseModel):
     name: str = Field(default="Character", min_length=1, max_length=255)
     committee_id: UUID
     delegate_id: UUID | None = None
+    priority: int | None = Field(default=None, ge=1, le=5)
+    experience: list[CharacterExperience] = Field(default_factory=list)
 
 
 class CharacterCreate(CharacterBase):
@@ -205,6 +208,8 @@ class CharacterUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     committee_id: UUID | None = None
     delegate_id: UUID | None = None
+    priority: int | None = Field(default=None, ge=1, le=5)
+    experience: list[CharacterExperience] | None = None
 
 
 class CharacterOut(CharacterBase):
@@ -250,6 +255,7 @@ class EventLogBase(BaseModel):
     target_type: str | None = Field(default=None, max_length=255)
     target_id: str | None = Field(default=None, max_length=255)
     details: str | None = None
+    batch_id: UUID | None = None
 
 
 class EventLogCreate(EventLogBase):
@@ -263,6 +269,7 @@ class EventLogUpdate(BaseModel):
     target_type: str | None = Field(default=None, max_length=255)
     target_id: str | None = Field(default=None, max_length=255)
     details: str | None = None
+    batch_id: UUID | None = None
 
 
 class EventLogOut(EventLogBase):
@@ -326,6 +333,26 @@ class AssignmentOut(BaseModel):
     delegate_id: UUID
     character_id: UUID
     committee_id: UUID
+
+    class Config:
+        from_attributes = True
+
+
+class DelegateBulkEditItem(BaseModel):
+    delegate_id: UUID
+    delegate_status: DelegateStatus | None = None
+    character_id: UUID | None = None
+    unassign: bool = False
+
+
+class DelegateBulkEditRequest(BaseModel):
+    items: list[DelegateBulkEditItem]
+
+
+class DelegateBulkEditResult(BaseModel):
+    updated: list[DelegateOut]
+    warnings: list[str]
+    batch_id: UUID | None = None
 
     class Config:
         from_attributes = True
