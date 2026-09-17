@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { useCharacters, useCommittees, useCreateCommittee } from "@/hooks/useAdminQueries";
-import { CommitteeFillChart } from "@/components/CommitteeFillChart";
+import { CommitteeFillCharts } from "@/components/CommitteeFillCharts";
 import { buildCharactersByCommittee, computeCommitteeFill } from "@/utils/committee";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -285,7 +285,9 @@ export default function CommitteesPage() {
                         Open full details
                       </Link>
                     </div>
-                    <CommitteeFillChart stats={fillStats} />
+                    <CommitteeFillCharts
+                      characters={charactersByCommittee.get(committee.id) ?? []}
+                    />
                   </CardContent>
                 </Card>
               );
