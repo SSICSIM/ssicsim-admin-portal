@@ -135,7 +135,17 @@ Notes:
 
 Wherever a character can be picked (the single Assign/Reassign dialog, the
 new `/assignments` flow, and the row-level Character dropdown in "Edit
-table" mode), it's now labeled the same way: `Name (P{priority} · {experience})`.
+table" mode), it's now labeled the same way: `Name (P{priority} · {experience})`,
+and the option list is always sorted **highest priority first** (P5 → P1,
+unset last) so the most urgent open seats surface at the top instead of
+requiring a scroll.
+
+The "Characters & Assignments" list on this page also has **Filter by
+priority** and **Filter by experience** dropdowns above it — test filtering
+to a single priority (e.g. P5 only) and a single experience level, and
+confirm the "no characters match the selected filters" message appears when
+the combination matches nothing (vs. "No characters yet." when the committee
+truly has none).
 
 ---
 
@@ -188,19 +198,37 @@ change before the real event).
 **Where:** `/delegates` → "Assignment flow" button (top of the filter row) →
 now navigates to `/assignments` instead of opening a modal.
 
-- Left sidebar lists every delegate still "Awaiting Assignment" as a
-  numbered step.
-- Selecting a Committee shows four percentages: **Low / Medium / High
-  priority filled** and **Total filled** — based on each character's
-  priority tier (Low = 1-2, Medium = 3, High = 4-5).
-- Character dropdown is scoped to the selected committee and shows
-  `(P{priority} · {experience})` per option.
-- "Assign & next" assigns the current delegate and the sidebar
-  automatically shrinks (the assigned delegate drops off the list) — the
-  pointer doesn't need to manually advance.
-- "Back" steps to the previous delegate still in the list.
-- When the list is empty, you should see an "All caught up" state instead
+- The queue of delegates still "Awaiting Assignment" is sorted by **earliest
+  registration first** (`date_applied` ascending; delegates with no recorded
+  date sort last) — the "N of M remaining" badge at the top tracks position
+  in this queue, not a delegate-by-delegate stepper.
+- The left sidebar is **every committee's live fill status**, not a list of
+  delegates — scroll it to see them all. Each row shows:
+  - `filled/total` and, below that, how many characters are **left to fill**
+    per tier — `L {n} left`, `M {n} left`, `H {n} left`, and a bold total
+    left — instead of percentages, so it reads as an actionable count (e.g.
+    "H 2 left" tells you exactly how many high-priority seats are still
+    open).
+  - Beginner/Intermediate/Advanced **availability counts** (unassigned
+    characters suited to that level — a character with multiple levels
+    counts toward each).
+  - The active delegate's preferred committees (their first/second/third
+    choice, matched by name) are ranked to the **top** of the list with a
+    "1st pick"/"2nd pick"/"3rd pick" tag, so you don't have to hunt for them
+    while scrolling.
+- Click a committee row to select it — the Character dropdown below then
+  fills with that committee's open characters, **highest priority first**
+  (P5 → P1).
+- "Assign & next" assigns the current delegate; the queue automatically
+  shrinks (the assigned delegate drops off) — no manual advance needed.
+- "Back" steps to the previous delegate still in the queue.
+- When the queue is empty, you should see an "All caught up" state instead
   of a form.
+
+Test this: pick a delegate, confirm their 1st-choice committee (if it
+exists) is pinned at the top of the sidebar with a "1st pick" tag; assign
+them into a committee and confirm that committee's "left" counts and
+availability counts both decrement immediately.
 
 ---
 
@@ -208,14 +236,21 @@ now navigates to `/assignments` instead of opening a modal.
 
 **Where:** `/committees`, each committee card, below "Open full details".
 
-- A small ring chart with three nested arcs (outer = High priority, middle
-  = Medium, inner = Low), colored differently, plus the overall fill % in
-  the center and a text legend to the side.
+- Below "Characters" there's now an **"Assigned: X of Y"** row.
+- A ring chart with three nested arcs (outer = High priority, middle =
+  Medium, inner = Low), colored differently, plus the overall fill % in the
+  center and a text legend to the side.
+- A tier with **no characters in it** renders as a plain gray track (no
+  colored arc) and its legend shows "—" instead of a percentage — this
+  matters because an unset priority matrix would otherwise compute every
+  tier as a misleadingly confident 100%. The center number itself only
+  shows "--" when the committee has **zero characters total**; otherwise it
+  shows the real overall fill %, independent of whether priorities are set.
 - Test: assign characters in a committee with a mix of priorities and
   confirm the corresponding ring segment grows and the legend percentage
-  updates after a refetch.
-- A committee with zero characters, or characters with no priority set,
-  should render without errors (0% rings, not NaN).
+  updates after a refetch. Then test a committee where characters exist but
+  none have a priority set — all three tier rings should show as gray/"—",
+  not a solid 100%.
 
 ---
 

@@ -35,7 +35,9 @@ export type CommitteeFillStats = {
   total: number;
 };
 
-function priorityTier(priority: number | null): "low" | "medium" | "high" | null {
+export type PriorityTier = "low" | "medium" | "high";
+
+export function priorityTier(priority: number | null): PriorityTier | null {
   if (priority == null) return null;
   if (priority <= 2) return "low";
   if (priority === 3) return "medium";
@@ -121,23 +123,38 @@ export function sortCharactersByPriorityDesc<T extends { priority: number | null
   return [...characters].sort((a, b) => (b.priority ?? -1) - (a.priority ?? -1));
 }
 
+export type RemainingByTier = { high: number; medium: number; low: number };
+
 // Ranks a delegate's free-text committee preferences (first/second/third)
-// to the top of the list, in preference order, followed by the rest
-// untouched. Matching is case-insensitive/trimmed since preferences are
-// free text, not committee IDs.
+// to the top of the list, in preference order. The remainder (committees
+// that aren't one of the delegate's picks) is ordered by how many
+// high-priority characters they still have open (descending), then medium,
+// then low — so the assigner sees the most urgent committees first.
+// Matching is case-insensitive/trimmed since preferences are free text, not
+// committee IDs.
 export function sortCommitteesByPreference<T extends { id: string; name: string }>(
   committees: T[],
-  preferences: (string | null | undefined)[]
+  preferences: (string | null | undefined)[],
+  remainingByCommitteeId?: Map<string, RemainingByTier>
 ): T[] {
   const normalizedPrefs = preferences
     .map((p) => p?.trim().toLowerCase())
     .filter((p): p is string => Boolean(p));
-  if (normalizedPrefs.length === 0) return committees;
 
   const rank = (committee: T) => {
     const index = normalizedPrefs.indexOf(committee.name.trim().toLowerCase());
     return index === -1 ? normalizedPrefs.length : index;
   };
 
-  return [...committees].sort((a, b) => rank(a) - rank(b));
+  return [...committees].sort((a, b) => {
+    const rankDiff = rank(a) - rank(b);
+    if (rankDiff !== 0) return rankDiff;
+
+    const remainingA = remainingByCommitteeId?.get(a.id);
+    const remainingB = remainingByCommitteeId?.get(b.id);
+    if (!remainingA || !remainingB) return 0;
+    if (remainingB.high !== remainingA.high) return remainingB.high - remainingA.high;
+    if (remainingB.medium !== remainingA.medium) return remainingB.medium - remainingA.medium;
+    return remainingB.low - remainingA.low;
+  });
 }

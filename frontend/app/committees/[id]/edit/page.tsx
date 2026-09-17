@@ -31,11 +31,11 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
 import { parseCharacterCsv } from "@/utils/csv";
 import {
   buildDelegateMap,
   filterCharactersByCommittee,
-  formatExperience,
   sortCharactersByPriorityDesc
 } from "@/utils/committee";
 
@@ -644,10 +644,9 @@ export default function CommitteeEditPage() {
                     >
                       <div>
                         <p className="font-medium text-[var(--ssicsim-brand-navy)]">
-                          {character.name} (P{character.priority ?? "–"} ·{" "}
-                          {formatExperience(character.experience)})
+                          <CharacterOptionLabel character={character} />
                         </p>
-                        <p className="text-xs text-[var(--ssicsim-text-muted)]">
+                        <p className="mt-1 text-xs text-[var(--ssicsim-text-muted)]">
                           Assigned to:{" "}
                           {delegate ? `${delegate.last_name}, ${delegate.first_name}` : "--"}
                           {delegate ? ` · ${delegate.delegate_experience}` : ""}

@@ -19,13 +19,13 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
 import { FlowFooterActions, FlowLayout } from "@/components/flows";
 import { cn } from "@/lib/utils";
 import {
   buildCharactersByCommittee,
   computeAvailableByExperience,
   computeCommitteeFill,
-  formatExperience,
   sortCharactersByPriorityDesc,
   sortCommitteesByPreference
 } from "@/utils/committee";
@@ -151,11 +151,28 @@ export default function AssignmentsPage() {
     [activeDelegate]
   );
 
+  // How many high/medium/low priority characters each committee still has
+  // open — used to order the non-preferred committees by urgency.
+  const remainingByCommitteeId = useMemo(() => {
+    const map = new Map<UUID, { high: number; medium: number; low: number }>();
+    committees.forEach((c) => {
+      const stats = computeCommitteeFill(charactersByCommittee.get(c.id) ?? []);
+      map.set(c.id, {
+        high: stats.highTotal - stats.highFilled,
+        medium: stats.mediumTotal - stats.mediumFilled,
+        low: stats.lowTotal - stats.lowFilled
+      });
+    });
+    return map;
+  }, [committees, charactersByCommittee]);
+
   // Surfaces the active delegate's preferred committees at the top of the
-  // scrollable sidebar so the assigner doesn't have to hunt for them.
+  // scrollable sidebar so the assigner doesn't have to hunt for them. The
+  // remainder is ordered by how many high (then medium, then low) priority
+  // characters are still unfilled, most urgent first.
   const sortedCommittees = useMemo(
-    () => sortCommitteesByPreference(committees, preferences),
-    [committees, preferences]
+    () => sortCommitteesByPreference(committees, preferences, remainingByCommitteeId),
+    [committees, preferences, remainingByCommitteeId]
   );
 
   const preferenceRankByCommitteeId = useMemo(() => {
@@ -286,7 +303,7 @@ export default function AssignmentsPage() {
                 <SelectContent>
                   {availableCharacters.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name} (P{c.priority ?? "–"} · {formatExperience(c.experience)})
+                      <CharacterOptionLabel character={c} />
                     </SelectItem>
                   ))}
                 </SelectContent>

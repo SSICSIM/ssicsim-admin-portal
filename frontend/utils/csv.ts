@@ -133,6 +133,7 @@ export function buildFinancialRows(
   const headers = [
     "delegation",
     "delegate",
+    "email",
     "registration_period",
     "price",
     "financial_aid_status",
@@ -152,6 +153,7 @@ export function buildFinancialRows(
       return [
         delegationName,
         delegateName(d),
+        d.email,
         d.registration_period ?? "",
         price,
         d.financial_aid_status ?? "",
@@ -172,7 +174,15 @@ export function buildCharacterAssignmentRows(
   delegationsById: Map<UUID, DelegationOut>,
   opts?: { delegationId?: UUID }
 ): { headers: string[]; rows: (string | number)[][] } {
-  const headers = ["delegation", "delegate", "committee", "character", "priority", "experience"];
+  const headers = [
+    "delegation",
+    "delegate",
+    "email",
+    "committee",
+    "character",
+    "priority",
+    "experience"
+  ];
   const characterByDelegateId = new Map(
     characters.filter((c) => c.delegate_id).map((c) => [c.delegate_id as UUID, c])
   );
@@ -190,6 +200,7 @@ export function buildCharacterAssignmentRows(
       return [
         delegationName,
         delegateName(d),
+        d.email,
         committeesById.get(character.committee_id)?.name ?? "",
         character.name,
         character.priority ?? "",
