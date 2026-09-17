@@ -92,6 +92,59 @@ export function computeCommitteeFill(characters: CharacterOut[]): CommitteeFillS
   };
 }
 
+export type TierRemaining = { count: number; percent: number };
+
+export type CommitteeRemaining = {
+  low: TierRemaining;
+  medium: TierRemaining;
+  high: TierRemaining;
+  total: TierRemaining;
+};
+
+function remainingOf(filled: number, total: number): TierRemaining {
+  const count = total - filled;
+  return { count, percent: total > 0 ? Math.round((count / total) * 100) : 0 };
+}
+
+// Unfilled count + percent per tier (and overall) — the percent is share of
+// that tier's own seats still open, not share of the committee, so a tiny
+// 1-seat tier isn't drowned out by a large one.
+export function computeCommitteeRemaining(stats: CommitteeFillStats): CommitteeRemaining {
+  return {
+    low: remainingOf(stats.lowFilled, stats.lowTotal),
+    medium: remainingOf(stats.mediumFilled, stats.mediumTotal),
+    high: remainingOf(stats.highFilled, stats.highTotal),
+    total: remainingOf(stats.filled, stats.total)
+  };
+}
+
+export type JccGroup = { label: string; characters: CharacterOut[] };
+
+// A character name ending in "(<side>)", e.g. "Mark (Committee 1)".
+const JCC_SIDE_PATTERN = /^.*\S\s+\(([^()]+)\)\s*$/;
+
+// A Joint Crisis Committee runs as two (or more) linked sides sharing one
+// committee record — every character's name carries a "(<side>)" suffix
+// saying which side they belong to. When every character in the committee
+// follows that pattern and it resolves to more than one distinct side,
+// group them so each side's fill can be charted separately instead of
+// blending both sides into one ratio. Anything else (a regular committee,
+// or a JCC-looking name used inconsistently) returns null so callers fall
+// back to a single combined chart.
+export function splitJccGroups(characters: CharacterOut[]): JccGroup[] | null {
+  if (characters.length === 0) return null;
+  const groups = new Map<string, CharacterOut[]>();
+  for (const character of characters) {
+    const match = character.name.match(JCC_SIDE_PATTERN);
+    if (!match) return null;
+    const label = match[1].trim();
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label)!.push(character);
+  }
+  if (groups.size < 2) return null;
+  return Array.from(groups, ([label, groupCharacters]) => ({ label, characters: groupCharacters }));
+}
+
 // Compact display for a character's experience list, e.g. "Beginner/Advanced"
 // or "–" when none is set — used anywhere a character is shown in brackets.
 export function formatExperience(experience: CharacterExperience[]): string {
@@ -123,19 +176,27 @@ export function sortCharactersByPriorityDesc<T extends { priority: number | null
   return [...characters].sort((a, b) => (b.priority ?? -1) - (a.priority ?? -1));
 }
 
-export type RemainingByTier = { high: number; medium: number; low: number };
+// Higher urgency (more still open) sorts first: mainly by percent of that
+// tier's own seats unfilled — so a committee with 1 of 1 high-priority seats
+// open ranks as urgent as one with 10 of 10, rather than being drowned out
+// by the larger committee — and ties broken by raw remaining count, so
+// "50% open" on a 10-seat tier still outranks "50% open" on a 2-seat one.
+function compareTierUrgency(a: TierRemaining, b: TierRemaining): number {
+  if (b.percent !== a.percent) return b.percent - a.percent;
+  return b.count - a.count;
+}
 
 // Ranks a delegate's free-text committee preferences (first/second/third)
 // to the top of the list, in preference order. The remainder (committees
-// that aren't one of the delegate's picks) is ordered by how many
-// high-priority characters they still have open (descending), then medium,
-// then low — so the assigner sees the most urgent committees first.
+// that aren't one of the delegate's picks) is ordered by how urgently open
+// their high-priority seats are, then medium, then low — so the assigner
+// sees the most urgent committees first.
 // Matching is case-insensitive/trimmed since preferences are free text, not
 // committee IDs.
 export function sortCommitteesByPreference<T extends { id: string; name: string }>(
   committees: T[],
   preferences: (string | null | undefined)[],
-  remainingByCommitteeId?: Map<string, RemainingByTier>
+  remainingByCommitteeId?: Map<string, CommitteeRemaining>
 ): T[] {
   const normalizedPrefs = preferences
     .map((p) => p?.trim().toLowerCase())
@@ -153,8 +214,10 @@ export function sortCommitteesByPreference<T extends { id: string; name: string 
     const remainingA = remainingByCommitteeId?.get(a.id);
     const remainingB = remainingByCommitteeId?.get(b.id);
     if (!remainingA || !remainingB) return 0;
-    if (remainingB.high !== remainingA.high) return remainingB.high - remainingA.high;
-    if (remainingB.medium !== remainingA.medium) return remainingB.medium - remainingA.medium;
-    return remainingB.low - remainingA.low;
+    const highDiff = compareTierUrgency(remainingA.high, remainingB.high);
+    if (highDiff !== 0) return highDiff;
+    const mediumDiff = compareTierUrgency(remainingA.medium, remainingB.medium);
+    if (mediumDiff !== 0) return mediumDiff;
+    return compareTierUrgency(remainingA.low, remainingB.low);
   });
 }

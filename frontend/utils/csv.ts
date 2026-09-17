@@ -11,13 +11,6 @@ import type {
 
 const CHARACTER_EXPERIENCES: CharacterExperience[] = ["Beginner", "Intermediate", "Advanced"];
 
-// A character can suit more than one experience level, so the CSV cell (and
-// exported cell) holds a semicolon-separated list rather than a single value
-// — commas are already the field delimiter, so they can't be reused here.
-export function joinExperience(experience: CharacterExperience[]): string {
-  return experience.join("; ");
-}
-
 export async function parseCharacterCsv(
   file: File,
   committeeId: string
@@ -174,15 +167,9 @@ export function buildCharacterAssignmentRows(
   delegationsById: Map<UUID, DelegationOut>,
   opts?: { delegationId?: UUID }
 ): { headers: string[]; rows: (string | number)[][] } {
-  const headers = [
-    "delegation",
-    "delegate",
-    "email",
-    "committee",
-    "character",
-    "priority",
-    "experience"
-  ];
+  // Character priority/experience are internal assignment-planning data —
+  // never included in a delegate-facing export.
+  const headers = ["delegation", "delegate", "email", "committee", "character"];
   const characterByDelegateId = new Map(
     characters.filter((c) => c.delegate_id).map((c) => [c.delegate_id as UUID, c])
   );
@@ -202,9 +189,7 @@ export function buildCharacterAssignmentRows(
         delegateName(d),
         d.email,
         committeesById.get(character.committee_id)?.name ?? "",
-        character.name,
-        character.priority ?? "",
-        joinExperience(character.experience)
+        character.name
       ];
     })
     .sort(
