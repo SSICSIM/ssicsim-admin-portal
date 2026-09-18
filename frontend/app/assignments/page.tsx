@@ -274,6 +274,12 @@ export default function AssignmentsPage() {
     resetSelection();
   }
 
+  // Moves to the next delegate without assigning the current one — it stays
+  // "Awaiting Assignment" and is still reachable with Back.
+  function handleSkip() {
+    goTo(activeIndex + 1);
+  }
+
   function selectCommittee(id: UUID) {
     setCommitteeId(id);
     setCharacterId("");
@@ -397,6 +403,11 @@ export default function AssignmentsPage() {
       <FlowFooterActions
         onBack={() => goTo(activeIndex - 1)}
         backDisabled={activeIndex <= 0}
+        secondaryLabel="Skip"
+        onSecondary={handleSkip}
+        secondaryDisabled={
+          !activeDelegate || activeIndex >= needsAssignment.length - 1 || assignDelegate.isPending
+        }
         primaryLabel={assignDelegate.isPending ? "Assigning…" : "Assign & next"}
         onPrimary={handleAssign}
         primaryDisabled={!activeDelegate || !characterId || assignDelegate.isPending}

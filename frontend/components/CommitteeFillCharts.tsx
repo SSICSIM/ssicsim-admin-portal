@@ -13,13 +13,15 @@ export function CommitteeFillCharts({ characters }: { characters: CharacterOut[]
     return <CommitteeFillChart stats={computeCommitteeFill(characters)} />;
   }
 
-  // Stacked rather than side-by-side: each chart's legend needs more width
-  // than a two-column layout leaves it in a narrow card or sidebar panel.
+  // Each side's chart keeps its natural (single-chart) size rather than
+  // being stretched into equal-width columns — a fixed-width grid squeezed
+  // the legend text into wrapping. flex-wrap lets sides sit side by side
+  // when there's room and drop to their own line when there isn't.
   return (
-    <div className="space-y-4">
+    <div className="flex flex-wrap justify-center gap-x-6 gap-y-4">
       {jccGroups.map((group) => (
         <div key={group.label} className="space-y-1.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
+          <p className="text-center text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
             {group.label}
           </p>
           <CommitteeFillChart stats={computeCommitteeFill(group.characters)} />

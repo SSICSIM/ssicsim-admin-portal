@@ -1,5 +1,12 @@
 import type { CommitteeFillStats } from "@/utils/committee";
 
+const STROKE_WIDTH = 6;
+// Evenly spaced rings: each ring sits STROKE_WIDTH + RING_GAP inside the
+// previous one, so the gap between any two rings' edges is always RING_GAP.
+const RING_GAP = 4;
+const OUTER_RADIUS = 44;
+const RING_STEP = STROKE_WIDTH + RING_GAP;
+
 const TIERS: {
   key: "high" | "medium" | "low";
   totalKey: "highTotal" | "mediumTotal" | "lowTotal";
@@ -7,12 +14,22 @@ const TIERS: {
   color: string;
   radius: number;
 }[] = [
-  { key: "high", totalKey: "highTotal", label: "High", color: "#e11d48", radius: 44 },
-  { key: "medium", totalKey: "mediumTotal", label: "Medium", color: "#d3af37", radius: 33 },
-  { key: "low", totalKey: "lowTotal", label: "Low", color: "#0ea5e9", radius: 24 }
+  { key: "high", totalKey: "highTotal", label: "High", color: "#e11d48", radius: OUTER_RADIUS },
+  {
+    key: "medium",
+    totalKey: "mediumTotal",
+    label: "Medium",
+    color: "#d3af37",
+    radius: OUTER_RADIUS - RING_STEP
+  },
+  {
+    key: "low",
+    totalKey: "lowTotal",
+    label: "Low",
+    color: "#0ea5e9",
+    radius: OUTER_RADIUS - RING_STEP * 2
+  }
 ];
-
-const STROKE_WIDTH = 6;
 
 // A tier with no characters gets a plain, dim background track instead of a
 // solid colored ring — otherwise an unset priority matrix renders every ring
@@ -60,7 +77,7 @@ function Ring({
 export function CommitteeFillChart({ stats }: { stats: CommitteeFillStats }) {
   const hasCharacters = stats.total > 0;
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center justify-center gap-4">
       <svg width={116} height={116} viewBox="0 0 100 100" className="shrink-0">
         {TIERS.map((tier) => (
           <Ring

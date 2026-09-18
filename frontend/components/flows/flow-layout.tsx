@@ -51,15 +51,22 @@ export function FlowHeader({ step, title, stepLabel }: FlowHeaderProps) {
 export interface FlowFooterActionsProps {
   onBack: () => void;
   backDisabled?: boolean;
+  /** Optional middle action (e.g. "Skip") between Back and the primary button. */
+  secondaryLabel?: React.ReactNode;
+  onSecondary?: () => void;
+  secondaryDisabled?: boolean;
   primaryLabel: React.ReactNode;
   onPrimary: () => void;
   primaryDisabled?: boolean;
 }
 
-/** Back / primary action footer pinned to the bottom of a flow step. */
+/** Back / secondary / primary action footer pinned to the bottom of a flow step. */
 export function FlowFooterActions({
   onBack,
   backDisabled,
+  secondaryLabel,
+  onSecondary,
+  secondaryDisabled,
   primaryLabel,
   onPrimary,
   primaryDisabled
@@ -69,9 +76,16 @@ export function FlowFooterActions({
       <Button variant="ghost" onClick={onBack} disabled={backDisabled}>
         Back
       </Button>
-      <Button onClick={onPrimary} disabled={primaryDisabled}>
-        {primaryLabel}
-      </Button>
+      <div className="flex items-center gap-2">
+        {onSecondary && (
+          <Button variant="ghost" onClick={onSecondary} disabled={secondaryDisabled}>
+            {secondaryLabel}
+          </Button>
+        )}
+        <Button onClick={onPrimary} disabled={primaryDisabled}>
+          {primaryLabel}
+        </Button>
+      </div>
     </div>
   );
 }
