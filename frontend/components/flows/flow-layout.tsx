@@ -18,11 +18,11 @@ export interface FlowLayoutProps {
  */
 export function FlowLayout({ sidebar, children, sidebarClassName, className }: FlowLayoutProps) {
   return (
-    <div className={cn("flex min-h-[calc(100vh-57px)]", className)}>
-      <aside className={cn("w-56 shrink-0 bg-brand-navy", sidebarClassName)}>
+    <div className={cn("flex h-[calc(100vh-57px)]", className)}>
+      <aside className={cn("w-56 shrink-0 overflow-y-auto bg-brand-navy", sidebarClassName)}>
         <div className="flex flex-col gap-1 p-4 pt-8">{sidebar}</div>
       </aside>
-      <div className="flex flex-1 flex-col bg-white">
+      <div className="flex flex-1 flex-col overflow-y-auto bg-white">
         <div className="flex flex-1 flex-col p-10 max-w-3xl">{children}</div>
       </div>
     </div>

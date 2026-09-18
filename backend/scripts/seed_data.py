@@ -73,6 +73,106 @@ COMMITTEES = [
         "mechanics_guide_link": "https://example.com/cuban-mechanics",
         "character_guide_link": "https://example.com/cuban-characters",
     },
+    {
+        "name": "General Assembly First Committee",
+        "small_description": "Disarmament and international security.",
+        "large_description": "Delegates negotiate arms control and non-proliferation frameworks.",
+        "director_name": "Elena Vasquez",
+        "max_delegates": 30,
+        "background_guide_link": "https://example.com/ga1-bg",
+        "mechanics_guide_link": "https://example.com/ga1-mechanics",
+        "character_guide_link": "https://example.com/ga1-characters",
+    },
+    {
+        "name": "UNESCO",
+        "small_description": "Education, science, and cultural heritage protection.",
+        "large_description": "Delegates address global education access and cultural preservation.",
+        "director_name": "Idris Osei",
+        "max_delegates": 28,
+        "background_guide_link": "https://example.com/unesco-bg",
+        "mechanics_guide_link": "https://example.com/unesco-mechanics",
+        "character_guide_link": "https://example.com/unesco-characters",
+    },
+    {
+        "name": "Economic and Social Council",
+        "small_description": "Sustainable development and global economic policy.",
+        "large_description": "Delegates draft resolutions on trade, development, and economic equity.",
+        "director_name": "Naomi Fischer",
+        "max_delegates": 28,
+        "background_guide_link": "https://example.com/ecosoc-bg",
+        "mechanics_guide_link": "https://example.com/ecosoc-mechanics",
+        "character_guide_link": "https://example.com/ecosoc-characters",
+    },
+    {
+        "name": "International Court of Justice",
+        "small_description": "Adjudicating disputes between states.",
+        "large_description": "Delegates act as judges and counsel, arguing and ruling on a contested case.",
+        "director_name": "Marcus Webb",
+        "max_delegates": 18,
+        "background_guide_link": "https://example.com/icj-bg",
+        "mechanics_guide_link": "https://example.com/icj-mechanics",
+        "character_guide_link": "https://example.com/icj-characters",
+    },
+    {
+        "name": "NATO",
+        "small_description": "Transatlantic defense and security coordination.",
+        "large_description": "Delegates negotiate collective defense posture and joint operations.",
+        "director_name": "Sofia Lindqvist",
+        "max_delegates": 24,
+        "background_guide_link": "https://example.com/nato-bg",
+        "mechanics_guide_link": "https://example.com/nato-mechanics",
+        "character_guide_link": "https://example.com/nato-characters",
+    },
+    {
+        "name": "African Union",
+        "small_description": "Continental cooperation on peace, trade, and development.",
+        "large_description": "Delegates coordinate a continent-wide response to shared regional challenges.",
+        "director_name": "Chidi Obi",
+        "max_delegates": 26,
+        "background_guide_link": "https://example.com/au-bg",
+        "mechanics_guide_link": "https://example.com/au-mechanics",
+        "character_guide_link": "https://example.com/au-characters",
+    },
+    {
+        "name": "G20 Summit",
+        "small_description": "Global economic governance among major economies.",
+        "large_description": "Delegates negotiate coordinated fiscal and monetary policy responses.",
+        "director_name": "Renata Alves",
+        "max_delegates": 22,
+        "background_guide_link": "https://example.com/g20-bg",
+        "mechanics_guide_link": "https://example.com/g20-mechanics",
+        "character_guide_link": "https://example.com/g20-characters",
+    },
+    {
+        "name": "Historical Crisis: Fall of Rome",
+        "small_description": "5th century crisis committee — the last decades of the Western Empire.",
+        "large_description": "Delegates portray Roman senators and generals managing imperial collapse.",
+        "director_name": "Lucas Ferreira",
+        "max_delegates": 20,
+        "background_guide_link": "https://example.com/rome-bg",
+        "mechanics_guide_link": "https://example.com/rome-mechanics",
+        "character_guide_link": "https://example.com/rome-characters",
+    },
+    {
+        "name": "European Union Council",
+        "small_description": "Coordinating policy among EU member states.",
+        "large_description": "Delegates negotiate joint EU positions on integration and regional policy.",
+        "director_name": "Anke Becker",
+        "max_delegates": 27,
+        "background_guide_link": "https://example.com/eu-bg",
+        "mechanics_guide_link": "https://example.com/eu-mechanics",
+        "character_guide_link": "https://example.com/eu-characters",
+    },
+    {
+        "name": "Interpol",
+        "small_description": "Coordinating international law enforcement.",
+        "large_description": "Delegates coordinate a cross-border investigation and enforcement response.",
+        "director_name": "Farah Haddad",
+        "max_delegates": 20,
+        "background_guide_link": "https://example.com/interpol-bg",
+        "mechanics_guide_link": "https://example.com/interpol-mechanics",
+        "character_guide_link": "https://example.com/interpol-characters",
+    },
 ]
 
 CHARACTERS = {
@@ -123,6 +223,174 @@ CHARACTERS = {
         ("Fidel Castro", 4, [CharacterExperience.ADVANCED]),
         ("Adlai Stevenson", 2, [CharacterExperience.BEGINNER]),
         ("Dean Rusk", 3, [CharacterExperience.INTERMEDIATE]),
+    ],
+    "General Assembly First Committee": [
+        ("United States", 5, [CharacterExperience.ADVANCED]),
+        ("Russian Federation", 5, [CharacterExperience.ADVANCED]),
+        ("China", 4, [CharacterExperience.ADVANCED, CharacterExperience.INTERMEDIATE]),
+        ("France", 4, [CharacterExperience.INTERMEDIATE]),
+        ("India", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Pakistan", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Israel", 3, [CharacterExperience.INTERMEDIATE, CharacterExperience.BEGINNER]),
+        ("Iran", 2, [CharacterExperience.BEGINNER]),
+        ("Sweden", 2, [CharacterExperience.BEGINNER]),
+        ("New Zealand", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "UNESCO": [
+        ("France", 5, [CharacterExperience.ADVANCED]),
+        ("Japan", 4, [CharacterExperience.ADVANCED]),
+        ("Egypt", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Italy", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Mexico", 3, [CharacterExperience.INTERMEDIATE, CharacterExperience.BEGINNER]),
+        ("Kenya", 3, [CharacterExperience.INTERMEDIATE]),
+        ("South Korea", 2, [CharacterExperience.BEGINNER]),
+        ("Greece", 2, [CharacterExperience.BEGINNER]),
+        ("Finland", 1, [CharacterExperience.BEGINNER]),
+        ("Peru", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "Economic and Social Council": [
+        ("United States", 5, [CharacterExperience.ADVANCED]),
+        (
+            "Germany",
+            4,
+            [CharacterExperience.ADVANCED, CharacterExperience.INTERMEDIATE],
+        ),
+        ("China", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Brazil", 3, [CharacterExperience.INTERMEDIATE]),
+        ("South Africa", 3, [CharacterExperience.INTERMEDIATE]),
+        (
+            "Indonesia",
+            3,
+            [CharacterExperience.INTERMEDIATE, CharacterExperience.BEGINNER],
+        ),
+        ("Bangladesh", 2, [CharacterExperience.BEGINNER]),
+        ("Netherlands", 2, [CharacterExperience.BEGINNER]),
+        ("Chile", 1, [CharacterExperience.BEGINNER]),
+        ("Ghana", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "International Court of Justice": [
+        ("Presiding Judge", 5, [CharacterExperience.ADVANCED]),
+        ("Judge (United Kingdom)", 5, [CharacterExperience.ADVANCED]),
+        (
+            "Judge (Brazil)",
+            4,
+            [CharacterExperience.ADVANCED, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Judge (Japan)", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Lead Counsel — Applicant", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Lead Counsel — Respondent", 3, [CharacterExperience.INTERMEDIATE]),
+        (
+            "Co-Counsel — Applicant",
+            2,
+            [CharacterExperience.BEGINNER, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Co-Counsel — Respondent", 2, [CharacterExperience.BEGINNER]),
+        ("Registrar", 1, [CharacterExperience.BEGINNER]),
+        ("Judge (Nigeria)", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "NATO": [
+        ("United States", 5, [CharacterExperience.ADVANCED]),
+        ("United Kingdom", 5, [CharacterExperience.ADVANCED]),
+        ("Turkey", 4, [CharacterExperience.INTERMEDIATE, CharacterExperience.ADVANCED]),
+        ("Germany", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Poland", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Canada", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Norway", 2, [CharacterExperience.BEGINNER]),
+        ("Spain", 2, [CharacterExperience.BEGINNER, CharacterExperience.INTERMEDIATE]),
+        ("Portugal", 1, [CharacterExperience.BEGINNER]),
+        ("Iceland", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "African Union": [
+        ("Nigeria", 5, [CharacterExperience.ADVANCED]),
+        ("South Africa", 5, [CharacterExperience.ADVANCED]),
+        ("Egypt", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Kenya", 4, [CharacterExperience.INTERMEDIATE, CharacterExperience.ADVANCED]),
+        ("Ethiopia", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Morocco", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Ghana", 2, [CharacterExperience.BEGINNER]),
+        (
+            "Senegal",
+            2,
+            [CharacterExperience.BEGINNER, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Rwanda", 1, [CharacterExperience.BEGINNER]),
+        ("Tunisia", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "G20 Summit": [
+        ("United States", 5, [CharacterExperience.ADVANCED]),
+        ("China", 5, [CharacterExperience.ADVANCED]),
+        (
+            "Germany",
+            4,
+            [CharacterExperience.ADVANCED, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Japan", 4, [CharacterExperience.INTERMEDIATE]),
+        ("India", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Brazil", 3, [CharacterExperience.INTERMEDIATE]),
+        ("United Kingdom", 2, [CharacterExperience.BEGINNER]),
+        (
+            "Australia",
+            2,
+            [CharacterExperience.BEGINNER, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Argentina", 1, [CharacterExperience.BEGINNER]),
+        ("South Korea", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "Historical Crisis: Fall of Rome": [
+        ("Emperor Honorius", 5, [CharacterExperience.ADVANCED]),
+        ("General Stilicho", 5, [CharacterExperience.ADVANCED]),
+        (
+            "Alaric the Visigoth",
+            4,
+            [CharacterExperience.ADVANCED, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Senator Symmachus", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Bishop Ambrose", 3, [CharacterExperience.INTERMEDIATE]),
+        ("General Aetius", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Senator Petronius", 2, [CharacterExperience.BEGINNER]),
+        (
+            "Empress Galla Placidia",
+            2,
+            [CharacterExperience.BEGINNER, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Praetorian Prefect", 1, [CharacterExperience.BEGINNER]),
+        ("Provincial Governor", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "European Union Council": [
+        ("Germany", 5, [CharacterExperience.ADVANCED]),
+        ("France", 5, [CharacterExperience.ADVANCED]),
+        ("Italy", 4, [CharacterExperience.INTERMEDIATE, CharacterExperience.ADVANCED]),
+        ("Spain", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Poland", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Netherlands", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Sweden", 2, [CharacterExperience.BEGINNER]),
+        (
+            "Belgium",
+            2,
+            [CharacterExperience.BEGINNER, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Ireland", 1, [CharacterExperience.BEGINNER]),
+        ("Austria", 1, [CharacterExperience.BEGINNER]),
+    ],
+    "Interpol": [
+        ("Secretary-General", 5, [CharacterExperience.ADVANCED]),
+        ("United States Liaison", 5, [CharacterExperience.ADVANCED]),
+        (
+            "United Kingdom Liaison",
+            4,
+            [CharacterExperience.INTERMEDIATE, CharacterExperience.ADVANCED],
+        ),
+        ("France Liaison", 4, [CharacterExperience.INTERMEDIATE]),
+        ("Germany Liaison", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Japan Liaison", 3, [CharacterExperience.INTERMEDIATE]),
+        ("Brazil Liaison", 2, [CharacterExperience.BEGINNER]),
+        (
+            "South Africa Liaison",
+            2,
+            [CharacterExperience.BEGINNER, CharacterExperience.INTERMEDIATE],
+        ),
+        ("Australia Liaison", 1, [CharacterExperience.BEGINNER]),
+        ("Canada Liaison", 1, [CharacterExperience.BEGINNER]),
     ],
 }
 
@@ -834,11 +1102,20 @@ def seed_assignments(db):
         row.name: row.id for row in db.scalars(select(Committee)).all()
     }
     characters = db.scalars(select(Character)).all()
+    # A delegate can only ever hold one character — skip anyone who already
+    # has an assignment (whether from an earlier seed run or from someone
+    # using the live assignment flow) instead of colliding with the DB's
+    # one-character-per-delegate constraint.
+    already_assigned_delegate_ids = {c.delegate_id for c in characters if c.delegate_id}
 
     for email, committee_name, character_name, final_status in ASSIGNMENTS:
         delegate = delegate_by_email.get(email)
         committee_id = committee_id_by_name.get(committee_name)
-        if delegate is None or committee_id is None:
+        if (
+            delegate is None
+            or committee_id is None
+            or delegate.id in already_assigned_delegate_ids
+        ):
             continue
         character = next(
             (

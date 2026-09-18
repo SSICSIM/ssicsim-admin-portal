@@ -83,11 +83,8 @@ import {
   paymentStatusLabel,
   REGISTRATION_PRICES
 } from "@/utils/csv";
-import {
-  buildCharactersByCommittee,
-  formatExperience,
-  sortCharactersByPriorityDesc
-} from "@/utils/committee";
+import { buildCharactersByCommittee, sortCharactersByPriorityDesc } from "@/utils/committee";
+import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -421,7 +418,7 @@ function DelegateRow({
               <SelectContent>
                 {availableCharacters.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {c.name} (P{c.priority ?? "–"} · {formatExperience(c.experience)})
+                    <CharacterOptionLabel character={c} />
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1810,6 +1807,7 @@ export default function DelegatesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Delegate</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Reg. Period</TableHead>
                       <TableHead>Price</TableHead>
                       <TableHead>Financial Aid</TableHead>
@@ -1822,6 +1820,9 @@ export default function DelegatesPage() {
                       .map((d) => (
                         <TableRow key={d.id}>
                           <TableCell>{d.full_name || `${d.first_name} ${d.last_name}`}</TableCell>
+                          <TableCell className="text-[var(--ssicsim-text-muted)]">
+                            {d.email}
+                          </TableCell>
                           <TableCell>{d.registration_period ?? "--"}</TableCell>
                           <TableCell>
                             {d.registration_period
@@ -1852,6 +1853,7 @@ export default function DelegatesPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Delegate</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Committee</TableHead>
                       <TableHead>Character</TableHead>
                     </TableRow>
@@ -1868,9 +1870,12 @@ export default function DelegatesPage() {
                         return (
                           <TableRow key={d.id}>
                             <TableCell>{d.full_name || `${d.first_name} ${d.last_name}`}</TableCell>
+                            <TableCell className="text-[var(--ssicsim-text-muted)]">
+                              {d.email}
+                            </TableCell>
                             <TableCell>{committeeMap.get(ch.committee_id)?.name ?? "--"}</TableCell>
                             <TableCell>
-                              {ch.name} (P{ch.priority ?? "–"} · {formatExperience(ch.experience)})
+                              <CharacterOptionLabel character={ch} />
                             </TableCell>
                           </TableRow>
                         );
@@ -2527,7 +2532,7 @@ export default function DelegatesPage() {
                 <SelectContent>
                   {filteredCharacters.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name} (P{c.priority ?? "–"} · {formatExperience(c.experience)})
+                      <CharacterOptionLabel character={c} />
                       {prevAssignment?.characterId === c.id ? " ↩ previous" : ""}
                     </SelectItem>
                   ))}

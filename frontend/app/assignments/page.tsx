@@ -19,18 +19,55 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
 import { FlowFooterActions, FlowLayout } from "@/components/flows";
 import { cn } from "@/lib/utils";
 import {
   buildCharactersByCommittee,
   computeAvailableByExperience,
   computeCommitteeFill,
-  formatExperience,
+  computeCommitteeRemaining,
   sortCharactersByPriorityDesc,
-  sortCommitteesByPreference
+  sortCommitteesByPreference,
+  splitJccGroups,
+  type CommitteeFillStats,
+  type CommitteeRemaining
 } from "@/utils/committee";
 
 const PREFERENCE_LABELS = ["1st pick", "2nd pick", "3rd pick"];
+
+// Shows how many of each tier are still open (count) alongside how much of
+// that tier is already staffed (percent assigned) — e.g. "L 1 (67%)" means
+// 1 low-priority seat left, on a tier that's otherwise 67% filled.
+function TierRemainingLine({
+  stats,
+  remaining,
+  active
+}: {
+  stats: CommitteeFillStats;
+  remaining: CommitteeRemaining;
+  active: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-1.5 flex items-center justify-between text-[11px]",
+        active ? "text-brand-navy/80" : "text-white/50"
+      )}
+    >
+      <span>
+        L {remaining.low.count} ({stats.lowPercent}%)
+      </span>
+      <span>
+        M {remaining.medium.count} ({stats.mediumPercent}%)
+      </span>
+      <span>
+        H {remaining.high.count} ({stats.highPercent}%)
+      </span>
+      <span className="font-semibold">{remaining.total.count} left</span>
+    </div>
+  );
+}
 
 function CommitteeStatRow({
   committee,
@@ -46,7 +83,13 @@ function CommitteeStatRow({
   onSelect: () => void;
 }) {
   const stats = computeCommitteeFill(characters);
+  const remaining = computeCommitteeRemaining(stats);
   const available = computeAvailableByExperience(characters);
+  // A Joint Crisis Committee's two sides are blended into one committee
+  // record — split them so each side's own fill shows up separately instead
+  // of averaging away which side is actually short on characters.
+  const jccGroups = splitJccGroups(characters);
+
   return (
     <button
       type="button"
@@ -57,11 +100,21 @@ function CommitteeStatRow({
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("text-sm font-semibold", active ? "text-brand-navy" : "text-white")}>
+        <span
+          className={cn(
+            "min-w-0 truncate text-sm font-semibold",
+            active ? "text-brand-navy" : "text-white"
+          )}
+        >
           {committee.name}
         </span>
-        <span className={cn("text-xs font-medium", active ? "text-brand-navy" : "text-white/70")}>
-          {stats.filled}/{stats.total}
+        <span
+          className={cn(
+            "shrink-0 whitespace-nowrap text-xs font-medium",
+            active ? "text-brand-navy" : "text-white/70"
+          )}
+        >
+          {stats.filled}/{stats.total} ({stats.totalPercent}%)
         </span>
       </div>
       {preferenceRank !== undefined && (
@@ -74,17 +127,35 @@ function CommitteeStatRow({
           {PREFERENCE_LABELS[preferenceRank]}
         </span>
       )}
-      <div
-        className={cn(
-          "mt-1.5 flex items-center justify-between text-[11px]",
-          active ? "text-brand-navy/80" : "text-white/50"
-        )}
-      >
-        <span>L {stats.lowTotal - stats.lowFilled} left</span>
-        <span>M {stats.mediumTotal - stats.mediumFilled} left</span>
-        <span>H {stats.highTotal - stats.highFilled} left</span>
-        <span className="font-semibold">{stats.total - stats.filled} left</span>
-      </div>
+
+      {jccGroups ? (
+        jccGroups.map((group) => {
+          const groupStats = computeCommitteeFill(group.characters);
+          return (
+            <div key={group.label} className="mt-1.5">
+              <p
+                className={cn(
+                  "flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide",
+                  active ? "text-brand-navy/70" : "text-white/60"
+                )}
+              >
+                <span className="min-w-0 truncate">{group.label}</span>
+                <span className="shrink-0 whitespace-nowrap">
+                  {groupStats.filled}/{groupStats.total} ({groupStats.totalPercent}%)
+                </span>
+              </p>
+              <TierRemainingLine
+                stats={groupStats}
+                remaining={computeCommitteeRemaining(groupStats)}
+                active={active}
+              />
+            </div>
+          );
+        })
+      ) : (
+        <TierRemainingLine stats={stats} remaining={remaining} active={active} />
+      )}
+
       <div
         className={cn(
           "mt-1 flex items-center justify-between text-[11px]",
@@ -151,11 +222,26 @@ export default function AssignmentsPage() {
     [activeDelegate]
   );
 
+  // How urgently open each committee's high/medium/low priority seats are
+  // — used to order the non-preferred committees by urgency.
+  const remainingByCommitteeId = useMemo(() => {
+    const map = new Map<UUID, CommitteeRemaining>();
+    committees.forEach((c) => {
+      map.set(
+        c.id,
+        computeCommitteeRemaining(computeCommitteeFill(charactersByCommittee.get(c.id) ?? []))
+      );
+    });
+    return map;
+  }, [committees, charactersByCommittee]);
+
   // Surfaces the active delegate's preferred committees at the top of the
-  // scrollable sidebar so the assigner doesn't have to hunt for them.
+  // scrollable sidebar so the assigner doesn't have to hunt for them. The
+  // remainder is ordered by percent of high (then medium, then low) priority
+  // seats still unfilled, most urgent first.
   const sortedCommittees = useMemo(
-    () => sortCommitteesByPreference(committees, preferences),
-    [committees, preferences]
+    () => sortCommitteesByPreference(committees, preferences, remainingByCommitteeId),
+    [committees, preferences, remainingByCommitteeId]
   );
 
   const preferenceRankByCommitteeId = useMemo(() => {
@@ -286,7 +372,7 @@ export default function AssignmentsPage() {
                 <SelectContent>
                   {availableCharacters.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name} (P{c.priority ?? "–"} · {formatExperience(c.experience)})
+                      <CharacterOptionLabel character={c} />
                     </SelectItem>
                   ))}
                 </SelectContent>
