@@ -223,6 +223,9 @@ type SortKey =
   | "status"
   | "experience"
   | "delegation"
+  | "pick1"
+  | "pick2"
+  | "pick3"
   | "committee"
   | "character"
   | "submitted"
@@ -366,6 +369,15 @@ function DelegateRow({
       </TableCell>
       <TableCell>{delegate.delegate_experience}</TableCell>
       <TableCell>{delegationName}</TableCell>
+      <TableCell className="max-w-[100px] whitespace-normal break-words text-xs">
+        {delegate.first_committee || "--"}
+      </TableCell>
+      <TableCell className="max-w-[100px] whitespace-normal break-words text-xs">
+        {delegate.second_committee || "--"}
+      </TableCell>
+      <TableCell className="max-w-[100px] whitespace-normal break-words text-xs">
+        {delegate.third_committee || "--"}
+      </TableCell>
       <TableCell>
         {delegate.financial_aid_status ? (
           <Badge variant={financialAidBadge[delegate.financial_aid_status]}>
@@ -556,6 +568,27 @@ function DelegateTableHead({
         <SortableHead
           label="Delegation"
           sortKeyName="delegation"
+          activeKey={sortKey}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+        <SortableHead
+          label="1st pick"
+          sortKeyName="pick1"
+          activeKey={sortKey}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+        <SortableHead
+          label="2nd pick"
+          sortKeyName="pick2"
+          activeKey={sortKey}
+          activeDir={sortDir}
+          onSort={onSort}
+        />
+        <SortableHead
+          label="3rd pick"
+          sortKeyName="pick3"
           activeKey={sortKey}
           activeDir={sortDir}
           onSort={onSort}
@@ -756,6 +789,12 @@ export default function DelegatesPage() {
           return d.delegate_experience;
         case "delegation":
           return delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate";
+        case "pick1":
+          return d.first_committee ?? "";
+        case "pick2":
+          return d.second_committee ?? "";
+        case "pick3":
+          return d.third_committee ?? "";
         case "committee": {
           const ch = assignedCharacterByDelegateId.get(d.id);
           return ch ? (committeeMap.get(ch.committee_id)?.name ?? "") : "";
@@ -2439,7 +2478,7 @@ export default function DelegatesPage() {
 
       {/* ── Assignment Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={assignmentOpen} onOpenChange={setAssignmentOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Assign Delegate</DialogTitle>
             <DialogDescription>Pick a committee and character for this delegate.</DialogDescription>
@@ -2450,17 +2489,21 @@ export default function DelegatesPage() {
                 <p className="font-medium text-[var(--ssicsim-brand-navy)]">
                   {selectedDelegate.last_name}, {selectedDelegate.first_name}
                 </p>
-                <p className="text-[var(--ssicsim-text-muted)]">
-                  Preferences:{" "}
+                <div className="mt-1.5 grid grid-cols-3 gap-2">
                   {[
-                    selectedDelegate.first_committee,
-                    selectedDelegate.second_committee,
-                    selectedDelegate.third_committee
-                  ]
-                    .filter(Boolean)
-                    .join(" / ") || "--"}
-                </p>
-                <p className="text-[var(--ssicsim-text-muted)]">
+                    { label: "1st pick", value: selectedDelegate.first_committee },
+                    { label: "2nd pick", value: selectedDelegate.second_committee },
+                    { label: "3rd pick", value: selectedDelegate.third_committee }
+                  ].map((pref) => (
+                    <div key={pref.label}>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
+                        {pref.label}
+                      </p>
+                      <p className="truncate text-[var(--ssicsim-text)]">{pref.value || "--"}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[var(--ssicsim-text-muted)]">
                   Delegation:{" "}
                   {delegationMap.get(selectedDelegate.delegation_id ?? "")?.name ??
                     "Independent Delegate"}

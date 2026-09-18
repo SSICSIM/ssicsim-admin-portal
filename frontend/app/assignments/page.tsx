@@ -348,17 +348,21 @@ export default function AssignmentsPage() {
             <p className="font-medium text-[var(--ssicsim-brand-navy)]">
               {activeDelegate.last_name}, {activeDelegate.first_name}
             </p>
-            <p className="text-[var(--ssicsim-text-muted)]">
-              Preferences:{" "}
+            <div className="mt-1.5 grid grid-cols-3 gap-2">
               {[
-                activeDelegate.first_committee,
-                activeDelegate.second_committee,
-                activeDelegate.third_committee
-              ]
-                .filter(Boolean)
-                .join(" / ") || "--"}
-            </p>
-            <p className="text-[var(--ssicsim-text-muted)]">
+                { label: "1st pick", value: activeDelegate.first_committee },
+                { label: "2nd pick", value: activeDelegate.second_committee },
+                { label: "3rd pick", value: activeDelegate.third_committee }
+              ].map((pref) => (
+                <div key={pref.label}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
+                    {pref.label}
+                  </p>
+                  <p className="truncate text-[var(--ssicsim-text)]">{pref.value || "--"}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[var(--ssicsim-text-muted)]">
               Delegation:{" "}
               {delegationMap.get(activeDelegate.delegation_id ?? "")?.name ??
                 "Independent Delegate"}
