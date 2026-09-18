@@ -32,6 +32,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
+import { CommitteeFillCharts } from "@/components/CommitteeFillCharts";
 import { parseCharacterCsv } from "@/utils/csv";
 import {
   buildDelegateMap,
@@ -529,6 +530,12 @@ export default function CommitteeEditPage() {
           <CardDescription>Add, remove, and manage character assignments.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {committeeCharacters.length > 0 && (
+            <div className="rounded-lg border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] p-4">
+              <CommitteeFillCharts characters={committeeCharacters} />
+            </div>
+          )}
+
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[240px] flex-1 space-y-2">
               <Label htmlFor="new-character">Add character</Label>

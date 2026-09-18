@@ -277,14 +277,9 @@ export default function CommitteesPage() {
                         {fillStats.filled} of {fillStats.total}
                       </p>
                     </div>
-                    <div>
-                      <Link
-                        className="text-sm font-semibold"
-                        href={`/committees/${committee.id}/edit`}
-                      >
-                        Open full details
-                      </Link>
-                    </div>
+                    <Button asChild variant="secondary" size="sm">
+                      <Link href={`/committees/${committee.id}/edit`}>Open full details</Link>
+                    </Button>
                     <CommitteeFillCharts
                       characters={charactersByCommittee.get(committee.id) ?? []}
                     />
