@@ -30,6 +30,7 @@ class CommitteeBase(BaseModel):
     max_delegates: int | None = Field(default=None, ge=0)
     joint: bool = False
     double: bool = False
+    ad_hoc: bool = False
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
@@ -50,6 +51,7 @@ class CommitteeUpdate(BaseModel):
     max_delegates: int | None = Field(default=None, ge=0)
     joint: bool | None = None
     double: bool | None = None
+    ad_hoc: bool | None = None
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
@@ -284,6 +286,7 @@ class EmailTemplateBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     subject_template: str = Field(min_length=1, max_length=255)
     body_template: str
+    ad_hoc_body_template: str | None = None
     placeholders: list[str] | None = None
     confirms_assigned: bool = False
     confirms_payment: bool = False
@@ -295,6 +298,7 @@ class EmailTemplateCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     subject_template: str = Field(min_length=1, max_length=255)
     body_template: str
+    ad_hoc_body_template: str | None = None
     placeholders: list[str] | None = None
     confirms_assigned: bool = False
     confirms_payment: bool = False
@@ -304,6 +308,7 @@ class EmailTemplateUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     subject_template: str | None = Field(default=None, min_length=1, max_length=255)
     body_template: str | None = None
+    ad_hoc_body_template: str | None = None
     placeholders: list[str] | None = None
     confirms_assigned: bool | None = None
     confirms_payment: bool | None = None

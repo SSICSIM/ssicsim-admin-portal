@@ -53,8 +53,6 @@ def queue_email_job(payload: EmailQueueRequest) -> dict:
         payload.recipients,
         payload.subject,
         payload.body,
-        settings.gmail_user,
-        settings.gmail_app_password,
         job_timeout=300,
     )
 

@@ -8,6 +8,8 @@ from email.mime.text import MIMEText
 from html import escape
 from pathlib import Path
 
+from app.config import settings
+
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "branding"
 
 # (Content-ID used in the HTML via cid:..., filename in ASSETS_DIR)
@@ -20,6 +22,78 @@ INLINE_IMAGES = [
 
 def _replace_placeholders(template: str, data: dict[str, str]) -> str:
     return re.sub(r"\{(\w+)\}", lambda m: data.get(m.group(1), m.group(0)), template)
+
+
+# Minimal inline formatting for templates (and placeholder values):
+#   **text**     -> bold
+#   [text](url)  -> hyperlink (http(s):// or mailto:)
+#   **Label:** value  (a whole line) -> boxed table row, see _FIELD_PATTERNS
+# The HTML part renders them; the plain-text part strips bold markers, shows
+# links as "text (url)" and table rows as "Label: value".
+_BOLD_PATTERN = re.compile(r"\*\*(.+?)\*\*")
+_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(((?:https?://|mailto:)[^\s)]+)\)")
+_LINK_STYLE = "color:#b8922a;font-weight:600;text-decoration:underline;"
+# A table-row line: a short label and a value, written any of these ways —
+#   | Label | value |      Label: **value**      **Label:** value
+# A block made up entirely of these is rendered as a boxed two-column table
+# (bold, shaded label column; plain value) so the values line up.
+_FIELD_PATTERNS = [
+    re.compile(r"^\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|$"),
+    re.compile(r"^([A-Za-z][A-Za-z ]{0,29}):\s*\*\*(.+)\*\*$"),
+    re.compile(r"^\*\*([A-Za-z][A-Za-z ]{0,29}):\*\*\s*(.+)$"),
+]
+_FIELD_BORDER = "1px solid #e0d6bc"
+
+
+def _plain_link(m: re.Match) -> str:
+    text, url = m.group(1), m.group(2)
+    # [a@b.ca](mailto:a@b.ca) reads as just the address, not "a@b.ca (mailto:a@b.ca)".
+    if url.removeprefix("mailto:") == text:
+        return text
+    return f"{text} ({url})"
+
+
+def _match_field(line: str) -> tuple[str, str] | None:
+    for pattern in _FIELD_PATTERNS:
+        m = pattern.match(line.strip())
+        if m:
+            return m.group(1), m.group(2)
+    return None
+
+
+def _to_plain(text: str) -> str:
+    lines = []
+    for line in text.split("\n"):
+        field = _match_field(line)
+        lines.append(f"{field[0]}: {field[1]}" if field else line)
+    text = _LINK_PATTERN.sub(_plain_link, "\n".join(lines))
+    return _BOLD_PATTERN.sub(r"\1", text)
+
+
+def _render_inline(text: str) -> str:
+    html = _LINK_PATTERN.sub(
+        rf'<a href="\2" style="{_LINK_STYLE}">\1</a>', escape(text)
+    )
+    return _BOLD_PATTERN.sub(r"<strong>\1</strong>", html)
+
+
+
+
+def _render_fields(lines: list[str]) -> str | None:
+    fields = [_match_field(line) for line in lines]
+    if not all(fields):
+        return None
+    # Font styles repeated on each cell — some clients don't inherit them into tables.
+    cell = f"font-size:15px;line-height:1.4;color:#1a1600;vertical-align:top;padding:8px 14px;border:{_FIELD_BORDER};"
+    rows = "".join(
+        f'<tr><td style="{cell}background-color:#faf6ea;font-weight:700;white-space:nowrap;">{escape(label)}</td>'
+        f'<td style="{cell}">{_render_inline(value)}</td></tr>'
+        for label, value in fields
+    )
+    return (
+        '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+        f'style="margin:0 0 16px 0;border-collapse:collapse;border:{_FIELD_BORDER};">{rows}</table>'
+    )
 
 
 def _build_inline_images() -> list[MIMEImage]:
@@ -42,13 +116,19 @@ def _build_inline_images() -> list[MIMEImage]:
 # Uses an inline-styled HTML table so it renders correctly across all major email clients.
 # Logo/footer icons are referenced via cid: and embedded as inline attachments by send_emails.
 def _render_html(body_text: str) -> str:
+    # Blank lines separate paragraphs; consecutive lines (e.g. a sign-off) stay
+    # together with a line break rather than each becoming its own spaced block.
     paragraphs = []
-    for line in body_text.split("\n"):
-        stripped = line.strip()
-        if stripped:
-            paragraphs.append(f'<p style="margin:0 0 6px 0;">{escape(stripped)}</p>')
+    for block in re.split(r"\n\s*\n", body_text.strip()):
+        lines = [line.strip() for line in block.split("\n") if line.strip()]
+        if not lines:
+            continue
+        fields = _render_fields(lines)
+        if fields:
+            paragraphs.append(fields)
         else:
-            paragraphs.append('<p style="margin:0 0 6px 0;">&nbsp;</p>')
+            rendered = "<br>".join(_render_inline(line) for line in lines)
+            paragraphs.append(f'<p style="margin:0 0 16px 0;">{rendered}</p>')
 
     body_html = "\n".join(paragraphs)
 
@@ -123,9 +203,11 @@ def send_emails(
     recipients: list[dict[str, str]],
     subject_template: str,
     body_template: str,
-    gmail_user: str,
-    gmail_pass: str,
 ) -> list[dict]:
+    # Credentials are read here in the worker rather than passed as job args —
+    # RQ logs and stores job args in Redis, which would expose the app password.
+    gmail_user = settings.gmail_user or ""
+    gmail_pass = settings.gmail_app_password or ""
     results: list[dict] = []
 
     try:
@@ -137,9 +219,10 @@ def send_emails(
                 if not addr:
                     continue
                 try:
-                    subject = _replace_placeholders(subject_template, recipient)
-                    plain = _replace_placeholders(body_template, recipient)
-                    html = _render_html(plain)
+                    subject = _to_plain(_replace_placeholders(subject_template, recipient))
+                    body = _replace_placeholders(body_template, recipient)
+                    plain = _to_plain(body)
+                    html = _render_html(body)
 
                     # multipart/related wraps the text alternatives + the inline
                     # (cid:) images they reference, so images travel with the email
@@ -182,4 +265,12 @@ def send_emails(
                 {"email": r.get("email", ""), "success": False, "error": str(exc)}
             )
 
+    failed = [r for r in results if not r["success"]]
+    summary = f"Sent {len(results) - len(failed)}/{len(results)} emails"
+    if failed:
+        # Raise so RQ marks the job failed instead of logging "Job OK" when
+        # nothing (or only some) actually went out.
+        details = "; ".join(f"{r['email']}: {r.get('error', '')}" for r in failed)
+        raise RuntimeError(f"{summary}. Failures: {details}")
+    print(summary)
     return results

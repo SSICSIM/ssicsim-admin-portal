@@ -26,6 +26,8 @@ class EmailTemplate(Base):
     )
     subject_template: Mapped[str] = mapped_column(String(255), nullable=False)
     body_template: Mapped[str] = mapped_column(Text, nullable=False)
+    # Sent instead of body_template to delegates in ad hoc committees; null = use body_template.
+    ad_hoc_body_template: Mapped[str | None] = mapped_column(Text)
     placeholders: Mapped[list[str] | None] = mapped_column(ARRAY(String(255)))
     confirms_assigned: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")

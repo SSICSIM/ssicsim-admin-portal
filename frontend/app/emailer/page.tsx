@@ -3,6 +3,7 @@
 import { useRef, useState, useMemo } from "react";
 
 import Link from "next/link";
+import { Check, ChevronDown } from "lucide-react";
 
 import {
   useCharacters,
@@ -15,7 +16,19 @@ import {
   useValidateEmails
 } from "@/hooks/useAdminQueries";
 import type { DelegateOut, DelegateStatus, UUID } from "@/types/api";
+import {
+  buildCharactersByCommittee,
+  describeAssignmentForEmail,
+  splitJccGroups
+} from "@/utils/committee";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -35,6 +48,7 @@ const PLACEHOLDERS = [
   { key: "full_name", label: "Full Name" },
   { key: "email", label: "Email" },
   { key: "grade", label: "Grade" },
+  { key: "assignment", label: "Assignment" },
   { key: "committee", label: "Committee" },
   { key: "character", label: "Character" },
   { key: "delegation", label: "Delegation" }
@@ -69,7 +83,8 @@ export default function EmailerPage() {
 
   // step 1 — audience
   const [statusFilter, setStatusFilter] = useState<DelegateStatus | "all">("all");
-  const [committeeFilter, setCommitteeFilter] = useState<UUID | "all">("all");
+  // empty = all committees
+  const [committeeFilter, setCommitteeFilter] = useState<Set<UUID>>(new Set());
   const [delegationFilter, setDelegationFilter] = useState<UUID | "all">("all");
 
   // step 2 — template (selectedTemplateId is the DB template's UUID, or null for custom)
@@ -77,6 +92,11 @@ export default function EmailerPage() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("Dear {preferred_name},\n\n");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  // sent instead of `body` to delegates in ad hoc committees; empty = use `body`
+  const [adHocBody, setAdHocBody] = useState("");
+  const adHocBodyRef = useRef<HTMLTextAreaElement>(null);
+  // which body textarea the placeholder chips insert into (the last one focused)
+  const [placeholderTarget, setPlaceholderTarget] = useState<"body" | "adHoc">("body");
 
   // step 3 — send
   const [sending, setSending] = useState(false);
@@ -103,20 +123,58 @@ export default function EmailerPage() {
     return map;
   }, [characters]);
 
+  // JCC side ("Mark (Side)" → "Side") per character, only for committees whose
+  // characters consistently follow the JCC naming pattern.
+  const jccSideByCharacter = useMemo(() => {
+    const map = new Map<UUID, string>();
+    buildCharactersByCommittee(characters).forEach((committeeCharacters) => {
+      splitJccGroups(committeeCharacters)?.forEach((group) => {
+        group.characters.forEach((c) => map.set(c.id, group.label));
+      });
+    });
+    return map;
+  }, [characters]);
+
   // ── filtered recipients ─────────────────────────────────────────────────────
 
   const selectedDelegates = useMemo(
     () =>
       delegates.filter((d) => {
         if (statusFilter !== "all" && d.delegate_status !== statusFilter) return false;
-        if (committeeFilter !== "all") {
+        if (committeeFilter.size > 0) {
           const ch = charByDelegate.get(d.id);
-          if (!ch || ch.committee_id !== committeeFilter) return false;
+          if (!ch || !committeeFilter.has(ch.committee_id)) return false;
         }
         if (delegationFilter !== "all" && d.delegation_id !== delegationFilter) return false;
         return true;
       }),
     [delegates, statusFilter, committeeFilter, delegationFilter, charByDelegate]
+  );
+
+  function toggleCommittee(id: UUID) {
+    setCommitteeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const committeeFilterLabel =
+    committeeFilter.size === 0
+      ? "All Committees"
+      : committeeFilter.size === 1
+        ? (committeeMap.get([...committeeFilter][0])?.name ?? "1 committee")
+        : `${committeeFilter.size} committees`;
+
+  // delegates in the audience whose committee is ad hoc (they can get a separate body)
+  const adHocInAudience = useMemo(
+    () =>
+      selectedDelegates.filter((d) => {
+        const ch = charByDelegate.get(d.id);
+        return ch ? (committeeMap.get(ch.committee_id)?.ad_hoc ?? false) : false;
+      }),
+    [selectedDelegates, charByDelegate, committeeMap]
   );
 
   const activeTemplate = dbTemplates.find((t) => t.id === selectedTemplateId) ?? null;
@@ -139,6 +197,11 @@ export default function EmailerPage() {
     const ch = charByDelegate.get(d.id);
     const com = ch ? committeeMap.get(ch.committee_id) : null;
     const del = d.delegation_id ? delegationMap.get(d.delegation_id) : null;
+    const assignment = describeAssignmentForEmail(
+      com,
+      ch,
+      ch ? (jccSideByCharacter.get(ch.id) ?? null) : null
+    );
     return {
       first_name: d.first_name,
       last_name: d.last_name,
@@ -146,8 +209,9 @@ export default function EmailerPage() {
       preferred_name: d.preferred_name ?? d.first_name,
       email: d.email,
       grade: d.grade ?? "",
-      committee: com?.name ?? "",
-      character: ch?.name ?? "",
+      committee: assignment.committee,
+      character: assignment.character,
+      assignment: assignment.assignment,
       delegation: del?.name ?? "Independent Delegate"
     };
   }
@@ -160,17 +224,19 @@ export default function EmailerPage() {
     setSelectedTemplateId(id);
     setSubject(tpl.subject_template);
     setBody(tpl.body_template);
+    setAdHocBody(tpl.ad_hoc_body_template ?? "");
   }
 
   // ── insert placeholder at cursor ────────────────────────────────────────────
 
   function insertPlaceholder(key: string) {
-    const el = bodyRef.current;
+    const toAdHoc = placeholderTarget === "adHoc" && adHocBodyRef.current;
+    const el = toAdHoc ? adHocBodyRef.current : bodyRef.current;
     if (!el) return;
     const start = el.selectionStart;
     const end = el.selectionEnd;
     const token = `{${key}}`;
-    setBody((prev) => prev.slice(0, start) + token + prev.slice(end));
+    (toAdHoc ? setAdHocBody : setBody)((prev) => prev.slice(0, start) + token + prev.slice(end));
     requestAnimationFrame(() => {
       el.selectionStart = el.selectionEnd = start + token.length;
       el.focus();
@@ -216,12 +282,25 @@ export default function EmailerPage() {
     setConfirmStatusMsg(null);
 
     try {
-      const recipients = selectedDelegates.map(buildData);
-      const res = await queueEmails.mutateAsync({ recipients, subject, body });
+      // Ad hoc delegates get their own job when there's an ad hoc body to send them.
+      const adHocIds = new Set(
+        adHocBody.trim() ? adHocInAudience.map((d) => d.id) : []
+      );
+      const jobs = [
+        { delegates: selectedDelegates.filter((d) => !adHocIds.has(d.id)), body },
+        { delegates: selectedDelegates.filter((d) => adHocIds.has(d.id)), body: adHocBody }
+      ].filter((job) => job.delegates.length > 0);
 
-      if (res.error) {
-        setResults([{ email: "all", success: false, error: res.error }]);
-        return;
+      for (const job of jobs) {
+        const res = await queueEmails.mutateAsync({
+          recipients: job.delegates.map(buildData),
+          subject,
+          body: job.body
+        });
+        if (res.error) {
+          setResults([{ email: "all", success: false, error: res.error }]);
+          return;
+        }
       }
 
       // Show optimistic queued state for every recipient
@@ -376,22 +455,41 @@ export default function EmailerPage() {
 
                   <div className="space-y-2">
                     <Label>Committees</Label>
-                    <Select
-                      value={committeeFilter}
-                      onValueChange={(v) => setCommitteeFilter(v as UUID | "all")}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="All committees" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Committees</SelectItem>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="flex h-10 w-full items-center justify-between rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 text-sm text-[var(--ssicsim-text)] focus:outline-none focus:ring-2 focus:ring-[var(--ssicsim-brand-gold)] focus:ring-offset-2 transition-colors">
+                        <span className="truncate">{committeeFilterLabel}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0 text-[var(--ssicsim-text-muted)]" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="start"
+                        className="max-h-80 w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
+                      >
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            setCommitteeFilter(new Set());
+                          }}
+                          className="gap-2"
+                        >
+                          <CheckMark checked={committeeFilter.size === 0} />
+                          All Committees
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         {committees.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
+                          <DropdownMenuItem
+                            key={c.id}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              toggleCommittee(c.id);
+                            }}
+                            className="gap-2"
+                          >
+                            <CheckMark checked={committeeFilter.has(c.id)} />
                             {c.name}
-                          </SelectItem>
+                          </DropdownMenuItem>
                         ))}
-                      </SelectContent>
-                    </Select>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
 
                   <div className="space-y-2">
@@ -551,10 +649,32 @@ export default function EmailerPage() {
                     ref={bodyRef}
                     value={body}
                     onChange={(e) => setBody(e.target.value)}
+                    onFocus={() => setPlaceholderTarget("body")}
                     rows={12}
                     className="w-full rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 py-2.5 font-mono text-sm text-[var(--ssicsim-text)] placeholder:text-[var(--ssicsim-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ssicsim-brand-gold)] focus-visible:ring-offset-2 resize-y"
                   />
                 </div>
+
+                {/* Ad hoc body */}
+                {(adHocInAudience.length > 0 || adHocBody.trim()) && (
+                  <div className="space-y-2">
+                    <Label htmlFor="email-ad-hoc-body">Ad hoc body (optional)</Label>
+                    <textarea
+                      id="email-ad-hoc-body"
+                      ref={adHocBodyRef}
+                      value={adHocBody}
+                      onChange={(e) => setAdHocBody(e.target.value)}
+                      onFocus={() => setPlaceholderTarget("adHoc")}
+                      rows={12}
+                      placeholder="Leave empty to send ad hoc delegates the main body."
+                      className="w-full rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 py-2.5 font-mono text-sm text-[var(--ssicsim-text)] placeholder:text-[var(--ssicsim-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ssicsim-brand-gold)] focus-visible:ring-offset-2 resize-y"
+                    />
+                    <p className="text-xs text-[var(--ssicsim-text-muted)]">
+                      Sent instead of the main body to the {adHocInAudience.length} delegate
+                      {adHocInAudience.length !== 1 ? "s" : ""} in ad hoc committees.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 
@@ -578,6 +698,12 @@ export default function EmailerPage() {
                     Subject:{" "}
                     <span className="font-medium text-[var(--ssicsim-text)]">{subject}</span>
                   </p>
+                  {adHocBody.trim() && adHocInAudience.length > 0 && (
+                    <p className="text-sm text-[var(--ssicsim-text-muted)]">
+                      {adHocInAudience.length} delegate{adHocInAudience.length !== 1 ? "s" : ""} in
+                      ad hoc committees will get the ad hoc body.
+                    </p>
+                  )}
                 </div>
 
                 {/* Confirms-assigned callout */}
@@ -754,5 +880,20 @@ export default function EmailerPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function CheckMark({ checked }: { checked: boolean }) {
+  return (
+    <span
+      className={[
+        "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+        checked
+          ? "border-[var(--ssicsim-brand-navy)] bg-[var(--ssicsim-brand-navy)] text-white"
+          : "border-[var(--ssicsim-border)] bg-white"
+      ].join(" ")}
+    >
+      {checked && <Check className="h-3 w-3" />}
+    </span>
   );
 }
