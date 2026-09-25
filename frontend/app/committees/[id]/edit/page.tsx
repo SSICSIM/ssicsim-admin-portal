@@ -50,6 +50,7 @@ const emptyForm: CommitteeUpdate = {
   max_delegates: null,
   joint: false,
   double: false,
+  ad_hoc: false,
   background_guide_link: "",
   mechanics_guide_link: "",
   character_guide_link: "",
@@ -100,6 +101,7 @@ export default function CommitteeEditPage() {
       max_delegates: committeeQuery.data.max_delegates ?? null,
       joint: committeeQuery.data.joint ?? false,
       double: committeeQuery.data.double ?? false,
+      ad_hoc: committeeQuery.data.ad_hoc ?? false,
       background_guide_link: committeeQuery.data.background_guide_link ?? "",
       mechanics_guide_link: committeeQuery.data.mechanics_guide_link ?? "",
       character_guide_link: committeeQuery.data.character_guide_link ?? "",
@@ -398,6 +400,15 @@ export default function CommitteeEditPage() {
                 className="h-4 w-4 rounded border-[var(--ssicsim-border)]"
               />
               <span className="text-sm font-medium">Double delegate</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={formState.ad_hoc ?? false}
+                onChange={(event) => handleFormChange("ad_hoc", event.target.checked)}
+                className="h-4 w-4 rounded border-[var(--ssicsim-border)]"
+              />
+              <span className="text-sm font-medium">Ad hoc (hide characters in emails)</span>
             </label>
           </div>
 

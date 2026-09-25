@@ -87,6 +87,7 @@ export default function CommitteesPage() {
         max_delegates: null,
         joint: false,
         double: false,
+        ad_hoc: false,
         background_guide_link: null,
         mechanics_guide_link: null,
         character_guide_link: null,

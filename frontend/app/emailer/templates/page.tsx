@@ -18,13 +18,34 @@ import { Label } from "@/components/ui/label";
 const SEED_TEMPLATES = [
   {
     name: "Assignment Notification",
-    subject_template: "Your SSICSIM 2026 Committee Assignment — {committee}",
+    subject_template: "SSICSIM 2026 Committee Assignment — {committee}",
     body_template: [
       "Dear {preferred_name},",
       "",
-      "We are thrilled to let you know that you have been officially assigned to {committee} as {character} for SSICSIM 2026!",
+      "We are thrilled to let you know your official assignment for SSICSIM 2026!",
       "",
-      "Please take a moment to review your assignment. If you have any questions, feel free to reach out to your committee director.",
+      "**Character:** {character}",
+      "**Committee:** {committee}",
+      "",
+      "Background guides and other materials for your committee can be found [on our website](https://www.ssicsim.ca/committees). Please take some time to review them before the conference, and if you would like to request a character switch, please fill out [this form](https://forms.gle/7C7G7o9xczJa9BKm9).",
+      "",
+      "If you have any questions, feel free to reach out to contact@ssicsim.ca.",
+      "",
+      "We can't wait to see you at the conference!",
+      "",
+      "Warm regards,",
+      "The SSICSIM Team"
+    ].join("\n"),
+    ad_hoc_body_template: [
+      "Dear {preferred_name},",
+      "",
+      "We are thrilled to let you know your official assignment for SSICSIM 2026!",
+      "",
+      "**Committee:** {committee}",
+      "",
+      "As you are in an ad hoc committee, all committee materials will be provided to you on the day of the conference.",
+      "",
+      "If you have any questions, feel free to reach out to contact@ssicsim.ca.",
       "",
       "We can't wait to see you at the conference!",
       "",
@@ -97,6 +118,7 @@ type FormState = {
   name: string;
   subject_template: string;
   body_template: string;
+  ad_hoc_body_template: string;
   confirms_assigned: boolean;
   confirms_payment: boolean;
 };
@@ -105,6 +127,7 @@ const BLANK: FormState = {
   name: "",
   subject_template: "",
   body_template: "Dear {preferred_name},\n\n",
+  ad_hoc_body_template: "",
   confirms_assigned: false,
   confirms_payment: false
 };
@@ -136,6 +159,7 @@ export default function TemplatesPage() {
       name: t.name,
       subject_template: t.subject_template,
       body_template: t.body_template,
+      ad_hoc_body_template: t.ad_hoc_body_template ?? "",
       confirms_assigned: t.confirms_assigned,
       confirms_payment: t.confirms_payment
     });
@@ -295,6 +319,11 @@ function TemplateCard({ template, onEdit }: { template: EmailTemplateOut; onEdit
                 Confirms Assigned → Confirmed
               </span>
             )}
+            {template.ad_hoc_body_template?.trim() && (
+              <span className="rounded-full border border-[var(--ssicsim-border)] bg-[var(--ssicsim-surface-soft)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--ssicsim-brand-navy)]">
+                Ad hoc version
+              </span>
+            )}
             {template.confirms_payment && (
               <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
                 Verify Payment → Awaiting Assignment
@@ -387,6 +416,7 @@ function TemplateForm({
             "full_name",
             "email",
             "grade",
+            "assignment",
             "committee",
             "character",
             "delegation"
@@ -409,6 +439,23 @@ function TemplateForm({
           Mark Assigned delegates as Confirmed after sending
         </span>
       </label>
+
+      {form.confirms_assigned && (
+        <div className="space-y-2">
+          <Label htmlFor="tpl-ad-hoc-body">Ad hoc body (optional)</Label>
+          <textarea
+            id="tpl-ad-hoc-body"
+            value={form.ad_hoc_body_template}
+            onChange={(e) => set("ad_hoc_body_template", e.target.value)}
+            rows={10}
+            className="w-full rounded-lg border border-[var(--ssicsim-border)] bg-white px-3 py-2.5 font-mono text-sm text-[var(--ssicsim-text)] placeholder:text-[var(--ssicsim-text-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ssicsim-brand-gold)] focus-visible:ring-offset-2 resize-y"
+            placeholder="Leave empty to send ad hoc delegates the main body."
+          />
+          <p className="text-xs text-[var(--ssicsim-text-muted)]">
+            Sent instead of the main body to delegates in ad hoc committees.
+          </p>
+        </div>
+      )}
 
       <label className="flex items-center gap-3 cursor-pointer select-none">
         <input

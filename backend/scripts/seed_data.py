@@ -949,14 +949,37 @@ ASSIGNMENTS = [
 EMAIL_TEMPLATES = [
     {
         "name": "Assignment Notification",
-        "subject_template": "Your SSICSIM 2026 Committee Assignment — {committee}",
+        "subject_template": "SSICSIM 2026 Committee Assignment — {committee}",
         "body_template": "\n".join(
             [
                 "Dear {preferred_name},",
                 "",
-                "We are thrilled to let you know that you have been officially assigned to {committee} as {character} for SSICSIM 2026!",
+                "We are thrilled to let you know your official assignment for SSICSIM 2026!",
                 "",
-                "Please take a moment to review your assignment. If you have any questions, feel free to reach out to your committee director.",
+                "**Character:** {character}",
+                "**Committee:** {committee}",
+                "",
+                "Background guides and other materials for your committee can be found [on our website](https://www.ssicsim.ca/committees). Please take some time to review them before the conference, and if you would like to request a character switch, please fill out [this form](https://forms.gle/7C7G7o9xczJa9BKm9).",
+                "",
+                "If you have any questions, feel free to reach out to contact@ssicsim.ca.",
+                "",
+                "We can't wait to see you at the conference!",
+                "",
+                "Warm regards,",
+                "The SSICSIM Team",
+            ]
+        ),
+        "ad_hoc_body_template": "\n".join(
+            [
+                "Dear {preferred_name},",
+                "",
+                "We are thrilled to let you know your official assignment for SSICSIM 2026!",
+                "",
+                "**Committee:** {committee}",
+                "",
+                "As you are in an ad hoc committee, all committee materials will be provided to you on the day of the conference.",
+                "",
+                "If you have any questions, feel free to reach out to contact@ssicsim.ca.",
                 "",
                 "We can't wait to see you at the conference!",
                 "",

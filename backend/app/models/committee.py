@@ -33,6 +33,9 @@ class Committee(Base):
     double: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )
+    ad_hoc: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
     background_guide_link: Mapped[str | None] = mapped_column(String(1024))
     mechanics_guide_link: Mapped[str | None] = mapped_column(String(1024))
     character_guide_link: Mapped[str | None] = mapped_column(String(1024))

@@ -1,4 +1,10 @@
-import type { CharacterExperience, CharacterOut, DelegateOut, UUID } from "@/types/api";
+import type {
+  CharacterExperience,
+  CharacterOut,
+  CommitteeOut,
+  DelegateOut,
+  UUID
+} from "@/types/api";
 
 export function filterCharactersByCommittee(
   characters: CharacterOut[],
@@ -143,6 +149,47 @@ export function splitJccGroups(characters: CharacterOut[]): JccGroup[] | null {
   }
   if (groups.size < 2) return null;
   return Array.from(groups, ([label, groupCharacters]) => ({ label, characters: groupCharacters }));
+}
+
+export type EmailAssignment = { committee: string; character: string; assignment: string };
+
+// How a delegate's assignment reads in an email:
+// - Ad hoc: the character stays secret, so only the committee is shown.
+// - JCC (characters named "Mark (Side)"): "Mark in Committee (Side)".
+// - Otherwise: "Mark in Committee".
+// The character and committee are wrapped in **…** so the email renders them bold.
+export function describeAssignmentForEmail(
+  committee: CommitteeOut | null | undefined,
+  character: CharacterOut | null | undefined,
+  jccSide: string | null
+): EmailAssignment {
+  const committeeName = committee?.name ?? "";
+  if (committee?.ad_hoc) {
+    return {
+      committee: committeeName,
+      character: "",
+      assignment: committeeName ? `**${committeeName}**` : ""
+    };
+  }
+  if (!character) {
+    return { committee: committeeName, character: "", assignment: committeeName };
+  }
+  if (jccSide) {
+    const characterName = character.name.replace(/\s*\([^()]+\)\s*$/, "");
+    const fullCommittee = `${committeeName} (${jccSide})`;
+    return {
+      committee: fullCommittee,
+      character: characterName,
+      assignment: `**${characterName}** in **${fullCommittee}**`
+    };
+  }
+  return {
+    committee: committeeName,
+    character: character.name,
+    assignment: committeeName
+      ? `**${character.name}** in **${committeeName}**`
+      : `**${character.name}**`
+  };
 }
 
 // Compact display for a character's experience list, e.g. "Beginner/Advanced"

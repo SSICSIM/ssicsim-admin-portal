@@ -11,6 +11,7 @@ export type CommitteeOut = {
   max_delegates: number | null;
   joint: boolean;
   double: boolean;
+  ad_hoc: boolean;
   background_guide_link: string | null;
   mechanics_guide_link: string | null;
   character_guide_link: string | null;
@@ -145,6 +146,7 @@ export type EmailTemplateOut = {
   name: string;
   subject_template: string;
   body_template: string;
+  ad_hoc_body_template: string | null;
   placeholders: string[] | null;
   confirms_assigned: boolean;
   confirms_payment: boolean;
@@ -156,6 +158,7 @@ export type EmailTemplateCreate = {
   name: string;
   subject_template: string;
   body_template: string;
+  ad_hoc_body_template?: string | null;
   placeholders?: string[] | null;
   confirms_assigned?: boolean;
   confirms_payment?: boolean;

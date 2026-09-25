@@ -27,7 +27,10 @@ def create_email_template(db: Session, payload: EmailTemplateCreate) -> EmailTem
         name=payload.name,
         subject_template=payload.subject_template,
         body_template=payload.body_template,
+        ad_hoc_body_template=payload.ad_hoc_body_template,
         placeholders=payload.placeholders,
+        confirms_assigned=payload.confirms_assigned,
+        confirms_payment=payload.confirms_payment,
     )
     db.add(email_template)
     try:
