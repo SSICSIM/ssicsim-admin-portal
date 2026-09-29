@@ -71,6 +71,13 @@ openssl rand -hex 32
    | `SUPABASE_URL` | From Supabase Settings → API |
    | `SUPABASE_SERVICE_ROLE_KEY` | From Supabase Settings → API |
    | `SUPABASE_BUCKET` | `ssicsim-assets` |
+   | `GOOGLE_SERVICE_ACCOUNT_JSON_B64` | *(optional)* Service account JSON key, base64 on one line: `base64 -i key.json \| tr -d '\n'` |
+   | `GOOGLE_SHEET_ID` | *(optional)* ID of the spreadsheet new registrations are appended to |
+   | `GOOGLE_SHEET_WORKSHEET` | *(optional)* Tab name, default `Delegates` |
+
+   For the Google Sheets sync, share the spreadsheet with the service
+   account's `client_email` as an **Editor**. If these are unset, delegate
+   creation still works and the sync failure is just logged.
 
 5. Click **Create Web Service**.
 

@@ -101,7 +101,14 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
     db.refresh(delegate)
 
     try:
-        google_sheets.append_delegate_row(delegate)
+        delegation = (
+            db.get(Delegation, delegate.delegation_id)
+            if delegate.delegation_id
+            else None
+        )
+        google_sheets.append_delegate_row(
+            delegate, delegation.name if delegation else "Independent Delegate"
+        )
     except Exception:
         logger.exception("Failed to sync delegate %s to Google Sheet", delegate.id)
 

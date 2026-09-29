@@ -167,8 +167,27 @@ dropdowns are new, sitting next to it. Test:
 
 Three separate export surfaces:
 
-**a) Full delegate export** — "Export CSV" button above the delegates table
-(unchanged from before, just refactored internally).
+All-delegate exports live in one **Export CSV** dropdown above the delegates
+table:
+- **Delegates (full, one row each)** → `delegates-export.csv`. Every delegate
+  field, followed by `date_applied` (registration time), `price`,
+  `payment_status`, `assigned_committee`, `assigned_character`. The original
+  columns keep their order and new ones are only appended, because the master
+  sheet imports this file.
+- **Delegations** → `delegations-export.csv`. One row per delegation (advisor,
+  contact, stated size, registered count, remaining slots, total price, head
+  delegate…) plus a final **Independent Delegates** row.
+- **Financial only** / **Assignments only**: the same report shapes as the
+  per-delegation exports below, across every delegation.
+
+**Updating the master sheet:** download **Delegates (full)**, then on the
+master's `delegate_export.csv` sheet go to File → Import, upload the CSV and
+choose **Replace current sheet**. If the browser saved it as
+`delegates-export (1).csv` etc., rename it first.
+
+The Delegations card header also shows **"N registered of M projected
+delegates"**. Projected = each delegation's stated size (or its registered
+count, if that's higher) + all independent delegates.
 
 **b) Per-delegation exports** — open any delegation's row via "Edit" on the
 Delegations table (bottom of `/delegates`). The dialog now has three tabs:
@@ -181,11 +200,6 @@ Delegations table (bottom of `/delegates`). The dialog now has three tabs:
 
   Test: open the CSV file for each and confirm it only contains that one
   delegation's delegates.
-
-**c) Export all** — on the Delegations section header (`/delegates`, bottom
-card), "Export all financial (CSV)" and "Export all assignments (CSV)"
-buttons produce the same two report shapes but across every delegation,
-sorted/grouped by delegation name.
 
 Pricing is currently **hardcoded**: Early Bird = $70, Regular = $90, Late =
 $110 (see `frontend/utils/csv.ts` → `REGISTRATION_PRICES` if these need to

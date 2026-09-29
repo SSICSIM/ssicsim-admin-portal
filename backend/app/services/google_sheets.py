@@ -26,8 +26,9 @@ HEADER = [
     "Third Committee",
     "Committee Selection Ack",
     "Date Applied",
+    "Registration Period",
     "Delegate Status",
-    "Delegation ID",
+    "Delegation",
     "Code of Conduct URL",
     "Code of Conduct Signed",
     "Payment Policy Ack",
@@ -55,7 +56,7 @@ def _get_worksheet() -> gspread.Worksheet:
     return spreadsheet.worksheet(settings.google_sheet_worksheet)
 
 
-def _delegate_row(delegate: Delegate) -> list:
+def _delegate_row(delegate: Delegate, delegation_name: str | None) -> list:
     return [
         str(delegate.id),
         delegate.first_name,
@@ -71,8 +72,9 @@ def _delegate_row(delegate: Delegate) -> list:
         delegate.third_committee,
         delegate.committee_selection_ack,
         delegate.date_applied.isoformat() if delegate.date_applied else None,
+        delegate.registration_period.value if delegate.registration_period else None,
         delegate.delegate_status.value if delegate.delegate_status else None,
-        str(delegate.delegation_id) if delegate.delegation_id else None,
+        delegation_name,
         delegate.code_of_conduct_url,
         delegate.code_of_conduct_signed,
         delegate.payment_policy_ack,
@@ -86,8 +88,10 @@ def _delegate_row(delegate: Delegate) -> list:
     ]
 
 
-def append_delegate_row(delegate: Delegate) -> None:
+def append_delegate_row(delegate: Delegate, delegation_name: str | None = None) -> None:
     worksheet = _get_worksheet()
     if not worksheet.row_values(1):
         worksheet.append_row(HEADER)
-    worksheet.append_row(_delegate_row(delegate), value_input_option="USER_ENTERED")
+    worksheet.append_row(
+        _delegate_row(delegate, delegation_name), value_input_option="USER_ENTERED"
+    )
