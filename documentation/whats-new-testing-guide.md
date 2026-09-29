@@ -6,6 +6,42 @@ delegate filters, the new full-page assignment flow, committee fill charts,
 and the inline "Edit table" bulk-edit mode. Use this to manually walk through
 everything before merging.
 
+## `delegate-export-changes`: what you need to do
+
+This branch adds the full delegate export, the delegations export, the
+"registered of projected" count and the Google Sheets sync (see
+[§3 CSV exports](#3-csv-exports)). There are no database migrations.
+
+1. **Run the automated tests** before merging (CI only runs lint, format and
+   typecheck, not tests):
+   - Backend: `pytest -q` (29 tests, including `tests/test_google_sheets.py`).
+     For setup, or to run it all in Docker, see **Tests** in
+     [backend.md](backend.md#tests).
+   - Frontend: `cd frontend && npm test` (tests for the export builders in
+     `utils/csv.test.ts`; needs Node 22.18+).
+2. **Rebuild the local backend image** once, because there are new Python deps
+   (`gspread`, `google-auth`): `docker compose up --build`.
+3. **Manual check on `/delegates`:**
+   - Open **Export CSV** and download each of the four options.
+   - Check that the Delegations card header shows "N registered of M projected
+     delegates".
+4. **Master sheet:** import the new `delegates-export.csv` into a **copy** of
+   the master sheet first. The old columns are unchanged, and five new ones
+   are added at the end (`date_applied`, `price`, `payment_status`,
+   `assigned_committee`, `assigned_character`). Check that any formulas or
+   `QUERY`s that reference the `delegate_export.csv` tab still line up, then
+   tell Ethan and Jo the new columns exist.
+5. **Google Sheets sync (optional, prod only):** follow
+   [deployment.md → Google Sheets sync](deployment.md#google-sheets-sync-optional)
+   to create the service account, share the sheet and set
+   `GOOGLE_SERVICE_ACCOUNT_JSON_B64`, `GOOGLE_SHEET_ID` and
+   `GOOGLE_SHEET_WORKSHEET` on Render. Until then, registration works
+   normally and the sync is skipped with a logged error. Locally you can leave
+   these unset.
+6. **Prices** are still hardcoded in `frontend/utils/csv.ts` →
+   `REGISTRATION_PRICES` ($70 / $90 / $110). The new `price` and `total_price`
+   export columns use those values, so update them there if they change.
+
 ## Before you start
 
 A new migration adds `characters.priority`, `characters.experience`, and

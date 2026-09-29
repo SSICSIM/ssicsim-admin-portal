@@ -75,11 +75,56 @@ openssl rand -hex 32
    | `GOOGLE_SHEET_ID` | *(optional)* ID of the spreadsheet new registrations are appended to |
    | `GOOGLE_SHEET_WORKSHEET` | *(optional)* Tab name, default `Delegates` |
 
-   For the Google Sheets sync, share the spreadsheet with the service
-   account's `client_email` as an **Editor**. If these are unset, delegate
-   creation still works and the sync failure is just logged.
+   The three `GOOGLE_*` keys are only for the Google Sheets sync. See
+   **Google Sheets sync (optional)** below for how to get them.
 
 5. Click **Create Web Service**.
+
+### Google Sheets sync (optional)
+
+New registrations (`POST /api/delegates`) are appended as a row to a Google
+Sheet. It is **optional** — with the env vars unset, registration still works
+and the backend just logs `Failed to sync delegate … to Google Sheet`. Only new
+delegates are appended; later edits, status changes and assignments are **not**
+synced (use the admin portal's **Export CSV → Delegates (full)** for a complete
+refresh).
+
+One-time setup:
+
+1. **Google Cloud project** — at [console.cloud.google.com](https://console.cloud.google.com)
+   pick (or create) a project and enable the **Google Sheets API** and
+   **Google Drive API** (APIs & Services → Library).
+2. **Service account** — APIs & Services → Credentials → Create credentials →
+   Service account. No roles are needed. Open it → **Keys → Add key → JSON**
+   and download the key file. Treat it like a password; never commit it.
+3. **Spreadsheet** — create (or pick) the sheet, add a tab named `Delegates`
+   (or whatever you'll set `GOOGLE_SHEET_WORKSHEET` to), and leave row 1
+   **empty** — the backend writes the header row itself on the first sync.
+   If the tab already has a header row, it must match `HEADER` in
+   `backend/app/services/google_sheets.py` exactly, including the
+   `Registration Period` and `Delegation` columns.
+4. **Share** the spreadsheet with the service account's `client_email` (from
+   the JSON key, `…@….iam.gserviceaccount.com`) as an **Editor**.
+5. **Encode the key** onto one line:
+   ```bash
+   base64 -i service-account.json | tr -d '\n'
+   ```
+6. **Set the env vars** on the Render backend service (the worker doesn't need
+   them) and redeploy:
+
+   | Key | Value |
+   |---|---|
+   | `GOOGLE_SERVICE_ACCOUNT_JSON_B64` | Output of step 5 |
+   | `GOOGLE_SHEET_ID` | The long ID in the sheet URL: `docs.google.com/spreadsheets/d/<THIS_PART>/edit` |
+   | `GOOGLE_SHEET_WORKSHEET` | Tab name (default `Delegates`) |
+
+   The new Python dependencies (`gspread`, `google-auth`) are in
+   `requirements.txt`, so Render installs them on the next build. Locally, run
+   `docker compose up --build` once so the backend image picks them up.
+7. **Verify** — register a test delegate and check that a row appears. If it
+   doesn't, check the Render backend logs for `Failed to sync delegate`:
+   `SpreadsheetNotFound` / `403` means the sheet isn't shared with the service
+   account, and `WorksheetNotFound` means the tab name doesn't match.
 
 ### Worker service
 

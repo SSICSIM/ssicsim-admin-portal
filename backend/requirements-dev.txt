@@ -3,3 +3,7 @@
 # Linting and formatting
 ruff==0.8.6
 black==26.1.0
+
+# Tests
+pytest==9.1.1
+httpx==0.28.1
