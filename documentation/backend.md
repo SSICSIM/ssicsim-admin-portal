@@ -59,7 +59,7 @@ docker compose exec db psql -U postgres -c "CREATE DATABASE ssicsim_test;"
 Run tests (from `backend/`, on the host — same `localhost:5432` reasoning as Alembic above). The backend needs **Python 3.11+** (it uses `datetime.UTC`):
 ```
 cd backend
-pip install -r requirements-dev.txt   # includes pytest + httpx
+pip install -r requirements-dev.txt   # includes pytest
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 TEST_DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/ssicsim_test pytest -q
 ```
 Disabling auto-loaded plugins avoids global interference. Uploads go to a temp dir per test run.

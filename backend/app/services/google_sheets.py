@@ -3,11 +3,13 @@ from __future__ import annotations
 import base64
 import json
 import logging
-
-import gspread
+from typing import TYPE_CHECKING
 
 from app.config import settings
 from app.models.delegate import Delegate
+
+if TYPE_CHECKING:
+    import gspread
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,10 @@ def _get_worksheet() -> gspread.Worksheet:
         raise RuntimeError(
             "GOOGLE_SERVICE_ACCOUNT_JSON_B64 or GOOGLE_SHEET_ID is not configured"
         )
+
+    # Imported lazily so the sync stays optional: a missing package fails the
+    # sync (logged by the caller) instead of stopping the backend from booting.
+    import gspread
 
     credentials_info = json.loads(
         base64.b64decode(settings.google_service_account_json_b64)
