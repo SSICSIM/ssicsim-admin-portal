@@ -198,3 +198,215 @@ export function buildCharacterAssignmentRows(
 
   return { headers, rows };
 }
+
+function delegationNameFor(d: DelegateOut, delegationsById: Map<UUID, DelegationOut>): string {
+  return d.delegation_id ? (delegationsById.get(d.delegation_id)?.name ?? "") : "";
+}
+
+function delegatePrice(d: DelegateOut): number | "" {
+  return d.registration_period ? REGISTRATION_PRICES[d.registration_period] : "";
+}
+
+// "YYYY-MM-DD HH:mm" in local time — a format Google Sheets parses as a datetime.
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+    `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  );
+}
+
+// Original delegate export columns. The master sheet is refreshed by importing
+// this CSV with "replace current sheet", so keep this order stable and only
+// append new columns to FULL_DELEGATE_EXTRA_HEADERS.
+const DELEGATE_BASE_HEADERS = [
+  "id",
+  "first_name",
+  "last_name",
+  "full_name",
+  "preferred_name",
+  "grade",
+  "email",
+  "phone",
+  "delegate_experience",
+  "delegate_status",
+  "registration_period",
+  "first_committee",
+  "second_committee",
+  "third_committee",
+  "committee_selection_ack",
+  "delegation",
+  "code_of_conduct_url",
+  "payment_policy_ack",
+  "cancellation_policy_ack",
+  "financial_aid_status",
+  "financial_aid_reason",
+  "financial_aid_contacted",
+  "payment_receipt_url",
+  "heard_about",
+  "notes"
+];
+
+const FULL_DELEGATE_EXTRA_HEADERS = [
+  "date_applied",
+  "price",
+  "payment_status",
+  "assigned_committee",
+  "assigned_character"
+];
+
+export function buildFullDelegateRows(
+  delegates: DelegateOut[],
+  characters: CharacterOut[],
+  committeesById: Map<UUID, CommitteeOut>,
+  delegationsById: Map<UUID, DelegationOut>
+): { headers: string[]; rows: (string | number)[][] } {
+  // Character priority/experience are internal assignment-planning data —
+  // never included in an export.
+  const headers = [...DELEGATE_BASE_HEADERS, ...FULL_DELEGATE_EXTRA_HEADERS];
+  const characterByDelegateId = new Map(
+    characters.filter((c) => c.delegate_id).map((c) => [c.delegate_id as UUID, c])
+  );
+
+  const rows = delegates.map((d): (string | number)[] => {
+    const base = DELEGATE_BASE_HEADERS.map((k) =>
+      k === "delegation"
+        ? delegationNameFor(d, delegationsById)
+        : String((d as Record<string, unknown>)[k] ?? "")
+    );
+    const character = characterByDelegateId.get(d.id);
+    return [
+      ...base,
+      formatDateTime(d.date_applied),
+      delegatePrice(d),
+      paymentStatusLabel(d),
+      character ? (committeesById.get(character.committee_id)?.name ?? "") : "",
+      character?.name ?? ""
+    ];
+  });
+
+  return { headers, rows };
+}
+
+export function buildDelegationRows(
+  delegations: DelegationOut[],
+  delegates: DelegateOut[]
+): { headers: string[]; rows: (string | number)[][] } {
+  const headers = [
+    "delegation",
+    "faculty_advisor_name",
+    "faculty_advisor_email",
+    "contact_role",
+    "contact_phone",
+    "school_address",
+    "delegation_size",
+    "delegation_size_min",
+    "delegation_size_max",
+    "registered_delegates",
+    "remaining_slots",
+    "total_price",
+    "attended_before",
+    "payment_process",
+    "head_delegate",
+    "heard_about",
+    "notes"
+  ];
+  const delegatesById = new Map(delegates.map((d) => [d.id, d]));
+  const delegatesByDelegation = new Map<UUID | null, DelegateOut[]>();
+  for (const d of delegates) {
+    const list = delegatesByDelegation.get(d.delegation_id) ?? [];
+    list.push(d);
+    delegatesByDelegation.set(d.delegation_id, list);
+  }
+  const totalPrice = (members: DelegateOut[]) =>
+    members.reduce((sum, d) => sum + (Number(delegatePrice(d)) || 0), 0);
+  const yesNo = (v: boolean | null) => (v == null ? "" : v ? "Yes" : "No");
+
+  const rows = [...delegations]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((delegation): (string | number)[] => {
+      const members = delegatesByDelegation.get(delegation.id) ?? [];
+      const headDelegate = delegation.head_delegate_id
+        ? delegatesById.get(delegation.head_delegate_id)
+        : undefined;
+      return [
+        delegation.name,
+        [delegation.faculty_advisor_first_name, delegation.faculty_advisor_last_name]
+          .filter(Boolean)
+          .join(" "),
+        delegation.faculty_advisor_email ?? "",
+        delegation.contact_role ?? "",
+        delegation.contact_phone ?? "",
+        delegation.school_address ?? "",
+        delegation.delegation_size ?? "",
+        delegation.delegation_size_min ?? "",
+        delegation.delegation_size_max ?? "",
+        members.length,
+        delegation.delegation_size == null
+          ? ""
+          : Math.max(delegation.delegation_size - members.length, 0),
+        totalPrice(members),
+        yesNo(delegation.attended_before),
+        delegation.payment_process ?? "",
+        headDelegate ? delegateName(headDelegate) : "",
+        delegation.heard_about ?? "",
+        delegation.notes ?? ""
+      ];
+    });
+
+  const independents = delegatesByDelegation.get(null) ?? [];
+  rows.push([
+    "Independent Delegates",
+    "",
+    "",
+    "",
+    "",
+    "",
+    independents.length,
+    "",
+    "",
+    independents.length,
+    0,
+    totalPrice(independents),
+    "",
+    "",
+    "",
+    "",
+    ""
+  ]);
+
+  return { headers, rows };
+}
+
+/**
+ * Conference-wide delegate projection: each delegation counts as its stated
+ * size (or its registered count, if more have registered than stated), plus
+ * every independent delegate.
+ */
+export function projectedDelegateCount(
+  delegations: DelegationOut[],
+  delegates: DelegateOut[]
+): { registered: number; projected: number } {
+  const registeredByDelegation = new Map<UUID, number>();
+  let independents = 0;
+  for (const d of delegates) {
+    if (d.delegation_id) {
+      registeredByDelegation.set(
+        d.delegation_id,
+        (registeredByDelegation.get(d.delegation_id) ?? 0) + 1
+      );
+    } else {
+      independents += 1;
+    }
+  }
+  const projected = delegations.reduce(
+    (sum, delegation) =>
+      sum +
+      Math.max(delegation.delegation_size ?? 0, registeredByDelegation.get(delegation.id) ?? 0),
+    independents
+  );
+  return { registered: delegates.length, projected };
+}

@@ -6,6 +6,42 @@ delegate filters, the new full-page assignment flow, committee fill charts,
 and the inline "Edit table" bulk-edit mode. Use this to manually walk through
 everything before merging.
 
+## `delegate-export-changes`: what you need to do
+
+This branch adds the full delegate export, the delegations export, the
+"registered of projected" count and the Google Sheets sync (see
+[§3 CSV exports](#3-csv-exports)). There are no database migrations.
+
+1. **Run the automated tests** before merging (CI only runs lint, format and
+   typecheck, not tests):
+   - Backend: `pytest -q` (29 tests, including `tests/test_google_sheets.py`).
+     For setup, or to run it all in Docker, see **Tests** in
+     [backend.md](backend.md#tests).
+   - Frontend: `cd frontend && npm test` (tests for the export builders in
+     `utils/csv.test.ts`; needs Node 22.18+).
+2. **Rebuild the local backend image** once, because there are new Python deps
+   (`gspread`, `google-auth`): `docker compose up --build`.
+3. **Manual check on `/delegates`:**
+   - Open **Export CSV** and download each of the four options.
+   - Check that the Delegations card header shows "N registered of M projected
+     delegates".
+4. **Master sheet:** import the new `delegates-export.csv` into a **copy** of
+   the master sheet first. The old columns are unchanged, and five new ones
+   are added at the end (`date_applied`, `price`, `payment_status`,
+   `assigned_committee`, `assigned_character`). Check that any formulas or
+   `QUERY`s that reference the `delegate_export.csv` tab still line up, then
+   tell Ethan and Jo the new columns exist.
+5. **Google Sheets sync (optional, prod only):** follow
+   [deployment.md → Google Sheets sync](deployment.md#google-sheets-sync-optional)
+   to create the service account, share the sheet and set
+   `GOOGLE_SERVICE_ACCOUNT_JSON_B64`, `GOOGLE_SHEET_ID` and
+   `GOOGLE_SHEET_WORKSHEET` on Render. Until then, registration works
+   normally and the sync is skipped with a logged error. Locally you can leave
+   these unset.
+6. **Prices** are still hardcoded in `frontend/utils/csv.ts` →
+   `REGISTRATION_PRICES` ($70 / $90 / $110). The new `price` and `total_price`
+   export columns use those values, so update them there if they change.
+
 ## Before you start
 
 A new migration adds `characters.priority`, `characters.experience`, and
@@ -167,8 +203,27 @@ dropdowns are new, sitting next to it. Test:
 
 Three separate export surfaces:
 
-**a) Full delegate export** — "Export CSV" button above the delegates table
-(unchanged from before, just refactored internally).
+All-delegate exports live in one **Export CSV** dropdown above the delegates
+table:
+- **Delegates (full, one row each)** → `delegates-export.csv`. Every delegate
+  field, followed by `date_applied` (registration time), `price`,
+  `payment_status`, `assigned_committee`, `assigned_character`. The original
+  columns keep their order and new ones are only appended, because the master
+  sheet imports this file.
+- **Delegations** → `delegations-export.csv`. One row per delegation (advisor,
+  contact, stated size, registered count, remaining slots, total price, head
+  delegate…) plus a final **Independent Delegates** row.
+- **Financial only** / **Assignments only**: the same report shapes as the
+  per-delegation exports below, across every delegation.
+
+**Updating the master sheet:** download **Delegates (full)**, then on the
+master's `delegate_export.csv` sheet go to File → Import, upload the CSV and
+choose **Replace current sheet**. If the browser saved it as
+`delegates-export (1).csv` etc., rename it first.
+
+The Delegations card header also shows **"N registered of M projected
+delegates"**. Projected = each delegation's stated size (or its registered
+count, if that's higher) + all independent delegates.
 
 **b) Per-delegation exports** — open any delegation's row via "Edit" on the
 Delegations table (bottom of `/delegates`). The dialog now has three tabs:
@@ -181,11 +236,6 @@ Delegations table (bottom of `/delegates`). The dialog now has three tabs:
 
   Test: open the CSV file for each and confirm it only contains that one
   delegation's delegates.
-
-**c) Export all** — on the Delegations section header (`/delegates`, bottom
-card), "Export all financial (CSV)" and "Export all assignments (CSV)"
-buttons produce the same two report shapes but across every delegation,
-sorted/grouped by delegation name.
 
 Pricing is currently **hardcoded**: Early Bird = $70, Regular = $90, Late =
 $110 (see `frontend/utils/csv.ts` → `REGISTRATION_PRICES` if these need to

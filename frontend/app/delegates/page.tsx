@@ -78,9 +78,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   buildCharacterAssignmentRows,
+  buildDelegationRows,
   buildFinancialRows,
+  buildFullDelegateRows,
   downloadCsv,
   paymentStatusLabel,
+  projectedDelegateCount,
   REGISTRATION_PRICES
 } from "@/utils/csv";
 import { buildCharactersByCommittee, sortCharactersByPriorityDesc } from "@/utils/committee";
@@ -724,6 +727,10 @@ export default function DelegatesPage() {
   const committeeMap = useMemo(() => new Map(committees.map((c) => [c.id, c])), [committees]);
   const delegateMap = useMemo(() => new Map(delegates.map((d) => [d.id, d])), [delegates]);
   const delegationMap = useMemo(() => new Map(delegations.map((d) => [d.id, d])), [delegations]);
+  const delegateProjection = useMemo(
+    () => projectedDelegateCount(delegations, delegates),
+    [delegations, delegates]
+  );
 
   const assignedCharacterByDelegateId = useMemo(() => {
     const map = new Map<UUID, (typeof characters)[number]>();
@@ -1243,42 +1250,18 @@ export default function DelegatesPage() {
   // ── export ─────────────────────────────────────────────────────────────────
 
   function exportDelegates() {
-    const headers = [
-      "id",
-      "first_name",
-      "last_name",
-      "full_name",
-      "preferred_name",
-      "grade",
-      "email",
-      "phone",
-      "delegate_experience",
-      "delegate_status",
-      "registration_period",
-      "first_committee",
-      "second_committee",
-      "third_committee",
-      "committee_selection_ack",
-      "delegation",
-      "code_of_conduct_url",
-      "payment_policy_ack",
-      "cancellation_policy_ack",
-      "financial_aid_status",
-      "financial_aid_reason",
-      "financial_aid_contacted",
-      "payment_receipt_url",
-      "heard_about",
-      "notes"
-    ];
-    const rows = delegates.map((d) =>
-      headers.map((k) => {
-        if (k === "delegation") {
-          return d.delegation_id ? (delegationMap.get(d.delegation_id)?.name ?? "") : "";
-        }
-        return String((d as Record<string, unknown>)[k] ?? "");
-      })
+    const { headers, rows } = buildFullDelegateRows(
+      delegates,
+      characters,
+      committeeMap,
+      delegationMap
     );
     downloadCsv("delegates-export.csv", headers, rows);
+  }
+
+  function exportDelegations() {
+    const { headers, rows } = buildDelegationRows(delegations, delegates);
+    downloadCsv("delegations-export.csv", headers, rows);
   }
 
   function exportDelegationFinancial(delegationId?: UUID) {
@@ -1458,9 +1441,26 @@ export default function DelegatesPage() {
                 <Button variant="secondary" asChild>
                   <Link href="/assignments">Assignment flow</Link>
                 </Button>
-                <Button variant="ghost" onClick={exportDelegates}>
-                  Export CSV
-                </Button>
+                <DropdownMenu modal={false}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost">
+                      Export CSV <ChevronDown className="ml-1 h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={exportDelegates}>
+                      Delegates (full, one row each)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={exportDelegations}>Delegations</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => exportDelegationFinancial()}>
+                      Financial only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => exportDelegationCharacterAssignments()}>
+                      Assignments only
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
             <Separator />
@@ -1520,15 +1520,10 @@ export default function DelegatesPage() {
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
             <div>
               <CardTitle>Delegations</CardTitle>
-              <CardDescription>Delegation roster and faculty advisors.</CardDescription>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" onClick={() => exportDelegationFinancial()}>
-                Export all financial (CSV)
-              </Button>
-              <Button variant="ghost" onClick={() => exportDelegationCharacterAssignments()}>
-                Export all assignments (CSV)
-              </Button>
+              <CardDescription>
+                Delegation roster and faculty advisors · {delegateProjection.registered} registered
+                of {delegateProjection.projected} projected delegates
+              </CardDescription>
             </div>
           </CardHeader>
           <CardContent>
@@ -1543,7 +1538,7 @@ export default function DelegatesPage() {
                     <TableHead>Delegation</TableHead>
                     <TableHead>Faculty Advisor</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Size</TableHead>
+                    <TableHead>Size (projected)</TableHead>
                     <TableHead>Attended Before</TableHead>
                     <TableHead>Delegates</TableHead>
                     <TableHead></TableHead>

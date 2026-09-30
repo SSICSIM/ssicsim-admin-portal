@@ -10,3 +10,5 @@ redis==5.2.0
 rq==2.0.0
 email-validator==2.2.0
 supabase==2.4.6
+gspread==6.1.4
+google-auth==2.35.0
