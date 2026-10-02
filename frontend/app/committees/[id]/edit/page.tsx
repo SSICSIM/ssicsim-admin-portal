@@ -490,10 +490,6 @@ export default function CommitteeEditPage() {
 
           <div className="space-y-2">
             <Label>Additional links</Label>
-            <p className="text-sm text-[var(--ssicsim-text-muted)]">
-              Shown as buttons on the public committee page, e.g. a second background guide for a
-              joint crisis.
-            </p>
             {additionalLinks.map((link, index) => (
               <div key={index} className="flex flex-wrap items-center gap-2">
                 <Input
