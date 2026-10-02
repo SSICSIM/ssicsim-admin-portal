@@ -20,6 +20,11 @@ class HealthResponse(BaseModel):
 
 
 # Committee schemas
+class CommitteeLink(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    url: str = Field(min_length=1, max_length=1024)
+
+
 class CommitteeBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     small_description: str | None = Field(default=None, max_length=512)
@@ -34,6 +39,7 @@ class CommitteeBase(BaseModel):
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
+    additional_links: list[CommitteeLink] = Field(default_factory=list)
     image_url: str | None = Field(default=None, max_length=1024)
 
 
@@ -55,6 +61,7 @@ class CommitteeUpdate(BaseModel):
     background_guide_link: str | None = Field(default=None, max_length=1024)
     mechanics_guide_link: str | None = Field(default=None, max_length=1024)
     character_guide_link: str | None = Field(default=None, max_length=1024)
+    additional_links: list[CommitteeLink] | None = None
     image_url: str | None = Field(default=None, max_length=1024)
 
 

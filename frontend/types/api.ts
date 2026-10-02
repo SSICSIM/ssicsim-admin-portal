@@ -1,5 +1,10 @@
 export type UUID = string;
 
+export type CommitteeLink = {
+  name: string;
+  url: string;
+};
+
 export type CommitteeOut = {
   id: UUID;
   name: string;
@@ -15,12 +20,14 @@ export type CommitteeOut = {
   background_guide_link: string | null;
   mechanics_guide_link: string | null;
   character_guide_link: string | null;
+  additional_links: CommitteeLink[];
   image_url: string | null;
 };
 
 export type CommitteeUpdate = Partial<Omit<CommitteeOut, "id">>;
 
-export type CommitteeCreate = Omit<CommitteeOut, "id" | "image_url"> & {
+export type CommitteeCreate = Omit<CommitteeOut, "id" | "image_url" | "additional_links"> & {
+  additional_links?: CommitteeLink[];
   image_url?: string | null;
 };
 

@@ -14,7 +14,7 @@ import {
   useUpdateCommittee,
   useUploadCommitteeImage
 } from "@/hooks/useAdminQueries";
-import type { CharacterExperience, CommitteeUpdate, UUID } from "@/types/api";
+import type { CharacterExperience, CommitteeLink, CommitteeUpdate, UUID } from "@/types/api";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,7 @@ const emptyForm: CommitteeUpdate = {
   background_guide_link: "",
   mechanics_guide_link: "",
   character_guide_link: "",
+  additional_links: [],
   image_url: ""
 };
 
@@ -105,6 +106,7 @@ export default function CommitteeEditPage() {
       background_guide_link: committeeQuery.data.background_guide_link ?? "",
       mechanics_guide_link: committeeQuery.data.mechanics_guide_link ?? "",
       character_guide_link: committeeQuery.data.character_guide_link ?? "",
+      additional_links: committeeQuery.data.additional_links ?? [],
       image_url: committeeQuery.data.image_url ?? ""
     });
   }, [committeeQuery.data]);
@@ -152,12 +154,39 @@ export default function CommitteeEditPage() {
     setFormState((prev) => ({ ...prev, [key]: value }));
   };
 
+  const additionalLinks = formState.additional_links ?? [];
+
+  const handleLinkChange = (index: number, key: keyof CommitteeLink, value: string) => {
+    handleFormChange(
+      "additional_links",
+      additionalLinks.map((link, i) => (i === index ? { ...link, [key]: value } : link))
+    );
+  };
+
+  const handleAddLink = () => {
+    handleFormChange("additional_links", [...additionalLinks, { name: "", url: "" }]);
+  };
+
+  const handleRemoveLink = (index: number) => {
+    handleFormChange(
+      "additional_links",
+      additionalLinks.filter((_, i) => i !== index)
+    );
+  };
+
   const handleSave = async () => {
     if (!committeeId) return;
     setSaveMessage(null);
     setSaveError(null);
+    const links = additionalLinks
+      .map((link) => ({ name: link.name.trim(), url: link.url.trim() }))
+      .filter((link) => link.name || link.url);
+    if (links.some((link) => !link.name || !link.url)) {
+      setSaveError("Each additional link needs both a name and a URL.");
+      return;
+    }
     try {
-      await updateCommittee.mutateAsync(formState);
+      await updateCommittee.mutateAsync({ ...formState, additional_links: links });
       setSaveMessage("Committee details updated.");
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Unable to update committee.");
@@ -457,6 +486,38 @@ export default function CommitteeEditPage() {
                 onChange={(event) => handleFormChange("character_guide_link", event.target.value)}
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Additional links</Label>
+            <p className="text-sm text-[var(--ssicsim-text-muted)]">
+              Shown as buttons on the public committee page, e.g. a second background guide for a
+              joint crisis.
+            </p>
+            {additionalLinks.map((link, index) => (
+              <div key={index} className="flex flex-wrap items-center gap-2">
+                <Input
+                  aria-label={`Link ${index + 1} name`}
+                  className="min-w-[200px] flex-1"
+                  value={link.name}
+                  onChange={(event) => handleLinkChange(index, "name", event.target.value)}
+                  placeholder="Button label, e.g. Background Guide (Council)"
+                />
+                <Input
+                  aria-label={`Link ${index + 1} URL`}
+                  className="min-w-[240px] flex-[2]"
+                  value={link.url}
+                  onChange={(event) => handleLinkChange(index, "url", event.target.value)}
+                  placeholder="https://..."
+                />
+                <Button variant="secondary" onClick={() => handleRemoveLink(index)}>
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <Button variant="secondary" onClick={handleAddLink}>
+              Add link
+            </Button>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

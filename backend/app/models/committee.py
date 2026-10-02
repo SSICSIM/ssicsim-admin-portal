@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from sqlalchemy import Boolean, Integer, String, Text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
 
@@ -39,4 +39,9 @@ class Committee(Base):
     background_guide_link: Mapped[str | None] = mapped_column(String(1024))
     mechanics_guide_link: Mapped[str | None] = mapped_column(String(1024))
     character_guide_link: Mapped[str | None] = mapped_column(String(1024))
+    # Extra named links (e.g. a second background guide for a JCC), stored as
+    # a list of {"name": ..., "url": ...} objects.
+    additional_links: Mapped[list[dict[str, str]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
     image_url: Mapped[str | None] = mapped_column(String(1024))
