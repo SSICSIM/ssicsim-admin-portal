@@ -78,6 +78,31 @@ def test_committees_unique_name(client):
     assert "already exists" in conflict.json()["detail"]
 
 
+def test_committee_additional_links(client):
+    committee = _make_committee(client, name="JCC")
+    assert committee["additional_links"] == []
+
+    links = [
+        {"name": "Background Guide (Council)", "url": "https://example.com/council"},
+        {"name": "Background Guide (Theorists)", "url": "https://example.com/theorists"},
+    ]
+    resp = client.patch(f"/api/committees/{committee['id']}", json={"additional_links": links})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["additional_links"] == links
+
+    # Omitting the field leaves the links alone; an empty list clears them.
+    resp = client.patch(f"/api/committees/{committee['id']}", json={"joint": True})
+    assert resp.json()["additional_links"] == links
+    resp = client.patch(f"/api/committees/{committee['id']}", json={"additional_links": []})
+    assert resp.json()["additional_links"] == []
+
+    bad = client.patch(
+        f"/api/committees/{committee['id']}",
+        json={"additional_links": [{"name": "", "url": "https://example.com"}]},
+    )
+    assert bad.status_code == 422
+
+
 def test_delegations_unique_name(client):
     _make_delegation(client, name="Team Alpha")
     conflict = client.post(
