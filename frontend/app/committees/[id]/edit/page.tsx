@@ -489,7 +489,7 @@ export default function CommitteeEditPage() {
           </div>
 
           <div className="space-y-2">
-            <Label>Additional links</Label>
+            <Label className="block">Additional links</Label>
             {additionalLinks.map((link, index) => (
               <div key={index} className="flex flex-wrap items-center gap-2">
                 <Input
