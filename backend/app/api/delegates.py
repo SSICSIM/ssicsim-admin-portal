@@ -15,6 +15,7 @@ from app.schemas import (
     DelegateCreate,
     DelegateOut,
     DelegateUpdate,
+    RegistrationCapacity,
 )
 from app.services import delegates
 
@@ -24,6 +25,11 @@ router = APIRouter(prefix="/delegates", tags=["delegates"])
 @router.get("", response_model=list[DelegateOut])
 def list_delegates(db: Session = Depends(get_db)) -> list[Delegate]:
     return delegates.list_delegates(db)
+
+
+@router.get("/capacity", response_model=RegistrationCapacity)
+def registration_capacity(db: Session = Depends(get_db)) -> RegistrationCapacity:
+    return delegates.get_registration_capacity(db)
 
 
 @router.post("", response_model=DelegateOut, status_code=201)

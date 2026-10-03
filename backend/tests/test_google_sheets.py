@@ -97,6 +97,33 @@ def test_independent_delegate_is_labelled(client, worksheet):
     assert _column(worksheet.rows[1], "Delegation") == "Independent Delegate"
 
 
+def test_waitlisted_delegate_is_synced_only_once_moved_off_waitlist(client, worksheet):
+    resp = client.post(
+        "/api/delegates",
+        json={
+            "first_name": "Wait",
+            "last_name": "Listed",
+            "email": "waitlist@example.com",
+            "delegate_experience": "Novice",
+            "first_committee": "C1",
+            "second_committee": "C2",
+            "third_committee": "C3",
+            "delegate_status": "Waitlist",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert worksheet.rows == []
+
+    moved = client.patch(
+        f"/api/delegates/{resp.json()['id']}",
+        json={"delegate_status": "Awaiting Payment"},
+    )
+    assert moved.status_code == 200, moved.text
+    assert len(worksheet.rows) == 2
+    assert _column(worksheet.rows[1], "Email") == "waitlist@example.com"
+    assert _column(worksheet.rows[1], "Delegate Status") == "Awaiting Payment"
+
+
 def test_sync_failure_does_not_block_registration(client, monkeypatch):
     def boom():
         raise ConnectionError("Google is down")

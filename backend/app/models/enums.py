@@ -10,6 +10,8 @@ class DelegateExperience(str, Enum):
 
 
 class DelegateStatus(str, Enum):
+    # Registered after capacity was reached; hasn't paid and holds no spot.
+    WAITLIST = "Waitlist"
     AWAITING_PAYMENT = "Awaiting Payment"
     VERIFY_PAYMENT = "Verify Payment"
     AWAITING_ASSIGNMENT = "Awaiting Assignment"

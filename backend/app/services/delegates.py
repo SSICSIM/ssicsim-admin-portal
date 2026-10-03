@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -16,11 +16,20 @@ from app.models.delegate import Delegate
 from app.models.delegation import Delegation
 from app.models.enums import DelegateStatus, EventType, RegistrationPeriod
 from app.models.sec_member import SecMember
-from app.schemas import DelegateBulkEditRequest, DelegateCreate, DelegateUpdate
+from app.schemas import (
+    DelegateBulkEditRequest,
+    DelegateCreate,
+    DelegateUpdate,
+    RegistrationCapacity,
+)
 from app.services import google_sheets
 from app.services.event_logs import record_event
 
 logger = logging.getLogger(__name__)
+
+# Arbitrary key for the Postgres advisory lock that serializes delegate
+# creation, so two registrations can't both take the last spot.
+_REGISTRATION_LOCK_KEY = 397_001
 
 
 def _assume_utc_if_naive(dt: datetime) -> datetime:
@@ -54,6 +63,24 @@ def get_delegate(db: Session, delegate_id: UUID) -> Delegate:
     return delegate
 
 
+def get_registration_capacity(db: Session) -> RegistrationCapacity:
+    counts = dict(
+        db.execute(
+            select(
+                Delegate.delegate_status == DelegateStatus.WAITLIST,
+                func.count(),
+            ).group_by(Delegate.delegate_status == DelegateStatus.WAITLIST)
+        ).all()
+    )
+    registered = counts.get(False, 0)
+    return RegistrationCapacity(
+        capacity=settings.delegate_capacity,
+        registered=registered,
+        waitlisted=counts.get(True, 0),
+        is_full=registered >= settings.delegate_capacity,
+    )
+
+
 def _validate_delegation(db: Session, delegation_id: UUID | None) -> None:
     if delegation_id is None:
         return
@@ -63,6 +90,19 @@ def _validate_delegation(db: Session, delegation_id: UUID | None) -> None:
 
 def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
     _validate_delegation(db, payload.delegation_id)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _REGISTRATION_LOCK_KEY})
+    if (
+        payload.delegate_status != DelegateStatus.WAITLIST
+        and get_registration_capacity(db).is_full
+    ):
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "registration_full",
+                "message": "Registration is full. Please join the waitlist instead.",
+            },
+        )
     applied_at = payload.date_applied or datetime.now(UTC)
     delegate = Delegate(
         first_name=payload.first_name,
@@ -100,6 +140,15 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         raise HTTPException(status_code=409, detail="Delegate email already exists")
     db.refresh(delegate)
 
+    # Waitlisted delegates aren't on the roster, so they stay off the sheet
+    # until they're moved off the waitlist.
+    if delegate.delegate_status != DelegateStatus.WAITLIST:
+        _sync_to_sheet(db, delegate)
+
+    return delegate
+
+
+def _sync_to_sheet(db: Session, delegate: Delegate) -> None:
     try:
         delegation = (
             db.get(Delegation, delegate.delegation_id)
@@ -111,8 +160,6 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         )
     except Exception:
         logger.exception("Failed to sync delegate %s to Google Sheet", delegate.id)
-
-    return delegate
 
 
 def update_delegate(
@@ -152,6 +199,11 @@ def update_delegate(
         db.rollback()
         raise HTTPException(status_code=409, detail="Delegate email already exists")
     db.refresh(delegate)
+    if (
+        old_status == DelegateStatus.WAITLIST
+        and delegate.delegate_status != DelegateStatus.WAITLIST
+    ):
+        _sync_to_sheet(db, delegate)
     return delegate
 
 
@@ -164,6 +216,7 @@ def bulk_edit_delegates(
     changed: list[Delegate] = []
     change_log: list[tuple[EventType, str, str]] = []
     seen_characters: set[UUID] = set()
+    was_waitlisted: set[UUID] = set()
 
     for item in payload.items:
         delegate = db.get(Delegate, item.delegate_id)
@@ -175,6 +228,8 @@ def bulk_edit_delegates(
         # always records the delegate's true prior status — not a status an
         # earlier step in this same item already overwrote.
         original_status = delegate.delegate_status
+        if original_status == DelegateStatus.WAITLIST:
+            was_waitlisted.add(delegate.id)
 
         is_confirmed = original_status == DelegateStatus.CONFIRMED
         wants_change = item.delegate_status is not None or item.character_id is not None
@@ -325,6 +380,11 @@ def bulk_edit_delegates(
 
     for delegate in changed:
         db.refresh(delegate)
+        if (
+            delegate.id in was_waitlisted
+            and delegate.delegate_status != DelegateStatus.WAITLIST
+        ):
+            _sync_to_sheet(db, delegate)
 
     return changed, warnings, batch_id
 

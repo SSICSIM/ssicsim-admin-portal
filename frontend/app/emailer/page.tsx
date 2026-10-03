@@ -140,6 +140,8 @@ export default function EmailerPage() {
   const selectedDelegates = useMemo(
     () =>
       delegates.filter((d) => {
+        // "All delegates" means the roster; reach waitlisters via the Waitlist filter.
+        if (statusFilter === "all" && d.delegate_status === "Waitlist") return false;
         if (statusFilter !== "all" && d.delegate_status !== statusFilter) return false;
         if (committeeFilter.size > 0) {
           const ch = charByDelegate.get(d.id);
@@ -444,6 +446,7 @@ export default function EmailerPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Delegates</SelectItem>
+                        <SelectItem value="Waitlist">Waitlist</SelectItem>
                         <SelectItem value="Awaiting Payment">Awaiting Payment</SelectItem>
                         <SelectItem value="Verify Payment">Verify Payment</SelectItem>
                         <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>
