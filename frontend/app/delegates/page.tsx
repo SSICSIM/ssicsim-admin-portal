@@ -104,6 +104,7 @@ const statusBadge: Record<
   DelegateStatus,
   "success" | "warning" | "secondary" | "destructive" | "info" | "default"
 > = {
+  Waitlist: "secondary",
   "Awaiting Payment": "destructive",
   "Verify Payment": "default",
   "Awaiting Assignment": "info",
@@ -137,6 +138,7 @@ const registrationPeriodBadge: Record<
 };
 
 const ALL_STATUSES: DelegateStatus[] = [
+  "Waitlist",
   "Awaiting Payment",
   "Verify Payment",
   "Awaiting Assignment",
@@ -479,9 +481,13 @@ function DelegateRow({
                 e.preventDefault();
                 setTimeout(onAssign, 0);
               }}
-              disabled={delegate.delegate_status === "Awaiting Payment"}
+              disabled={
+                delegate.delegate_status === "Awaiting Payment" ||
+                delegate.delegate_status === "Waitlist"
+              }
               title={
-                delegate.delegate_status === "Awaiting Payment"
+                delegate.delegate_status === "Awaiting Payment" ||
+                delegate.delegate_status === "Waitlist"
                   ? "Payment required before assignment"
                   : undefined
               }
@@ -689,6 +695,8 @@ export default function DelegatesPage() {
 
   // ── delegate view dialog ───────────────────────────────────────────────────
   const [viewDelegate, setViewDelegate] = useState<DelegateOut | null>(null);
+  const [movingDelegateId, setMovingDelegateId] = useState<UUID | null>(null);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
 
   // ── delegate edit dialog ───────────────────────────────────────────────────
   const [editDelegate, setEditDelegate] = useState<DelegateOut | null>(null);
@@ -742,17 +750,31 @@ export default function DelegatesPage() {
 
   const charactersByCommittee = useMemo(() => buildCharactersByCommittee(characters), [characters]);
 
+  // Waitlisted delegates get their own table below; the main table is the roster.
+  const rosterDelegates = useMemo(
+    () => delegates.filter((d) => d.delegate_status !== "Waitlist"),
+    [delegates]
+  );
+  // First come, first served: oldest waitlist submission first.
+  const waitlistDelegates = useMemo(
+    () =>
+      delegates
+        .filter((d) => d.delegate_status === "Waitlist")
+        .sort((a, b) => (a.date_applied ?? "").localeCompare(b.date_applied ?? "")),
+    [delegates]
+  );
+
   const filteredDelegates = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     let list = term
-      ? delegates.filter((d) =>
+      ? rosterDelegates.filter((d) =>
           [d.first_name, d.last_name, d.full_name, d.preferred_name, d.email]
             .filter(Boolean)
             .join(" ")
             .toLowerCase()
             .includes(term)
         )
-      : delegates;
+      : rosterDelegates;
     if (statusFilter !== "all") list = list.filter((d) => d.delegate_status === statusFilter);
     if (committeeFilterId !== "all") {
       list = list.filter((d) => {
@@ -766,7 +788,7 @@ export default function DelegatesPage() {
       list = list.filter((d) => d.financial_aid_status === financialAidFilter);
     return list;
   }, [
-    delegates,
+    rosterDelegates,
     searchTerm,
     statusFilter,
     committeeFilterId,
@@ -1115,6 +1137,23 @@ export default function DelegatesPage() {
     setViewDelegate(null);
   }
 
+  // Moves a waitlisted delegate onto the roster. They still haven't paid, so
+  // they start at Awaiting Payment like any other new registrant.
+  async function moveOffWaitlist(delegate: DelegateOut) {
+    setWaitlistError(null);
+    setMovingDelegateId(delegate.id);
+    try {
+      await updateDelegate.mutateAsync({
+        delegateId: delegate.id,
+        data: { delegate_status: "Awaiting Payment" }
+      });
+    } catch (err) {
+      setWaitlistError(err instanceof Error ? err.message : "Unable to move delegate.");
+    } finally {
+      setMovingDelegateId(null);
+    }
+  }
+
   function setField<K extends keyof DelegateUpdate>(key: K, value: DelegateUpdate[K]) {
     setEditDraft((prev) => ({ ...prev, [key]: value }));
   }
@@ -1251,12 +1290,22 @@ export default function DelegatesPage() {
 
   function exportDelegates() {
     const { headers, rows } = buildFullDelegateRows(
-      delegates,
+      rosterDelegates,
       characters,
       committeeMap,
       delegationMap
     );
     downloadCsv("delegates-export.csv", headers, rows);
+  }
+
+  function exportWaitlist() {
+    const { headers, rows } = buildFullDelegateRows(
+      waitlistDelegates,
+      characters,
+      committeeMap,
+      delegationMap
+    );
+    downloadCsv("waitlist-export.csv", headers, rows);
   }
 
   function exportDelegations() {
@@ -1313,7 +1362,7 @@ export default function DelegatesPage() {
               <CardTitle>Delegates</CardTitle>
               <CardDescription>
                 Search, filter, and bulk-manage delegates · {sortedDelegates.length} of{" "}
-                {delegates.length} shown
+                {rosterDelegates.length} shown
                 {statusFilter !== "all" ? ` · ${statusFilter}` : ""}
               </CardDescription>
             </div>
@@ -1365,7 +1414,7 @@ export default function DelegatesPage() {
                   <TabsTrigger key={f.value} value={f.value}>
                     {f.label} (
                     {f.value === "all"
-                      ? delegates.length
+                      ? rosterDelegates.length
                       : (statusCounts.get(f.value as DelegateStatus) ?? 0)}
                     )
                   </TabsTrigger>
@@ -1452,6 +1501,7 @@ export default function DelegatesPage() {
                       Delegates (full, one row each)
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={exportDelegations}>Delegations</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={exportWaitlist}>Waitlist</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => exportDelegationFinancial()}>
                       Financial only
@@ -1514,6 +1564,83 @@ export default function DelegatesPage() {
         </Card>
       </section>
 
+      {/* Waitlist */}
+      <section id="waitlist">
+        <Card>
+          <CardHeader>
+            <CardTitle>Waitlist</CardTitle>
+            <CardDescription>
+              Delegates who registered after capacity was reached. Moving someone to delegates sets
+              them to Awaiting Payment.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {waitlistError ? (
+              <Alert className="border-red-300 bg-red-50">
+                <AlertTitle>Couldn&apos;t move delegate</AlertTitle>
+                <AlertDescription>{waitlistError}</AlertDescription>
+              </Alert>
+            ) : null}
+            {delegatesQuery.isLoading ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">Loading…</p>
+            ) : waitlistDelegates.length === 0 ? (
+              <p className="text-sm text-[var(--ssicsim-text-muted)]">No one is on the waitlist.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Delegate</TableHead>
+                    <TableHead>Delegation</TableHead>
+                    <TableHead>1st Pick</TableHead>
+                    <TableHead>2nd Pick</TableHead>
+                    <TableHead>3rd Pick</TableHead>
+                    <TableHead>Financial Aid</TableHead>
+                    <TableHead>Submitted</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {waitlistDelegates.map((d, index) => (
+                    <TableRow key={d.id}>
+                      <TableCell>{index + 1}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">
+                          {d.full_name || `${d.first_name} ${d.last_name}`}
+                        </div>
+                        <div className="text-xs text-[var(--ssicsim-text-muted)]">{d.email}</div>
+                      </TableCell>
+                      <TableCell>
+                        {delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate"}
+                      </TableCell>
+                      <TableCell>{d.first_committee ?? "--"}</TableCell>
+                      <TableCell>{d.second_committee ?? "--"}</TableCell>
+                      <TableCell>{d.third_committee ?? "--"}</TableCell>
+                      <TableCell>{d.financial_aid_status ?? "--"}</TableCell>
+                      <TableCell>{formatDate(d.date_applied)}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button size="sm" variant="ghost" onClick={() => openView(d)}>
+                            View
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => moveOffWaitlist(d)}
+                            disabled={movingDelegateId !== null}
+                          >
+                            {movingDelegateId === d.id ? "Moving…" : "Move to delegates"}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
       {/* Delegations */}
       <section id="delegations">
         <Card>
@@ -1523,6 +1650,9 @@ export default function DelegatesPage() {
               <CardDescription>
                 Delegation roster and faculty advisors · {delegateProjection.registered} registered
                 of {delegateProjection.projected} projected delegates
+                {delegateProjection.waitlisted > 0
+                  ? ` · ${delegateProjection.waitlisted} waitlisted`
+                  : ""}
               </CardDescription>
             </div>
           </CardHeader>
@@ -1546,7 +1676,9 @@ export default function DelegatesPage() {
                 </TableHeader>
                 <TableBody>
                   {delegations.map((delegation) => {
-                    const count = delegates.filter((d) => d.delegation_id === delegation.id).length;
+                    const count = rosterDelegates.filter(
+                      (d) => d.delegation_id === delegation.id
+                    ).length;
                     const advisor = [
                       delegation.faculty_advisor_first_name,
                       delegation.faculty_advisor_last_name
@@ -2174,6 +2306,7 @@ export default function DelegatesPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="Waitlist">Waitlist</SelectItem>
                       <SelectItem value="Awaiting Payment">Awaiting Payment</SelectItem>
                       <SelectItem value="Verify Payment">Verify Payment</SelectItem>
                       <SelectItem value="Awaiting Assignment">Awaiting Assignment</SelectItem>

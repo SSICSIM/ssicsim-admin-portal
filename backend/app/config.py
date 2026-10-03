@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     registration_early_bird_deadline: datetime | None = None
     registration_regular_deadline: datetime | None = None
 
+    # Once this many non-waitlisted delegates have registered, new public
+    # registrations must go on the waitlist.
+    delegate_capacity: int = 397
+
     @property
     def cors_origins_list(self) -> list[str]:
         # Comma-separated origins

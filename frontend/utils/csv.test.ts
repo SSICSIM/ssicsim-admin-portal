@@ -4,7 +4,12 @@ import { describe, it } from "node:test";
 
 import type { CharacterOut, CommitteeOut, DelegateOut, DelegationOut } from "@/types/api";
 
-import { buildDelegationRows, buildFullDelegateRows, projectedDelegateCount } from "./csv.ts";
+import {
+  buildDelegationRows,
+  buildFinancialRows,
+  buildFullDelegateRows,
+  projectedDelegateCount
+} from "./csv.ts";
 
 function delegate(overrides: Partial<DelegateOut>): DelegateOut {
   return {
@@ -102,6 +107,23 @@ const indie = delegate({
   delegate_status: "Assigned"
 });
 
+// On the waitlist: must never show up in roster, financial or delegation counts.
+const waitlister = delegate({
+  id: "d4",
+  first_name: "Wendy",
+  last_name: "Wait",
+  delegation_id: "g1",
+  registration_period: "Late",
+  delegate_status: "Waitlist"
+});
+const waitlisterIndie = delegate({
+  id: "d5",
+  first_name: "Walt",
+  last_name: "Wait",
+  registration_period: "Late",
+  delegate_status: "Waitlist"
+});
+
 const committee = { id: "c1", name: "JCC Rome" } as CommitteeOut;
 const napoleon = {
   id: "ch1",
@@ -192,13 +214,42 @@ describe("buildDelegationRows", () => {
     assert.equal(rows[2].registered_delegates, 1);
     assert.equal(rows[2].total_price, 110);
   });
+
+  it("leaves waitlisted delegates out of counts and totals", () => {
+    const withWaitlist = asObjects(
+      buildDelegationRows([school, empty], [alice, bob, indie, waitlister, waitlisterIndie])
+    );
+    assert.deepEqual(withWaitlist, rows);
+  });
+});
+
+describe("buildFinancialRows", () => {
+  it("leaves waitlisted delegates out", () => {
+    const result = buildFinancialRows(
+      [alice, bob, indie, waitlister, waitlisterIndie],
+      new Map([[school.id, school]])
+    );
+    const names = asObjects(result).map((r) => r.delegate);
+    assert.equal(names.length, 3);
+    assert.ok(!names.some((n) => String(n).includes("Wait")));
+  });
 });
 
 describe("projectedDelegateCount", () => {
   it("sums stated sizes plus independent delegates", () => {
     assert.deepEqual(projectedDelegateCount([school, empty], [alice, bob, indie]), {
       registered: 3,
-      projected: 6
+      projected: 6,
+      waitlisted: 0
+    });
+  });
+
+  it("leaves waitlisted delegates out of registered and projected counts", () => {
+    const waitlisted = delegate({ id: "w1", delegate_status: "Waitlist" });
+    assert.deepEqual(projectedDelegateCount([school, empty], [alice, bob, indie, waitlisted]), {
+      registered: 3,
+      projected: 6,
+      waitlisted: 1
     });
   });
 
@@ -206,7 +257,8 @@ describe("projectedDelegateCount", () => {
     const small = delegation({ id: "g1", delegation_size: 1 });
     assert.deepEqual(projectedDelegateCount([small], [alice, bob]), {
       registered: 2,
-      projected: 2
+      projected: 2,
+      waitlisted: 0
     });
   });
 });

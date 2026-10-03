@@ -137,6 +137,45 @@ def test_delegates_unique_email(client):
     assert "already exists" in conflict.json()["detail"]
 
 
+def test_registration_capacity_and_waitlist(client, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "delegate_capacity", 2)
+
+    def register(email, status):
+        return client.post(
+            "/api/delegates",
+            json={
+                "first_name": "Del",
+                "last_name": "Egate",
+                "email": email,
+                "delegate_experience": "Novice",
+                "first_committee": "C1",
+                "second_committee": "C2",
+                "third_committee": "C3",
+                "delegate_status": status,
+            },
+        )
+
+    assert register("a@example.com", "Awaiting Payment").status_code == 201
+    # Waitlisted delegates don't count toward capacity.
+    assert register("w1@example.com", "Waitlist").status_code == 201
+    capacity = client.get("/api/delegates/capacity").json()
+    assert capacity == {"capacity": 2, "registered": 1, "waitlisted": 1, "is_full": False}
+
+    assert register("b@example.com", "Verify Payment").status_code == 201
+    assert client.get("/api/delegates/capacity").json()["is_full"] is True
+
+    # Once full, regular registrations are turned away but the waitlist stays open.
+    full = register("c@example.com", "Awaiting Payment")
+    assert full.status_code == 409
+    assert full.json()["detail"]["code"] == "registration_full"
+    waitlisted = register("w2@example.com", "Waitlist")
+    assert waitlisted.status_code == 201
+    assert waitlisted.json()["delegate_status"] == "Waitlist"
+    assert client.get("/api/delegates/capacity").json()["waitlisted"] == 2
+
+
 def test_sec_members_unique_email(client):
     resp = client.post(
         "/api/sec-members",

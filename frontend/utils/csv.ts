@@ -107,7 +107,13 @@ export const REGISTRATION_PRICES: Record<RegistrationPeriod, number> = {
   Late: 110
 };
 
-const UNCONFIRMED_PAYMENT_STATUSES = new Set(["Awaiting Payment", "Verify Payment"]);
+// Waitlisted delegates hold no spot and haven't paid, so they're left out of
+// every roster, financial, and delegation count.
+export function isOnRoster(d: DelegateOut): boolean {
+  return d.delegate_status !== "Waitlist";
+}
+
+const UNCONFIRMED_PAYMENT_STATUSES = new Set(["Waitlist", "Awaiting Payment", "Verify Payment"]);
 
 export function paymentStatusLabel(d: DelegateOut): string {
   if (d.financial_aid_status === "Delegation Paying") return "Delegation pays";
@@ -132,9 +138,10 @@ export function buildFinancialRows(
     "financial_aid_status",
     "payment_status"
   ];
+  const roster = delegates.filter(isOnRoster);
   const scoped = opts?.delegationId
-    ? delegates.filter((d) => d.delegation_id === opts.delegationId)
-    : delegates;
+    ? roster.filter((d) => d.delegation_id === opts.delegationId)
+    : roster;
 
   const rows = scoped
     .map((d): (string | number)[] => {
@@ -317,6 +324,7 @@ export function buildDelegationRows(
   const delegatesById = new Map(delegates.map((d) => [d.id, d]));
   const delegatesByDelegation = new Map<UUID | null, DelegateOut[]>();
   for (const d of delegates) {
+    if (!isOnRoster(d)) continue;
     const list = delegatesByDelegation.get(d.delegation_id) ?? [];
     list.push(d);
     delegatesByDelegation.set(d.delegation_id, list);
@@ -389,11 +397,14 @@ export function buildDelegationRows(
 export function projectedDelegateCount(
   delegations: DelegationOut[],
   delegates: DelegateOut[]
-): { registered: number; projected: number } {
+): { registered: number; projected: number; waitlisted: number } {
   const registeredByDelegation = new Map<UUID, number>();
   let independents = 0;
+  let waitlisted = 0;
   for (const d of delegates) {
-    if (d.delegation_id) {
+    if (!isOnRoster(d)) {
+      waitlisted += 1;
+    } else if (d.delegation_id) {
       registeredByDelegation.set(
         d.delegation_id,
         (registeredByDelegation.get(d.delegation_id) ?? 0) + 1
@@ -408,5 +419,5 @@ export function projectedDelegateCount(
       Math.max(delegation.delegation_size ?? 0, registeredByDelegation.get(delegation.id) ?? 0),
     independents
   );
-  return { registered: delegates.length, projected };
+  return { registered: delegates.length - waitlisted, projected, waitlisted };
 }

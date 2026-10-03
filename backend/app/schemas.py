@@ -192,6 +192,13 @@ class DelegateUpdate(BaseModel):
     notes: str | None = None
 
 
+class RegistrationCapacity(BaseModel):
+    capacity: int
+    registered: int
+    waitlisted: int
+    is_full: bool
+
+
 class DelegateOut(DelegateBase):
     id: UUID
     registration_period: RegistrationPeriod | None = None
