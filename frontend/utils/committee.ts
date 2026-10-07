@@ -151,6 +151,11 @@ export function splitJccGroups(characters: CharacterOut[]): JccGroup[] | null {
   return Array.from(groups, ([label, groupCharacters]) => ({ label, characters: groupCharacters }));
 }
 
+// "Mark (Committee 1)" -> "Mark".
+export function stripJccSide(name: string): string {
+  return name.replace(/\s*\([^()]+\)\s*$/, "");
+}
+
 export type EmailAssignment = { committee: string; character: string; assignment: string };
 
 // How a delegate's assignment reads in an email:
@@ -175,7 +180,7 @@ export function describeAssignmentForEmail(
     return { committee: committeeName, character: "", assignment: committeeName };
   }
   if (jccSide) {
-    const characterName = character.name.replace(/\s*\([^()]+\)\s*$/, "");
+    const characterName = stripJccSide(character.name);
     const fullCommittee = `${committeeName} (${jccSide})`;
     return {
       committee: fullCommittee,
