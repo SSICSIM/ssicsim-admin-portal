@@ -8,6 +8,7 @@ import type {
   RegistrationPeriod,
   UUID
 } from "@/types/api";
+import { splitJccGroups, stripJccSide } from "./committee.ts";
 
 const CHARACTER_EXPERIENCES: CharacterExperience[] = ["Beginner", "Intermediate", "Advanced"];
 
@@ -99,6 +100,42 @@ export function downloadCsv(filename: string, headers: string[], rows: (string |
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+// Uses the same column names as the character matrix upload. For a JCC
+// (characters named "Mark (Side)", see splitJccGroups) the "(Side)" suffix is
+// moved out of the name into its own jcc_committee column.
+export function buildCommitteeCharacterRows(
+  committee: CommitteeOut,
+  characters: CharacterOut[]
+): { headers: string[]; rows: (string | number)[][] } {
+  const committeeCharacters = characters.filter((c) => c.committee_id === committee.id);
+  const jccGroups = splitJccGroups(committeeCharacters);
+  const sideByCharacterId = new Map(
+    (jccGroups ?? []).flatMap((g) => g.characters.map((c) => [c.id, g.label] as const))
+  );
+
+  const headers = ["character_name", "priority", "experience"];
+  if (jccGroups) headers.push("jcc_committee");
+
+  const rows = committeeCharacters
+    .map((c): (string | number)[] => {
+      const row: (string | number)[] = [
+        jccGroups ? stripJccSide(c.name) : c.name,
+        c.priority ?? "",
+        c.experience.join(";")
+      ];
+      if (jccGroups) row.push(sideByCharacterId.get(c.id) ?? "");
+      return row;
+    })
+    .sort(
+      (a, b) =>
+        String(a[3] ?? "").localeCompare(String(b[3] ?? "")) ||
+        (Number(b[1]) || 0) - (Number(a[1]) || 0) ||
+        String(a[0]).localeCompare(String(b[0]))
+    );
+
+  return { headers, rows };
 }
 
 export const REGISTRATION_PRICES: Record<RegistrationPeriod, number> = {

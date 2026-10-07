@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import type { CharacterOut, CommitteeOut, DelegateOut, DelegationOut } from "@/types/api";
 
 import {
+  buildCommitteeCharacterRows,
   buildDelegationRows,
   buildFinancialRows,
   buildFullDelegateRows,
@@ -260,5 +261,58 @@ describe("projectedDelegateCount", () => {
       projected: 2,
       waitlisted: 0
     });
+  });
+});
+
+describe("buildCommitteeCharacterRows", () => {
+  function character(id: string, name: string, overrides: Partial<CharacterOut> = {}) {
+    return {
+      id,
+      name,
+      committee_id: "c1",
+      delegate_id: null,
+      priority: null,
+      experience: [],
+      ...overrides
+    } as CharacterOut;
+  }
+
+  it("exports name, priority and experience for a regular committee", () => {
+    const result = buildCommitteeCharacterRows(committee, [
+      character("a", "Caesar", { priority: 2, experience: ["Beginner", "Advanced"] }),
+      character("b", "Brutus", { priority: 5 }),
+      character("x", "Other committee", { committee_id: "c2" })
+    ]);
+    assert.deepEqual(result.headers, ["character_name", "priority", "experience"]);
+    assert.deepEqual(result.rows, [
+      ["Brutus", 5, ""],
+      ["Caesar", 2, "Beginner;Advanced"]
+    ]);
+  });
+
+  it("moves the bracketed side into jcc_committee when every character has one", () => {
+    const result = buildCommitteeCharacterRows(committee, [
+      character("a", "Pompey (Senate)", { priority: 3 }),
+      character("b", "Caesar (Legions)", { priority: 5 }),
+      character("c", "Cato (Senate)", { priority: 5 })
+    ]);
+    assert.deepEqual(result.headers, ["character_name", "priority", "experience", "jcc_committee"]);
+    assert.deepEqual(result.rows, [
+      ["Caesar", 5, "", "Legions"],
+      ["Cato", 5, "", "Senate"],
+      ["Pompey", 3, "", "Senate"]
+    ]);
+  });
+
+  it("keeps brackets in the name when only some characters have them", () => {
+    const result = buildCommitteeCharacterRows(committee, [
+      character("a", "Matt (Mail Jeevas)"),
+      character("b", "Near")
+    ]);
+    assert.deepEqual(result.headers, ["character_name", "priority", "experience"]);
+    assert.deepEqual(
+      result.rows.map((r) => r[0]),
+      ["Matt (Mail Jeevas)", "Near"]
+    );
   });
 });

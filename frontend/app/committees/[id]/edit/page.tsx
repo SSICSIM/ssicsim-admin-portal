@@ -33,7 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
 import { CommitteeFillCharts } from "@/components/CommitteeFillCharts";
-import { parseCharacterCsv } from "@/utils/csv";
+import { buildCommitteeCharacterRows, downloadCsv, parseCharacterCsv } from "@/utils/csv";
 import {
   buildDelegateMap,
   filterCharactersByCommittee,
@@ -206,6 +206,16 @@ export default function CommitteeEditPage() {
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Unable to upload image.");
     }
+  };
+
+  const handleCsvExport = () => {
+    if (!committeeQuery.data) return;
+    const { headers, rows } = buildCommitteeCharacterRows(
+      committeeQuery.data,
+      charactersQuery.data ?? []
+    );
+    const slug = committeeQuery.data.name.toLowerCase().replaceAll(/\s+/g, "-");
+    downloadCsv(`characters-${slug}.csv`, headers, rows);
   };
 
   const handleCsvUpload = async () => {
@@ -573,6 +583,14 @@ export default function CommitteeEditPage() {
               disabled={!csvFile || createCharacter.isPending}
             >
               {createCharacter.isPending ? "Uploading..." : "Upload CSV"}
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-[var(--ssicsim-brand-gold-soft)] hover:bg-[var(--ssicsim-brand-gold)]/20"
+              onClick={handleCsvExport}
+              disabled={committeeCharacters.length === 0}
+            >
+              Export Characters CSV
             </Button>
             {csvProgress ? <Badge variant="success">{csvProgress}</Badge> : null}
             {csvError ? <Badge variant="warning">{csvError}</Badge> : null}
