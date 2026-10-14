@@ -11,6 +11,19 @@ export const EVENT_STATUSES: EventRegistrationStatus[] = [
   "Withdrawn"
 ];
 
+export const MIDNIGHT_CRISIS_STATUSES: EventRegistrationStatus[] = [
+  "Pending",
+  "Accepted",
+  "Rejected",
+  "Withdrawn"
+];
+
+// Midnight Crisis is an application: SEC accepts or rejects, and there's no
+// Registered or Waitlist state.
+export function statusesFor(slug: string): EventRegistrationStatus[] {
+  return slug === MIDNIGHT_CRISIS ? MIDNIGHT_CRISIS_STATUSES : EVENT_STATUSES;
+}
+
 export const eventStatusBadge: Record<
   EventRegistrationStatus,
   "success" | "warning" | "secondary" | "destructive" | "info" | "default"

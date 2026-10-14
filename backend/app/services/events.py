@@ -52,8 +52,15 @@ TRAINING_SESSIONS: list[tuple[str, str, bool]] = [
 ]
 _SESSION_LABELS = {key: label for key, label, _ in TRAINING_SESSIONS}
 
-# Selective events: every sign-up waits for SEC to accept or reject it.
+# Selective events: every sign-up is an application that waits for SEC to
+# accept or reject it, so they have no Registered or Waitlist state.
 SELECTIVE_EVENTS = {MIDNIGHT_CRISIS}
+SELECTIVE_STATUSES = {
+    EventRegistrationStatus.PENDING,
+    EventRegistrationStatus.ACCEPTED,
+    EventRegistrationStatus.REJECTED,
+    EventRegistrationStatus.WITHDRAWN,
+}
 
 # Statuses that hold a spot and count toward capacity.
 FILLED_STATUSES = (EventRegistrationStatus.REGISTERED, EventRegistrationStatus.ACCEPTED)
@@ -362,6 +369,14 @@ def list_registrations(db: Session, slug: str) -> list[EventRegistration]:
     )
 
 
+def _check_status(event: Event, status: EventRegistrationStatus) -> None:
+    if event.slug in SELECTIVE_EVENTS and status not in SELECTIVE_STATUSES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{event.name} applications can only be Pending, Accepted, Rejected, or Withdrawn",
+        )
+
+
 def _get_registration(db: Session, event: Event, registration_id: UUID) -> EventRegistration:
     registration = db.get(EventRegistration, registration_id)
     if registration is None or registration.event_id != event.id:
@@ -384,6 +399,7 @@ def create_registration(
         if slug in SELECTIVE_EVENTS
         else EventRegistrationStatus.REGISTERED
     )
+    _check_status(event, status)
     registration = EventRegistration(
         event_id=event.id,
         delegate_id=delegate.id,
@@ -420,6 +436,7 @@ def update_registration(
     event = get_event(db, slug)
     registration = _get_registration(db, event, registration_id)
     if payload.status is not None and payload.status != registration.status:
+        _check_status(event, payload.status)
         record_event(
             db,
             actor,

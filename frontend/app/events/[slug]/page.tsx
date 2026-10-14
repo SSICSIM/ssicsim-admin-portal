@@ -80,7 +80,8 @@ import {
   answerFields,
   eventStatusBadge,
   formatAnswer,
-  isAttending
+  isAttending,
+  statusesFor
 } from "@/utils/events";
 
 type SortKey =
@@ -248,7 +249,7 @@ function AddDelegateDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {EVENT_STATUSES.map((s) => (
+                  {statusesFor(event.slug).map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
@@ -504,7 +505,7 @@ function RegistrationsTab({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {EVENT_STATUSES.map((s) => (
+                {statusesFor(event.slug).map((s) => (
                   <SelectItem key={s} value={s}>
                     {s}
                   </SelectItem>
@@ -602,7 +603,7 @@ function RegistrationsTab({
                             <Badge variant={eventStatusBadge[r.status]}>{r.status}</Badge>
                           </SelectTrigger>
                           <SelectContent>
-                            {EVENT_STATUSES.map((s) => (
+                            {statusesFor(event.slug).map((s) => (
                               <SelectItem key={s} value={s}>
                                 {s}
                               </SelectItem>
@@ -858,8 +859,8 @@ function CharactersTab({
           <CardTitle>Characters & Assignments</CardTitle>
           <CardDescription>
             {filled} of {characters.length} characters assigned · {unassigned.length} accepted
-            delegate{unassigned.length === 1 ? "" : "s"} without a character. Only Accepted or
-            Registered delegates can be assigned.
+            delegate{unassigned.length === 1 ? "" : "s"} without a character. Only Accepted
+            delegates can be assigned.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

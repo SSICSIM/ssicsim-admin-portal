@@ -306,3 +306,18 @@ def test_update_event(client, events):
     assert resp.json()["registration_open"] is False
     assert resp.json()["capacity"] == 100
     assert len(client.get("/api/events").json()) == 3
+
+
+def test_midnight_crisis_has_no_waitlist(client, events):
+    delegate = _make_delegate(client)
+    resp = client.post(
+        f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"], "status": "Waitlist"}
+    )
+    assert resp.status_code == 400
+
+    reg = client.post(f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"]}).json()
+    for status in ("Waitlist", "Registered"):
+        resp = client.patch(f"/api/events/{MC}/registrations/{reg['id']}", json={"status": status})
+        assert resp.status_code == 400
+    resp = client.patch(f"/api/events/{MC}/registrations/{reg['id']}", json={"status": "Withdrawn"})
+    assert resp.status_code == 200

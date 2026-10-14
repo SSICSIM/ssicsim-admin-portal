@@ -29,7 +29,7 @@ import {
   describeAssignmentForEmail,
   splitJccGroups
 } from "@/utils/committee";
-import { EVENT_STATUSES, isAttending, sessionLabel } from "@/utils/events";
+import { isAttending, sessionLabel, statusesFor } from "@/utils/events";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -614,7 +614,7 @@ export default function EmailerPage() {
                             Attending (Registered / Accepted)
                           </SelectItem>
                           <SelectItem value="all">All registrants</SelectItem>
-                          {EVENT_STATUSES.map((s) => (
+                          {statusesFor(eventFilter).map((s) => (
                             <SelectItem key={s} value={s}>
                               {s}
                             </SelectItem>
