@@ -92,3 +92,16 @@ export function formatAnswer(
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
 }
+
+// Seeded by migration f8b2d3e4c5a6; the Midnight Crisis page links to the
+// emailer with these pre-selected.
+export const MIDNIGHT_CRISIS_TEMPLATES = {
+  Accepted: "Midnight Crisis – Acceptance",
+  Rejected: "Midnight Crisis – Rejection"
+} as const;
+
+export function emailerLink(slug: string, status: string, template?: string): string {
+  const params = new URLSearchParams({ event: slug, status });
+  if (template) params.set("template", template);
+  return `/emailer?${params.toString()}`;
+}

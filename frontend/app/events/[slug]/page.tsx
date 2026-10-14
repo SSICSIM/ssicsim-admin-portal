@@ -80,6 +80,8 @@ import {
   answerFields,
   eventStatusBadge,
   formatAnswer,
+  MIDNIGHT_CRISIS_TEMPLATES,
+  emailerLink,
   isAttending,
   statusesFor
 } from "@/utils/events";
@@ -540,6 +542,28 @@ function RegistrationsTab({
             />
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
+            {event.has_characters ? (
+              <>
+                <Button asChild variant="secondary">
+                  <Link
+                    href={emailerLink(event.slug, "Accepted", MIDNIGHT_CRISIS_TEMPLATES.Accepted)}
+                  >
+                    Email accepted ({event.counts.Accepted ?? 0})
+                  </Link>
+                </Button>
+                <Button asChild variant="secondary">
+                  <Link
+                    href={emailerLink(event.slug, "Rejected", MIDNIGHT_CRISIS_TEMPLATES.Rejected)}
+                  >
+                    Email rejected ({event.counts.Rejected ?? 0})
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              <Button asChild variant="secondary">
+                <Link href={emailerLink(event.slug, "attending")}>Email attendees</Link>
+              </Button>
+            )}
             <Button variant="secondary" onClick={() => setAddOpen(true)}>
               Add delegate
             </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
 import Link from "next/link";
 import { Check, ChevronDown } from "lucide-react";
@@ -294,6 +294,29 @@ export default function EmailerPage() {
     setBody(tpl.body_template);
     setAdHocBody(tpl.ad_hoc_body_template ?? "");
   }
+
+  // Deep links from an event page (e.g. "Email accepted" on Midnight Crisis):
+  // /emailer?event=midnight-crisis&status=Accepted&template=<template name>
+  // pre-fill the audience and template; the sender still reviews and sends.
+  const [linkedTemplateName, setLinkedTemplateName] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const event = params.get("event");
+    if (!event) return;
+    setEventFilter(event);
+    const status = params.get("status");
+    if (status) setEventStatusFilter(status as EventRegistrationStatus);
+    setLinkedTemplateName(params.get("template"));
+  }, []);
+  useEffect(() => {
+    if (!linkedTemplateName) return;
+    const tpl = dbTemplates.find((t) => t.name === linkedTemplateName);
+    if (!tpl) return;
+    applyTemplate(tpl.id);
+    setLinkedTemplateName(null);
+    // applyTemplate only reads dbTemplates, which is already a dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedTemplateName, dbTemplates]);
 
   // ── insert placeholder at cursor ────────────────────────────────────────────
 
