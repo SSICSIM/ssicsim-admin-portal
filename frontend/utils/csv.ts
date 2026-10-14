@@ -5,10 +5,14 @@ import type {
   CommitteeOut,
   DelegateOut,
   DelegationOut,
+  EventCharacterOut,
+  EventOut,
+  EventRegistrationOut,
   RegistrationPeriod,
   UUID
 } from "@/types/api";
 import { splitJccGroups, stripJccSide } from "./committee.ts";
+import { answerFields, formatAnswer } from "./events.ts";
 
 const CHARACTER_EXPERIENCES: CharacterExperience[] = ["Beginner", "Intermediate", "Advanced"];
 
@@ -16,6 +20,24 @@ export async function parseCharacterCsv(
   file: File,
   committeeId: string
 ): Promise<{ characters: CharacterCreate[]; warnings: string[] }> {
+  const { characters, warnings } = await parseCharacterMatrix(file);
+  return {
+    characters: characters.map((c) => ({ ...c, committee_id: committeeId, delegate_id: null })),
+    warnings
+  };
+}
+
+type ParsedCharacter = {
+  name: string;
+  priority: number | null;
+  experience: CharacterExperience[];
+};
+
+// Character matrix upload shared by committees and events run like a committee
+// (Midnight Crisis): character_name plus optional priority / experience columns.
+export async function parseCharacterMatrix(
+  file: File
+): Promise<{ characters: ParsedCharacter[]; warnings: string[] }> {
   const raw = await file.text();
   const lines = raw.split(/\r?\n/).filter((line) => line.trim().length > 0);
   if (lines.length === 0) return { characters: [], warnings: [] };
@@ -29,7 +51,7 @@ export async function parseCharacterCsv(
   const priorityIndex = headers.indexOf("priority");
   const experienceIndex = headers.indexOf("experience");
 
-  const characters: CharacterCreate[] = [];
+  const characters: ParsedCharacter[] = [];
   const warnings: string[] = [];
 
   rows
@@ -69,13 +91,7 @@ export async function parseCharacterCsv(
         }
       }
 
-      characters.push({
-        name,
-        committee_id: committeeId,
-        delegate_id: null,
-        priority,
-        experience
-      });
+      characters.push({ name, priority, experience });
     });
 
   return { characters, warnings };
@@ -457,4 +473,80 @@ export function projectedDelegateCount(
     independents
   );
   return { registered: delegates.length - waitlisted, projected, waitlisted };
+}
+
+// ─── events ─────────────────────────────────────────────────────────────────
+
+// Delegate columns match the registrations table (and the Delegates page);
+// the event's own form answers follow.
+export function buildEventRegistrationRows(
+  event: EventOut,
+  registrations: EventRegistrationOut[],
+  delegationsById: Map<UUID, DelegationOut>
+): { headers: string[]; rows: (string | number)[][] } {
+  const fields = answerFields(event.slug);
+  const headers = [
+    "full_name",
+    "preferred_name",
+    "grade",
+    "email",
+    "delegate_status",
+    "delegate_experience",
+    "delegation",
+    "event_status",
+    "registered_at",
+    "submitted_name",
+    ...fields.map((f) => f.key)
+  ];
+  if (event.has_characters) headers.push("event_character");
+
+  const rows = registrations
+    .map((r): (string | number)[] => {
+      const d = r.delegate;
+      const row: (string | number)[] = [
+        delegateName(d),
+        d.preferred_name ?? "",
+        d.grade ?? "",
+        d.email,
+        d.delegate_status,
+        d.delegate_experience,
+        d.delegation_id
+          ? (delegationsById.get(d.delegation_id)?.name ?? "")
+          : "Independent Delegate",
+        r.status,
+        formatDateTime(r.created_at),
+        [r.submitted_first_name, r.submitted_last_name].filter(Boolean).join(" "),
+        ...fields.map((f) => formatAnswer(event, r, f.key))
+      ];
+      if (event.has_characters) row.push(r.character?.name ?? "");
+      return row;
+    })
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+  return { headers, rows };
+}
+
+// Same columns as the committee character export, plus who holds each one.
+export function buildEventCharacterRows(
+  characters: EventCharacterOut[],
+  registrations: EventRegistrationOut[]
+): { headers: string[]; rows: (string | number)[][] } {
+  const registrationById = new Map(registrations.map((r) => [r.id, r]));
+  const headers = ["character_name", "priority", "experience", "delegate", "email"];
+  const rows = characters
+    .map((c): (string | number)[] => {
+      const holder = c.registration_id ? registrationById.get(c.registration_id) : undefined;
+      return [
+        c.name,
+        c.priority ?? "",
+        c.experience.join(";"),
+        holder ? delegateName(holder.delegate) : "",
+        holder?.delegate.email ?? ""
+      ];
+    })
+    .sort(
+      (a, b) =>
+        (Number(b[1]) || 0) - (Number(a[1]) || 0) || String(a[0]).localeCompare(String(b[0]))
+    );
+  return { headers, rows };
 }

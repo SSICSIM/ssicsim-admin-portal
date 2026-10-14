@@ -179,7 +179,13 @@ export type EmailTemplateCreate = {
 export type EmailTemplateUpdate = Partial<EmailTemplateCreate>;
 
 export type EventType =
-  "Assignment" | "Email" | "Committee Update" | "Status Change" | "Unassignment" | "Batch Edit";
+  | "Assignment"
+  | "Email"
+  | "Committee Update"
+  | "Status Change"
+  | "Unassignment"
+  | "Batch Edit"
+  | "Event Registration";
 
 export type EventLogOut = {
   id: UUID;
@@ -199,4 +205,77 @@ export type SecMemberOut = {
   email: string;
   role: string;
   last_logged_in: string | null;
+};
+
+// ─── events (Midnight Crisis, Delegate Social, Delegate Training) ────────────
+
+export type EventRegistrationStatus =
+  "Pending" | "Registered" | "Waitlist" | "Accepted" | "Rejected" | "Withdrawn";
+
+export type EventSessionOut = {
+  key: string;
+  label: string;
+  // null = unlimited (online training)
+  capacity: number | null;
+  filled: number;
+};
+
+export type EventOut = {
+  id: UUID;
+  slug: string;
+  name: string;
+  capacity: number | null;
+  registration_open: boolean;
+  registration_deadline: string | null;
+  has_characters: boolean;
+  counts: Partial<Record<EventRegistrationStatus, number>>;
+  // Registered + Accepted — what counts toward capacity
+  filled: number;
+  sessions: EventSessionOut[];
+};
+
+export type EventUpdate = {
+  capacity?: number | null;
+  registration_open?: boolean;
+  registration_deadline?: string | null;
+};
+
+export type EventCharacterOut = {
+  id: UUID;
+  event_id: UUID;
+  name: string;
+  registration_id: UUID | null;
+  priority: number | null;
+  experience: CharacterExperience[];
+};
+
+export type EventCharacterCreate = {
+  name: string;
+  priority?: number | null;
+  experience?: CharacterExperience[];
+};
+
+export type EventRegistrationOut = {
+  id: UUID;
+  event_id: UUID;
+  delegate_id: UUID;
+  status: EventRegistrationStatus;
+  submitted_first_name: string | null;
+  submitted_last_name: string | null;
+  answers: Record<string, unknown>;
+  created_at: string | null;
+  // Read live from the delegate record
+  delegate: DelegateOut;
+  character: EventCharacterOut | null;
+};
+
+export type EventRegistrationCreate = {
+  delegate_id: UUID;
+  status?: EventRegistrationStatus | null;
+  answers?: Record<string, unknown>;
+};
+
+export type EventRegistrationUpdate = {
+  status?: EventRegistrationStatus;
+  answers?: Record<string, unknown>;
 };

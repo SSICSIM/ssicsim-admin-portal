@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 
 import {
   useAssignDelegate,
@@ -88,6 +88,7 @@ import {
 } from "@/utils/csv";
 import { buildCharactersByCommittee, sortCharactersByPriorityDesc } from "@/utils/committee";
 import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
+import { SortableHead, delegateStatusBadge } from "@/components/DelegateTable";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -100,17 +101,7 @@ const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
   { label: "Confirmed", value: "Confirmed" }
 ];
 
-const statusBadge: Record<
-  DelegateStatus,
-  "success" | "warning" | "secondary" | "destructive" | "info" | "default"
-> = {
-  Waitlist: "secondary",
-  "Awaiting Payment": "destructive",
-  "Verify Payment": "default",
-  "Awaiting Assignment": "info",
-  Assigned: "warning",
-  Confirmed: "success"
-};
+const statusBadge = delegateStatusBadge;
 
 const financialAidBadge: Record<
   FinancialAidStatus,
@@ -235,36 +226,6 @@ type SortKey =
   | "character"
   | "submitted"
   | "registration";
-
-function SortableHead({
-  label,
-  sortKeyName,
-  activeKey,
-  activeDir,
-  onSort
-}: {
-  label: string;
-  sortKeyName: SortKey;
-  activeKey: SortKey;
-  activeDir: "asc" | "desc";
-  onSort: (key: SortKey) => void;
-}) {
-  const isActive = activeKey === sortKeyName;
-  return (
-    <TableHead className="cursor-pointer select-none" onClick={() => onSort(sortKeyName)}>
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {isActive ? (
-          activeDir === "asc" ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )
-        ) : null}
-      </span>
-    </TableHead>
-  );
-}
 
 function formatDate(value: string | null): string {
   if (!value) return "--";

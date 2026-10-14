@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from app.models.enums import (
     CharacterExperience,
     DelegateExperience,
     DelegateStatus,
+    EventRegistrationStatus,
     EventType,
     FinancialAidStatus,
     RegistrationPeriod,
@@ -375,3 +384,172 @@ class DelegateBulkEditResult(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Event schemas
+class EventSessionOut(BaseModel):
+    key: str
+    label: str
+    # Null = unlimited (online training).
+    capacity: int | None = None
+    # Registered/Accepted in this session; these are what count toward capacity.
+    filled: int = 0
+
+
+class EventOut(BaseModel):
+    id: UUID
+    slug: str
+    name: str
+    capacity: int | None = None
+    registration_open: bool
+    registration_deadline: datetime | None = None
+    has_characters: bool
+    # Registrations per status, keyed by status value ("Registered", ...).
+    counts: dict[str, int] = Field(default_factory=dict)
+    # Registered/Accepted, i.e. what counts toward capacity.
+    filled: int = 0
+    sessions: list[EventSessionOut] = Field(default_factory=list)
+
+
+class EventUpdate(BaseModel):
+    capacity: int | None = Field(default=None, ge=0)
+    registration_open: bool | None = None
+    registration_deadline: datetime | None = None
+
+
+class EventCharacterBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    priority: int | None = Field(default=None, ge=1, le=5)
+    experience: list[CharacterExperience] = Field(default_factory=list)
+
+
+class EventCharacterCreate(EventCharacterBase):
+    pass
+
+
+class EventCharacterUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    priority: int | None = Field(default=None, ge=1, le=5)
+    experience: list[CharacterExperience] | None = None
+
+
+class EventCharacterAssign(BaseModel):
+    registration_id: UUID
+
+
+class EventCharacterOut(EventCharacterBase):
+    id: UUID
+    event_id: UUID
+    registration_id: UUID | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class EventRegistrationCreate(BaseModel):
+    """Admin adds an existing delegate to an event; skips the public checks."""
+
+    delegate_id: UUID
+    status: EventRegistrationStatus | None = None
+    answers: dict[str, Any] = Field(default_factory=dict)
+
+
+class EventRegistrationUpdate(BaseModel):
+    status: EventRegistrationStatus | None = None
+    answers: dict[str, Any] | None = None
+
+
+class EventRegistrationOut(BaseModel):
+    id: UUID
+    event_id: UUID
+    delegate_id: UUID
+    status: EventRegistrationStatus
+    submitted_first_name: str | None = None
+    submitted_last_name: str | None = None
+    answers: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime | None = None
+    delegate: DelegateOut
+    character: EventCharacterOut | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class EventRegisterRequest(BaseModel):
+    """A public event sign-up from the website form."""
+
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    answers: dict[str, Any] = Field(default_factory=dict)
+
+
+class EventRegisterResult(BaseModel):
+    """Just enough for the website to confirm and email the delegate; the full
+    delegate record is never sent back through the public form."""
+
+    id: UUID
+    status: EventRegistrationStatus
+    event_slug: str
+    event_name: str
+    delegate_first_name: str
+    delegate_preferred_name: str | None = None
+    delegate_email: str
+    session_label: str | None = None
+
+
+# Per-event form answers, validated on public sign-up.
+class _EventAnswers(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+def _require_acks(model: BaseModel, fields: tuple[str, ...]) -> None:
+    if not all(getattr(model, f) is True for f in fields):
+        raise ValueError("All policy acknowledgements must be accepted.")
+
+
+class MidnightCrisisAnswers(_EventAnswers):
+    attendance_policy_ack: bool
+    attendance_mandatory_ack: bool
+    withdrawal_policy_ack: bool
+    withdrawal_notice_ack: bool
+    motivation: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("motivation")
+    @classmethod
+    def _max_100_words(cls, value: str) -> str:
+        if len(value.split()) > 100:
+            raise ValueError("Please keep your answer to 100 words or fewer.")
+        return value
+
+    @model_validator(mode="after")
+    def _acks(self) -> MidnightCrisisAnswers:
+        _require_acks(
+            self,
+            (
+                "attendance_policy_ack",
+                "attendance_mandatory_ack",
+                "withdrawal_policy_ack",
+                "withdrawal_notice_ack",
+            ),
+        )
+        return self
+
+
+class DelegateSocialAnswers(_EventAnswers):
+    allergies: list[str] = Field(min_length=1, max_length=20)
+    dietary: list[str] = Field(min_length=1, max_length=20)
+    dietary_details: str | None = Field(default=None, max_length=2000)
+    withdrawal_policy_ack: bool
+    withdrawal_notice_ack: bool
+
+    @model_validator(mode="after")
+    def _acks(self) -> DelegateSocialAnswers:
+        _require_acks(self, ("withdrawal_policy_ack", "withdrawal_notice_ack"))
+        return self
+
+
+class DelegateTrainingAnswers(_EventAnswers):
+    session: Literal["session_1", "session_2", "online"]
+    questions: str | None = Field(default=None, max_length=2000)
+    topics: str | None = Field(default=None, max_length=2000)

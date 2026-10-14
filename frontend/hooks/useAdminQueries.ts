@@ -14,6 +14,10 @@ import type {
   DelegateUpdate,
   EmailTemplateCreate,
   EmailTemplateUpdate,
+  EventCharacterCreate,
+  EventRegistrationCreate,
+  EventRegistrationUpdate,
+  EventUpdate,
   UUID
 } from "@/types/api";
 
@@ -25,7 +29,11 @@ export const queryKeys = {
   delegations: ["delegations"] as const,
   assignments: ["assignments"] as const,
   eventLogs: ["eventLogs"] as const,
-  secMembers: ["secMembers"] as const
+  secMembers: ["secMembers"] as const,
+  events: ["events"] as const,
+  event: (slug: string) => ["event", slug] as const,
+  eventRegistrations: (slug: string) => ["eventRegistrations", slug] as const,
+  eventCharacters: (slug: string) => ["eventCharacters", slug] as const
 };
 
 // Query hooks
@@ -281,5 +289,112 @@ export function useSecMembers() {
   return useQuery({
     queryKey: queryKeys.secMembers,
     queryFn: () => adminService.fetchSecMembers()
+  });
+}
+
+// Event hooks
+export function useEvents() {
+  return useQuery({
+    queryKey: queryKeys.events,
+    queryFn: () => adminService.fetchEvents()
+  });
+}
+
+export function useEvent(slug: string) {
+  return useQuery({
+    queryKey: queryKeys.event(slug),
+    queryFn: () => adminService.fetchEvent(slug)
+  });
+}
+
+export function useEventRegistrations(slug: string | undefined) {
+  return useQuery({
+    queryKey: slug ? queryKeys.eventRegistrations(slug) : ["eventRegistrations", "none"],
+    queryFn: () => adminService.fetchEventRegistrations(slug as string),
+    enabled: Boolean(slug)
+  });
+}
+
+export function useEventCharacters(slug: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: slug ? queryKeys.eventCharacters(slug) : ["eventCharacters", "none"],
+    queryFn: () => adminService.fetchEventCharacters(slug as string),
+    enabled: Boolean(slug) && enabled
+  });
+}
+
+// Registration counts and characters both change with any registration edit.
+function invalidateEvent(queryClient: ReturnType<typeof useQueryClient>, slug: string) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.events });
+  queryClient.invalidateQueries({ queryKey: queryKeys.event(slug) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.eventRegistrations(slug) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.eventCharacters(slug) });
+  queryClient.invalidateQueries({ queryKey: queryKeys.eventLogs });
+}
+
+export function useUpdateEvent(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: EventUpdate) => adminService.updateEvent(slug, payload),
+    onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+export function useCreateEventRegistration(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: EventRegistrationCreate) =>
+      adminService.createEventRegistration(slug, payload),
+    onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+export function useUpdateEventRegistration(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: UUID; data: EventRegistrationUpdate }) =>
+      adminService.updateEventRegistration(slug, id, data),
+    onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+export function useDeleteEventRegistration(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: UUID) => adminService.deleteEventRegistration(slug, id),
+    onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+export function useCreateEventCharacter(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: EventCharacterCreate) => adminService.createEventCharacter(slug, payload),
+    onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+export function useDeleteEventCharacter(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: UUID) => adminService.deleteEventCharacter(slug, id),
+    onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+export function useAssignEventCharacter(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ characterId, registrationId }: { characterId: UUID; registrationId: UUID }) =>
+      adminService.assignEventCharacter(slug, characterId, registrationId),
+    onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+export function useUnassignEventCharacter(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (characterId: UUID) => adminService.unassignEventCharacter(slug, characterId),
+    onSuccess: () => invalidateEvent(queryClient, slug)
   });
 }
