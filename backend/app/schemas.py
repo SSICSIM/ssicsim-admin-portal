@@ -390,7 +390,7 @@ class DelegateBulkEditResult(BaseModel):
 class EventSessionOut(BaseModel):
     key: str
     label: str
-    # Null = unlimited (online training).
+    # Null = unlimited.
     capacity: int | None = None
     # Registered/Accepted in this session; these are what count toward capacity.
     filled: int = 0
@@ -550,6 +550,6 @@ class DelegateSocialAnswers(_EventAnswers):
 
 
 class DelegateTrainingAnswers(_EventAnswers):
-    session: Literal["session_1", "session_2", "online"]
+    session: Literal["session_1", "session_2"]
     questions: str | None = Field(default=None, max_length=2000)
     topics: str | None = Field(default=None, max_length=2000)

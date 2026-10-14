@@ -164,7 +164,7 @@ def test_social_capacity_rolls_to_waitlist(client, events, engine):
     assert event["counts"] == {"Registered": 1, "Waitlist": 1}
 
 
-def test_training_capacity_is_per_session_and_online_unlimited(client, events, engine):
+def test_training_capacity_is_per_session(client, events, engine):
     _set_event(engine, TRAINING, capacity=1)
     people = [("a", "A", "One"), ("b", "B", "Two"), ("c", "C", "Three"), ("d", "D", "Four")]
     for key, first, last in people:
@@ -185,11 +185,16 @@ def test_training_capacity_is_per_session_and_online_unlimited(client, events, e
     second = reg("c", "C", "Three", "session_2")
     assert second["status"] == "Registered"
     assert second["session_label"].startswith("Session 2")
-    assert reg("d", "D", "Four", "online")["status"] == "Registered"
+    # There's no online option.
+    resp = _register(
+        client, TRAINING, email="d@example.com", first="D", last="Four", answers={"session": "online"}
+    )
+    assert resp.status_code == 422
 
     sessions = {s["key"]: s for s in client.get(f"/api/events/{TRAINING}").json()["sessions"]}
     assert sessions["session_1"]["filled"] == 1
-    assert sessions["online"]["capacity"] is None
+    assert set(sessions) == {"session_1", "session_2"}
+    assert sessions["session_2"]["capacity"] == 1
 
 
 def test_midnight_crisis_starts_pending(client, events):

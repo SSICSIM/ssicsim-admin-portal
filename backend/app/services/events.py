@@ -43,14 +43,13 @@ ANSWER_SCHEMAS: dict[str, type[BaseModel]] = {
     DELEGATE_TRAINING: DelegateTrainingAnswers,
 }
 
-# Delegate Training runs as separate sessions; `limited` sessions are capped
-# at the event's capacity each, online is unlimited.
-TRAINING_SESSIONS: list[tuple[str, str, bool]] = [
-    ("session_1", "Session 1 (12:00 – 1:00 PM, in person)", True),
-    ("session_2", "Session 2 (2:00 – 3:00 PM, in person)", True),
-    ("online", "Online", False),
+# Delegate Training runs as two in-person sessions, each capped at the event's
+# capacity.
+TRAINING_SESSIONS: list[tuple[str, str]] = [
+    ("session_1", "Session 1 (12:00 – 1:00 PM)"),
+    ("session_2", "Session 2 (2:00 – 3:00 PM)"),
 ]
-_SESSION_LABELS = {key: label for key, label, _ in TRAINING_SESSIONS}
+_SESSION_LABELS = dict(TRAINING_SESSIONS)
 
 # Selective events: every sign-up is an application that waits for SEC to
 # accept or reject it, so they have no Registered or Waitlist state.
@@ -123,10 +122,10 @@ def _event_out(db: Session, event: Event) -> EventOut:
             EventSessionOut(
                 key=key,
                 label=label,
-                capacity=event.capacity if limited else None,
+                capacity=event.capacity,
                 filled=filled_by_session[key],
             )
-            for key, label, limited in TRAINING_SESSIONS
+            for key, label in TRAINING_SESSIONS
         ]
 
     return EventOut(
@@ -303,10 +302,8 @@ def register_for_event(
     if slug in SELECTIVE_EVENTS:
         status = EventRegistrationStatus.PENDING
     else:
-        limited = session != "online"
         full = (
-            limited
-            and event.capacity is not None
+            event.capacity is not None
             and _filled_count(db, event, session) >= event.capacity
         )
         status = (
