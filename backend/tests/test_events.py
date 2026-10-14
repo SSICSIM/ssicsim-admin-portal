@@ -326,3 +326,52 @@ def test_midnight_crisis_has_no_waitlist(client, events):
         assert resp.status_code == 400
     resp = client.patch(f"/api/events/{MC}/registrations/{reg['id']}", json={"status": "Withdrawn"})
     assert resp.status_code == 200
+
+
+@pytest.fixture()
+def sent_emails(monkeypatch):
+    sent = []
+    monkeypatch.setattr(
+        "app.services.events._enqueue_email",
+        lambda recipients, subject, body: sent.append((recipients, subject, body)) or True,
+    )
+    return sent
+
+
+def test_moving_off_waitlist_emails_the_delegate(client, events, engine, sent_emails):
+    _set_event(engine, TRAINING, capacity=1)
+    _make_delegate(client, email="a@example.com", first="A", last="One")
+    _make_delegate(client, email="b@example.com", first="Bea", last="Two", preferred="Bee (she/her)")
+    _register(client, TRAINING, email="a@example.com", first="A", last="One", answers={"session": "session_2"})
+    waitlisted = _register(
+        client, TRAINING, email="b@example.com", first="Bea", last="Two", answers={"session": "session_2"}
+    ).json()
+    assert waitlisted["status"] == "Waitlist"
+    assert sent_emails == []
+
+    resp = client.patch(
+        f"/api/events/{TRAINING}/registrations/{waitlisted['id']}", json={"status": "Registered"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert len(sent_emails) == 1
+    recipients, subject, body = sent_emails[0]
+    assert recipients[0]["email"] == "b@example.com"
+    assert "Off the Waitlist" in subject and "Delegate Training" in subject
+    assert body.startswith("Dear Bee,")
+    assert "Session 2 (2:00 – 3:00 PM)" in body and "UC 179" in body
+
+    # Only Waitlist -> Registered emails; other changes don't.
+    client.patch(f"/api/events/{TRAINING}/registrations/{waitlisted['id']}", json={"status": "Withdrawn"})
+    client.patch(f"/api/events/{TRAINING}/registrations/{waitlisted['id']}", json={"status": "Registered"})
+    assert len(sent_emails) == 1
+
+
+def test_social_off_waitlist_email_has_event_details(client, events, engine, sent_emails):
+    _set_event(engine, SOCIAL, capacity=0)
+    _make_delegate(client)
+    reg = _register(client, SOCIAL).json()
+    assert reg["status"] == "Waitlist"
+    client.patch(f"/api/events/{SOCIAL}/registrations/{reg['id']}", json={"status": "Registered"})
+    _, subject, body = sent_emails[0]
+    assert "Delegate Social" in subject
+    assert "Saturday, October 24, 2026" in body and "Victoria College" in body

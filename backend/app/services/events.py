@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import unicodedata
 from collections import Counter
@@ -13,6 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.models.delegate import Delegate
 from app.models.enums import DelegateStatus, EventRegistrationStatus, EventType
 from app.models.event import Event, EventCharacter, EventRegistration
@@ -33,6 +35,8 @@ from app.schemas import (
 )
 from app.services.event_logs import record_event
 
+logger = logging.getLogger(__name__)
+
 MIDNIGHT_CRISIS = "midnight-crisis"
 DELEGATE_SOCIAL = "delegate-social"
 DELEGATE_TRAINING = "delegate-training"
@@ -50,6 +54,20 @@ TRAINING_SESSIONS: list[tuple[str, str]] = [
     ("session_2", "Session 2 (2:00 – 3:00 PM)"),
 ]
 _SESSION_LABELS = dict(TRAINING_SESSIONS)
+
+# Shown in the "you're off the waitlist" email. Training's time comes from
+# the delegate's session.
+EVENT_DETAILS: dict[str, dict[str, str]] = {
+    DELEGATE_SOCIAL: {
+        "date": "Saturday, October 24, 2026",
+        "time": "7:00 – 10:00 PM",
+        "location": "Victoria College, Alumni Hall",
+    },
+    DELEGATE_TRAINING: {
+        "date": "Friday, October 23, 2026",
+        "location": "UC 179, University College (15 King's College Cir)",
+    },
+}
 
 # Selective events: every sign-up is an application that waits for SEC to
 # accept or reject it, so they have no Registered or Waitlist state.
@@ -350,6 +368,67 @@ def register_for_event(
     )
 
 
+# ─── waitlist emails ──────────────────────────────────────────────────────────
+
+
+def _enqueue_email(recipients: list[dict[str, str]], subject: str, body: str) -> bool:
+    """Queue an email on the same worker queue as the emailer. Returns False
+    (and logs) instead of raising, so a mail problem never undoes a status
+    change that was already saved."""
+    if not settings.gmail_user or not settings.gmail_app_password:
+        logger.warning("Email not sent: GMAIL_USER / GMAIL_APP_PASSWORD not set")
+        return False
+    try:
+        from redis import Redis
+        from rq import Queue
+
+        from app.jobs.email import send_emails
+
+        Queue(connection=Redis.from_url(settings.redis_url)).enqueue(
+            send_emails, recipients, subject, body, job_timeout=300
+        )
+        return True
+    except Exception:
+        logger.exception("Failed to queue email")
+        return False
+
+
+def _off_waitlist_email(event: Event, registration: EventRegistration) -> tuple[str, str]:
+    delegate = registration.delegate
+    # "Alex (they/them)" -> "Alex" for the greeting.
+    preferred = re.sub(r"\(.*?\)", "", delegate.preferred_name or "").strip()
+    name = preferred or delegate.first_name
+    details = EVENT_DETAILS.get(event.slug, {})
+    session = _SESSION_LABELS.get(registration.answers.get("session", ""))
+    lines = [f"**Event:** {event.name}"]
+    if details.get("date"):
+        lines.append(f"**Date:** {details['date']}")
+    if session or details.get("time"):
+        lines.append(f"**Time:** {session or details['time']}")
+    if details.get("location"):
+        lines.append(f"**Location:** {details['location']}")
+    subject = f"You're Off the Waitlist: SSICSIM 2026 {event.name}"
+    body = (
+        f"Dear {name},\n\n"
+        f"Good news! A spot has opened up for {event.name} at SSICSIM 2026, so you "
+        "have been moved off the waitlist and your spot is now confirmed.\n\n"
+        + "\n".join(lines)
+        + "\n\nIf you can no longer attend, please let us know as soon as possible "
+        "at [registration@ssicsim.ca](mailto:registration@ssicsim.ca) so we can "
+        "offer your spot to another delegate.\n\n"
+        "Sincerely,\nThe SSICSIM Secretariat"
+    )
+    return subject, body
+
+
+def _email_off_waitlist(event: Event, registration: EventRegistration) -> None:
+    subject, body = _off_waitlist_email(event, registration)
+    delegate = registration.delegate
+    _enqueue_email(
+        [{"email": delegate.email, "name": delegate.first_name}], subject, body
+    )
+
+
 # ─── admin: registrations ─────────────────────────────────────────────────────
 
 
@@ -432,6 +511,12 @@ def update_registration(
 ) -> EventRegistration:
     event = get_event(db, slug)
     registration = _get_registration(db, event, registration_id)
+    # Social/Training: someone moved up from the waitlist is emailed that
+    # their spot is confirmed (Midnight Crisis has no waitlist).
+    off_waitlist = (
+        registration.status == EventRegistrationStatus.WAITLIST
+        and payload.status in FILLED_STATUSES
+    )
     if payload.status is not None and payload.status != registration.status:
         _check_status(event, payload.status)
         record_event(
@@ -451,6 +536,8 @@ def update_registration(
         registration.answers = payload.answers
     db.commit()
     db.refresh(registration)
+    if off_waitlist:
+        _email_off_waitlist(event, registration)
     return registration
 
 

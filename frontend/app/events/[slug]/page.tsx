@@ -407,6 +407,7 @@ function RegistrationsTab({
   const [viewing, setViewing] = useState<EventRegistrationOut | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<UUID | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const tableFields = answerFields(event.slug).filter((f) => f.inTable);
   const delegationName = (r: EventRegistrationOut) =>
@@ -463,8 +464,15 @@ function RegistrationsTab({
 
   const setStatus = async (r: EventRegistrationOut, status: EventRegistrationStatus) => {
     setError(null);
+    setNotice(null);
     try {
       await updateRegistration.mutateAsync({ id: r.id, data: { status } });
+      // The backend emails delegates moved up from the waitlist.
+      if (r.status === "Waitlist" && isAttending(status)) {
+        setNotice(
+          `Emailed ${r.delegate.first_name} ${r.delegate.last_name} that their spot is confirmed.`
+        );
+      }
     } catch (e) {
       setError(errorMessage(e, "Unable to update status."));
     }
@@ -569,6 +577,13 @@ function RegistrationsTab({
             </Button>
           </div>
         </div>
+        {!event.has_characters && (
+          <p className="text-xs text-[var(--ssicsim-text-muted)]">
+            Moving someone from Waitlist to Registered automatically emails them that their spot is
+            confirmed.
+          </p>
+        )}
+        {notice ? <Badge variant="success">{notice}</Badge> : null}
         {error ? <Badge variant="warning">{error}</Badge> : null}
         <Separator />
         {isLoading ? (
