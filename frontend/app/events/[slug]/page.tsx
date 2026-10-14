@@ -29,7 +29,7 @@ import type {
   UUID
 } from "@/types/api";
 import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
-import { SortableHead, delegateDisplayName, delegateStatusBadge } from "@/components/DelegateTable";
+import { SortableHead, delegateDisplayName } from "@/components/DelegateTable";
 import { PageHeader, PageShell } from "@/components/page";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -86,8 +86,7 @@ import {
   statusesFor
 } from "@/utils/events";
 
-type SortKey =
-  "name" | "grade" | "status" | "experience" | "delegation" | "eventStatus" | "registered";
+type SortKey = "name" | "grade" | "experience" | "delegation" | "eventStatus" | "registered";
 
 function formatDateTime(value: string | null): string {
   if (!value) return "--";
@@ -438,8 +437,6 @@ function RegistrationsTab({
           return `${d.last_name} ${d.first_name}`.toLowerCase();
         case "grade":
           return d.grade ?? "";
-        case "status":
-          return d.delegate_status;
         case "experience":
           return d.delegate_experience;
         case "delegation":
@@ -590,7 +587,6 @@ function RegistrationsTab({
                   <SortableHead label="Delegate" sortKeyName="name" {...headProps} />
                   <SortableHead label="Grade" sortKeyName="grade" {...headProps} />
                   <TableHead>Email</TableHead>
-                  <SortableHead label="Status" sortKeyName="status" {...headProps} />
                   <SortableHead label="Experience" sortKeyName="experience" {...headProps} />
                   <SortableHead label="Delegation" sortKeyName="delegation" {...headProps} />
                   <SortableHead label="Event status" sortKeyName="eventStatus" {...headProps} />
@@ -610,11 +606,6 @@ function RegistrationsTab({
                       <TableCell className="font-medium">{delegateDisplayName(d)}</TableCell>
                       <TableCell>{d.grade ?? "--"}</TableCell>
                       <TableCell className="max-w-[160px] truncate">{d.email}</TableCell>
-                      <TableCell>
-                        <Badge variant={delegateStatusBadge[d.delegate_status]}>
-                          {d.delegate_status}
-                        </Badge>
-                      </TableCell>
                       <TableCell>{d.delegate_experience}</TableCell>
                       <TableCell>{delegationName(r)}</TableCell>
                       <TableCell>
