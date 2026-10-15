@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { TableHead } from "@/components/ui/table";
@@ -17,6 +18,20 @@ export const delegateStatusBadge: Record<
   Assigned: "warning",
   Confirmed: "success"
 };
+
+// Read-only label/value pair for the View dialogs.
+export function Field({ label, value, span }: { label: string; value: ReactNode; span?: boolean }) {
+  return (
+    <div className={span ? "space-y-1 sm:col-span-2" : "space-y-1"}>
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
+        {label}
+      </p>
+      <p className="text-sm text-[var(--ssicsim-text)] whitespace-pre-wrap break-words">
+        {value === "" || value == null ? "--" : value}
+      </p>
+    </div>
+  );
+}
 
 export function delegateDisplayName(d: DelegateOut): string {
   return `${d.last_name}, ${d.first_name}`;

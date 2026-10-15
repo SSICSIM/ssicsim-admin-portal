@@ -13,7 +13,6 @@ from app.schemas import (
     EventCharacterAssign,
     EventCharacterCreate,
     EventCharacterOut,
-    EventCharacterUpdate,
     EventOut,
     EventRegisterRequest,
     EventRegisterResult,
@@ -119,16 +118,6 @@ def create_character(
     slug: str, payload: EventCharacterCreate, db: Session = Depends(get_db)
 ) -> EventCharacter:
     return events.create_character(db, slug, payload)
-
-
-@router.patch("/{slug}/characters/{character_id}", response_model=EventCharacterOut)
-def update_character(
-    slug: str,
-    character_id: UUID,
-    payload: EventCharacterUpdate,
-    db: Session = Depends(get_db),
-) -> EventCharacter:
-    return events.update_character(db, slug, character_id, payload)
 
 
 @router.delete(

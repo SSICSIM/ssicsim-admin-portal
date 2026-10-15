@@ -1,7 +1,5 @@
 import type { EventOut, EventRegistrationOut, EventRegistrationStatus } from "@/types/api";
 
-export const MIDNIGHT_CRISIS = "midnight-crisis";
-
 export const EVENT_STATUSES: EventRegistrationStatus[] = [
   "Pending",
   "Registered",
@@ -11,17 +9,25 @@ export const EVENT_STATUSES: EventRegistrationStatus[] = [
   "Withdrawn"
 ];
 
-export const MIDNIGHT_CRISIS_STATUSES: EventRegistrationStatus[] = [
+const SELECTIVE_STATUSES: EventRegistrationStatus[] = [
   "Pending",
   "Accepted",
   "Rejected",
   "Withdrawn"
 ];
 
-// Midnight Crisis is an application: SEC accepts or rejects, and there's no
-// Registered or Waitlist state.
-export function statusesFor(slug: string): EventRegistrationStatus[] {
-  return slug === MIDNIGHT_CRISIS ? MIDNIGHT_CRISIS_STATUSES : EVENT_STATUSES;
+export function statusesFor(event: EventOut | undefined): EventRegistrationStatus[] {
+  return event?.selective ? SELECTIVE_STATUSES : EVENT_STATUSES;
+}
+
+export function formatEventDateTime(value: string | null, empty = "--"): string {
+  if (!value) return empty;
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 export const eventStatusBadge: Record<

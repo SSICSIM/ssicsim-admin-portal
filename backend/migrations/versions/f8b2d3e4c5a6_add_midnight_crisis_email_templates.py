@@ -65,13 +65,11 @@ def upgrade() -> None:
     conn = op.get_bind()
     for t in TEMPLATES:
         conn.execute(
-            sa.text(
-                """
+            sa.text("""
                 INSERT INTO email_templates (name, subject_template, body_template, placeholders)
                 VALUES (:name, :subject, :body, ARRAY['preferred_name'])
                 ON CONFLICT (name) DO NOTHING
-                """
-            ),
+                """),
             t,
         )
 

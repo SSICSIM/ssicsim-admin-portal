@@ -173,8 +173,20 @@ export function paymentStatusLabel(d: DelegateOut): string {
   return UNCONFIRMED_PAYMENT_STATUSES.has(d.delegate_status) ? "Not yet paid" : "Paid";
 }
 
-function delegateName(d: DelegateOut): string {
+export function delegateName(d: DelegateOut): string {
   return d.full_name || `${d.first_name} ${d.last_name}`;
+}
+
+export function delegationNameFor(
+  d: DelegateOut,
+  delegationsById: Map<UUID, DelegationOut>,
+  independentLabel = "Independent Delegate"
+): string {
+  return d.delegation_id ? (delegationsById.get(d.delegation_id)?.name ?? "") : independentLabel;
+}
+
+function delegatePrice(d: DelegateOut): number | "" {
+  return d.registration_period ? REGISTRATION_PRICES[d.registration_period] : "";
 }
 
 export function buildFinancialRows(
@@ -198,19 +210,14 @@ export function buildFinancialRows(
 
   const rows = scoped
     .map((d): (string | number)[] => {
-      const delegationName = d.delegation_id
-        ? (delegationsById.get(d.delegation_id)?.name ?? "")
-        : "Independent Delegate";
-      const price = d.registration_period ? REGISTRATION_PRICES[d.registration_period] : "";
-      const paymentStatus = paymentStatusLabel(d);
       return [
-        delegationName,
+        delegationNameFor(d, delegationsById),
         delegateName(d),
         d.email,
         d.registration_period ?? "",
-        price,
+        delegatePrice(d),
         d.financial_aid_status ?? "",
-        paymentStatus
+        paymentStatusLabel(d)
       ];
     })
     .sort(
@@ -241,11 +248,8 @@ export function buildCharacterAssignmentRows(
     .filter((d) => characterByDelegateId.has(d.id))
     .map((d): (string | number)[] => {
       const character = characterByDelegateId.get(d.id)!;
-      const delegationName = d.delegation_id
-        ? (delegationsById.get(d.delegation_id)?.name ?? "")
-        : "Independent Delegate";
       return [
-        delegationName,
+        delegationNameFor(d, delegationsById),
         delegateName(d),
         d.email,
         committeesById.get(character.committee_id)?.name ?? "",
@@ -257,14 +261,6 @@ export function buildCharacterAssignmentRows(
     );
 
   return { headers, rows };
-}
-
-function delegationNameFor(d: DelegateOut, delegationsById: Map<UUID, DelegationOut>): string {
-  return d.delegation_id ? (delegationsById.get(d.delegation_id)?.name ?? "") : "";
-}
-
-function delegatePrice(d: DelegateOut): number | "" {
-  return d.registration_period ? REGISTRATION_PRICES[d.registration_period] : "";
 }
 
 // "YYYY-MM-DD HH:mm" in local time — a format Google Sheets parses as a datetime.
@@ -334,7 +330,7 @@ export function buildFullDelegateRows(
   const rows = delegates.map((d): (string | number)[] => {
     const base = DELEGATE_BASE_HEADERS.map((k) =>
       k === "delegation"
-        ? delegationNameFor(d, delegationsById)
+        ? delegationNameFor(d, delegationsById, "")
         : String((d as Record<string, unknown>)[k] ?? "")
     );
     const character = characterByDelegateId.get(d.id);
@@ -477,8 +473,8 @@ export function projectedDelegateCount(
 
 // ─── events ─────────────────────────────────────────────────────────────────
 
-// Delegate columns match the registrations table (and the Delegates page);
-// the event's own form answers follow.
+// Delegate details (as in the registration View dialog), then the event's own
+// form answers.
 export function buildEventRegistrationRows(
   event: EventOut,
   registrations: EventRegistrationOut[],
@@ -510,9 +506,7 @@ export function buildEventRegistrationRows(
         d.email,
         d.delegate_status,
         d.delegate_experience,
-        d.delegation_id
-          ? (delegationsById.get(d.delegation_id)?.name ?? "")
-          : "Independent Delegate",
+        delegationNameFor(d, delegationsById),
         r.status,
         formatDateTime(r.created_at),
         [r.submitted_first_name, r.submitted_last_name].filter(Boolean).join(" "),

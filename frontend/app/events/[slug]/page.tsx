@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import {
   useAssignEventCharacter,
   useCreateEventCharacter,
+  useCreateEventCharacters,
   useCreateEventRegistration,
   useDelegates,
   useDelegations,
@@ -28,8 +29,9 @@ import type {
   EventRegistrationStatus,
   UUID
 } from "@/types/api";
+import { ApplicationReview } from "@/components/ApplicationReview";
 import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
-import { SortableHead, delegateDisplayName } from "@/components/DelegateTable";
+import { Field, SortableHead, delegateDisplayName } from "@/components/DelegateTable";
 import { PageHeader, PageShell } from "@/components/page";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -69,17 +71,20 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { apiErrorMessage as errorMessage } from "@/lib/apiClient";
 import {
   buildEventCharacterRows,
   buildEventRegistrationRows,
+  delegateName,
+  delegationNameFor,
   downloadCsv,
   parseCharacterMatrix
 } from "@/utils/csv";
 import {
-  EVENT_STATUSES,
   answerFields,
   eventStatusBadge,
   formatAnswer,
+  formatEventDateTime as formatDateTime,
   MIDNIGHT_CRISIS_TEMPLATES,
   emailerLink,
   isAttending,
@@ -87,45 +92,6 @@ import {
 } from "@/utils/events";
 
 type SortKey = "name" | "grade" | "experience" | "delegation" | "eventStatus" | "registered";
-
-function formatDateTime(value: string | null): string {
-  if (!value) return "--";
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  });
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  if (!(error instanceof Error)) return fallback;
-  // apiClient errors look like `Request failed (409): {"detail":"..."}`
-  const match = error.message.match(/\{.*\}$/);
-  if (match) {
-    try {
-      const detail = JSON.parse(match[0]).detail;
-      if (typeof detail === "string") return detail;
-      if (detail?.message) return detail.message;
-    } catch {
-      // fall through
-    }
-  }
-  return error.message || fallback;
-}
-
-function Field({ label, value, span }: { label: string; value: ReactNode; span?: boolean }) {
-  return (
-    <div className={span ? "space-y-1 sm:col-span-2" : "space-y-1"}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
-        {label}
-      </p>
-      <p className="text-sm text-[var(--ssicsim-text)] whitespace-pre-wrap break-words">
-        {value === "" || value == null ? "--" : value}
-      </p>
-    </div>
-  );
-}
 
 // ─── event settings ───────────────────────────────────────────────────────────
 
@@ -193,11 +159,12 @@ function AddDelegateDialog({
   onOpenChange: (open: boolean) => void;
   registeredDelegateIds: Set<UUID>;
 }) {
-  const delegatesQuery = useDelegates();
+  // Every delegate is a big download; only needed once the dialog is open.
+  const delegatesQuery = useDelegates(open);
   const createRegistration = useCreateEventRegistration(event.slug);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<EventRegistrationStatus>(
-    event.has_characters ? "Accepted" : "Registered"
+    event.selective ? "Accepted" : "Registered"
   );
   const [session, setSession] = useState(event.sessions[0]?.key ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -250,7 +217,7 @@ function AddDelegateDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusesFor(event.slug).map((s) => (
+                  {statusesFor(event).map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
@@ -341,7 +308,7 @@ function RegistrationViewDialog({
         {registration && d ? (
           <>
             <DialogHeader>
-              <DialogTitle>{d.full_name || `${d.first_name} ${d.last_name}`}</DialogTitle>
+              <DialogTitle>{delegateName(d)}</DialogTitle>
               <DialogDescription>
                 {event.name} · {registration.status}
               </DialogDescription>
@@ -404,16 +371,19 @@ function RegistrationsTab({
   const [sortKey, setSortKey] = useState<SortKey>("registered");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [addOpen, setAddOpen] = useState(false);
-  const [viewing, setViewing] = useState<EventRegistrationOut | null>(null);
+  const [viewingId, setViewingId] = useState<UUID | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<UUID | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const tableFields = answerFields(event.slug).filter((f) => f.inTable);
+  const viewing = registrations.find((r) => r.id === viewingId) ?? null;
+  const registeredDelegateIds = useMemo(
+    () => new Set(registrations.map((r) => r.delegate_id)),
+    [registrations]
+  );
   const delegationName = (r: EventRegistrationOut) =>
-    r.delegate.delegation_id
-      ? (delegationsById.get(r.delegate.delegation_id)?.name ?? "--")
-      : "Independent";
+    delegationNameFor(r.delegate, delegationsById, "Independent") || "--";
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -512,7 +482,7 @@ function RegistrationsTab({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                {statusesFor(event.slug).map((s) => (
+                {statusesFor(event).map((s) => (
                   <SelectItem key={s} value={s}>
                     {s}
                   </SelectItem>
@@ -547,7 +517,7 @@ function RegistrationsTab({
             />
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
-            {event.has_characters ? (
+            {event.selective ? (
               <>
                 <Button asChild variant="secondary">
                   <Link
@@ -577,7 +547,7 @@ function RegistrationsTab({
             </Button>
           </div>
         </div>
-        {!event.has_characters && (
+        {!event.selective && (
           <p className="text-xs text-[var(--ssicsim-text-muted)]">
             Moving someone from Waitlist to Registered automatically emails them that their spot is
             confirmed.
@@ -633,7 +603,7 @@ function RegistrationsTab({
                             <Badge variant={eventStatusBadge[r.status]}>{r.status}</Badge>
                           </SelectTrigger>
                           <SelectContent>
-                            {statusesFor(event.slug).map((s) => (
+                            {statusesFor(event).map((s) => (
                               <SelectItem key={s} value={s}>
                                 {s}
                               </SelectItem>
@@ -673,7 +643,7 @@ function RegistrationsTab({
                             <DropdownMenuItem
                               onSelect={(e) => {
                                 e.preventDefault();
-                                setTimeout(() => setViewing(r), 0);
+                                setTimeout(() => setViewingId(r.id), 0);
                               }}
                             >
                               View
@@ -715,13 +685,13 @@ function RegistrationsTab({
         event={event}
         open={addOpen}
         onOpenChange={setAddOpen}
-        registeredDelegateIds={new Set(registrations.map((r) => r.delegate_id))}
+        registeredDelegateIds={registeredDelegateIds}
       />
       <RegistrationViewDialog
         event={event}
         registration={viewing}
         delegationName={viewing ? delegationName(viewing) : ""}
-        onClose={() => setViewing(null)}
+        onClose={() => setViewingId(null)}
       />
     </Card>
   );
@@ -740,6 +710,7 @@ function CharactersTab({
 }) {
   const charactersQuery = useEventCharacters(event.slug);
   const createCharacter = useCreateEventCharacter(event.slug);
+  const createCharacters = useCreateEventCharacters(event.slug);
   const deleteCharacter = useDeleteEventCharacter(event.slug);
   const assignCharacter = useAssignEventCharacter(event.slug);
   const unassignCharacter = useUnassignEventCharacter(event.slug);
@@ -800,16 +771,7 @@ function CharactersTab({
         const { characters: entries, warnings } = await parseCharacterMatrix(csvFile);
         setCsvWarnings(warnings);
         if (entries.length === 0) throw new Error("CSV file contained no character names.");
-        let added = 0;
-        let skipped = 0;
-        for (const entry of entries) {
-          try {
-            await createCharacter.mutateAsync(entry);
-            added += 1;
-          } catch {
-            skipped += 1;
-          }
-        }
+        const { added, skipped } = await createCharacters.mutateAsync(entries);
         setCsvFile(null);
         setMessage(
           `Uploaded ${added} character${added === 1 ? "" : "s"}` +
@@ -1089,10 +1051,6 @@ export default function EventDetailPage() {
     );
   }
 
-  const countSummary = EVENT_STATUSES.filter((s) => event.counts[s])
-    .map((s) => `${event.counts[s]} ${s.toLowerCase()}`)
-    .join(" · ");
-
   return (
     <PageShell>
       <PageHeader
@@ -1104,13 +1062,9 @@ export default function EventDetailPage() {
               ? `${event.filled} attending`
               : event.sessions.length > 0
                 ? event.sessions
-                    .map(
-                      (s) =>
-                        `${s.label}: ${s.filled}${s.capacity == null ? "" : ` / ${s.capacity}`}`
-                    )
+                    .map((s) => `${s.label}: ${s.filled} / ${event.capacity}`)
                     .join(" · ")
                 : `${event.filled} / ${event.capacity} spots filled`}
-            {countSummary ? ` — ${countSummary}` : ""}
           </>
         }
         action={
@@ -1126,11 +1080,19 @@ export default function EventDetailPage() {
         </CardContent>
       </Card>
 
-      {event.has_characters ? (
+      {event.has_characters || event.selective ? (
         <Tabs defaultValue="registrations" className="space-y-4">
           <TabsList>
             <TabsTrigger value="registrations">Registrations</TabsTrigger>
-            <TabsTrigger value="characters">Characters & Assignments</TabsTrigger>
+            {event.selective && (
+              <TabsTrigger value="review">
+                Review applications
+                {event.counts.Pending ? ` (${event.counts.Pending})` : ""}
+              </TabsTrigger>
+            )}
+            {event.has_characters && (
+              <TabsTrigger value="characters">Characters & Assignments</TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="registrations">
             <RegistrationsTab
@@ -1140,9 +1102,21 @@ export default function EventDetailPage() {
               isLoading={registrationsQuery.isLoading}
             />
           </TabsContent>
-          <TabsContent value="characters">
-            <CharactersTab event={event} registrations={registrations} />
-          </TabsContent>
+          {event.selective && (
+            <TabsContent value="review">
+              <ApplicationReview
+                event={event}
+                registrations={registrations}
+                delegationsById={delegationsById}
+                isLoading={registrationsQuery.isLoading}
+              />
+            </TabsContent>
+          )}
+          {event.has_characters && (
+            <TabsContent value="characters">
+              <CharactersTab event={event} registrations={registrations} />
+            </TabsContent>
+          )}
         </Tabs>
       ) : (
         <RegistrationsTab

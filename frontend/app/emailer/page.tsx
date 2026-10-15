@@ -29,6 +29,7 @@ import {
   describeAssignmentForEmail,
   splitJccGroups
 } from "@/utils/committee";
+import { isOnRoster } from "@/utils/csv";
 import { isAttending, sessionLabel, statusesFor } from "@/utils/events";
 import { Button } from "@/components/ui/button";
 import {
@@ -182,7 +183,7 @@ export default function EmailerPage() {
     () =>
       delegates.filter((d) => {
         // "All delegates" means the roster; reach waitlisters via the Waitlist filter.
-        if (statusFilter === "all" && d.delegate_status === "Waitlist") return false;
+        if (statusFilter === "all" && !isOnRoster(d)) return false;
         if (statusFilter !== "all" && d.delegate_status !== statusFilter) return false;
         if (committeeFilter.size > 0) {
           const ch = charByDelegate.get(d.id);
@@ -637,7 +638,7 @@ export default function EmailerPage() {
                             Attending (Registered / Accepted)
                           </SelectItem>
                           <SelectItem value="all">All registrants</SelectItem>
-                          {statusesFor(eventFilter).map((s) => (
+                          {statusesFor(selectedEvent).map((s) => (
                             <SelectItem key={s} value={s}>
                               {s}
                             </SelectItem>

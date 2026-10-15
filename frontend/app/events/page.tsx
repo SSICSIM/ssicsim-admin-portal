@@ -9,17 +9,7 @@ import { PageHeader, PageShell, QueryState, StatRow } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { EVENT_STATUSES, eventStatusBadge } from "@/utils/events";
-
-function formatDeadline(value: string | null): string {
-  if (!value) return "No deadline";
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  });
-}
+import { EVENT_STATUSES, eventStatusBadge, formatEventDateTime } from "@/utils/events";
 
 function isAcceptingRegistrations(event: EventOut): boolean {
   if (!event.registration_open) return false;
@@ -94,7 +84,7 @@ export default function EventsPage() {
                     <div>
                       <CardTitle className="text-lg">{event.name}</CardTitle>
                       <CardDescription className="mt-1">
-                        Closes {formatDeadline(event.registration_deadline)}
+                        Closes {formatEventDateTime(event.registration_deadline, "No deadline")}
                       </CardDescription>
                     </div>
                     <Badge variant={open ? "success" : "secondary"}>
@@ -110,7 +100,7 @@ export default function EventsPage() {
                           <p className="text-xs font-semibold text-[var(--ssicsim-brand-navy)]">
                             {s.label}
                           </p>
-                          <FillBar filled={s.filled} capacity={s.capacity} />
+                          <FillBar filled={s.filled} capacity={event.capacity} />
                         </div>
                       ))}
                     </div>

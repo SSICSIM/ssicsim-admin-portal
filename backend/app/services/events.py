@@ -23,7 +23,6 @@ from app.schemas import (
     DelegateSocialAnswers,
     DelegateTrainingAnswers,
     EventCharacterCreate,
-    EventCharacterUpdate,
     EventOut,
     EventRegisterRequest,
     EventRegisterResult,
@@ -33,6 +32,7 @@ from app.schemas import (
     EventUpdate,
     MidnightCrisisAnswers,
 )
+from app.services.delegates import assume_utc_if_naive
 from app.services.event_logs import record_event
 
 logger = logging.getLogger(__name__)
@@ -89,10 +89,6 @@ def _error(status_code: int, code: str, message: str) -> HTTPException:
     )
 
 
-def _assume_utc_if_naive(dt: datetime) -> datetime:
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
-
-
 def _delegate_name(delegate: Delegate) -> str:
     return delegate.full_name or f"{delegate.first_name} {delegate.last_name}"
 
@@ -140,7 +136,6 @@ def _event_out(db: Session, event: Event) -> EventOut:
             EventSessionOut(
                 key=key,
                 label=label,
-                capacity=event.capacity,
                 filled=filled_by_session[key],
             )
             for key, label in TRAINING_SESSIONS
@@ -154,6 +149,7 @@ def _event_out(db: Session, event: Event) -> EventOut:
         registration_open=event.registration_open,
         registration_deadline=event.registration_deadline,
         has_characters=event.has_characters,
+        selective=event.slug in SELECTIVE_EVENTS,
         counts=dict(counts),
         filled=sum(counts[s.value] for s in FILLED_STATUSES),
         sessions=sessions,
@@ -217,9 +213,9 @@ def name_matches(delegate: Delegate, first_name: str, last_name: str) -> bool:
     first, last = _normalize(first_name), _normalize(last_name)
     if not first or not last:
         return False
-    if _normalize(delegate.full_name) and _normalize(
-        delegate.full_name
-    ) == _normalize(f"{first_name} {last_name}"):
+    if _normalize(delegate.full_name) and _normalize(delegate.full_name) == _normalize(
+        f"{first_name} {last_name}"
+    ):
         return True
     if last != _normalize(delegate.last_name):
         return False
@@ -259,7 +255,7 @@ def register_for_event(
 
     deadline = event.registration_deadline
     if not event.registration_open or (
-        deadline and datetime.now(UTC) > _assume_utc_if_naive(deadline)
+        deadline and datetime.now(UTC) > assume_utc_if_naive(deadline)
     ):
         db.rollback()
         raise _error(
@@ -379,21 +375,18 @@ def _enqueue_email(recipients: list[dict[str, str]], subject: str, body: str) ->
         logger.warning("Email not sent: GMAIL_USER / GMAIL_APP_PASSWORD not set")
         return False
     try:
-        from redis import Redis
-        from rq import Queue
+        from app.jobs.email import enqueue_send_emails
 
-        from app.jobs.email import send_emails
-
-        Queue(connection=Redis.from_url(settings.redis_url)).enqueue(
-            send_emails, recipients, subject, body, job_timeout=300
-        )
+        enqueue_send_emails(recipients, subject, body)
         return True
     except Exception:
         logger.exception("Failed to queue email")
         return False
 
 
-def _off_waitlist_email(event: Event, registration: EventRegistration) -> tuple[str, str]:
+def _off_waitlist_email(
+    event: Event, registration: EventRegistration
+) -> tuple[str, str]:
     delegate = registration.delegate
     # "Alex (they/them)" -> "Alex" for the greeting.
     preferred = re.sub(r"\(.*?\)", "", delegate.preferred_name or "").strip()
@@ -421,14 +414,6 @@ def _off_waitlist_email(event: Event, registration: EventRegistration) -> tuple[
     return subject, body
 
 
-def _email_off_waitlist(event: Event, registration: EventRegistration) -> None:
-    subject, body = _off_waitlist_email(event, registration)
-    delegate = registration.delegate
-    _enqueue_email(
-        [{"email": delegate.email, "name": delegate.first_name}], subject, body
-    )
-
-
 # ─── admin: registrations ─────────────────────────────────────────────────────
 
 
@@ -453,7 +438,9 @@ def _check_status(event: Event, status: EventRegistrationStatus) -> None:
         )
 
 
-def _get_registration(db: Session, event: Event, registration_id: UUID) -> EventRegistration:
+def _get_registration(
+    db: Session, event: Event, registration_id: UUID
+) -> EventRegistration:
     registration = db.get(EventRegistration, registration_id)
     if registration is None or registration.event_id != event.id:
         raise HTTPException(status_code=404, detail="Registration not found")
@@ -537,7 +524,11 @@ def update_registration(
     db.commit()
     db.refresh(registration)
     if off_waitlist:
-        _email_off_waitlist(event, registration)
+        subject, body = _off_waitlist_email(event, registration)
+        delegate = registration.delegate
+        _enqueue_email(
+            [{"email": delegate.email, "name": delegate.first_name}], subject, body
+        )
     return registration
 
 
@@ -605,18 +596,6 @@ def create_character(
         experience=payload.experience,
     )
     db.add(character)
-    db.commit()
-    db.refresh(character)
-    return character
-
-
-def update_character(
-    db: Session, slug: str, character_id: UUID, payload: EventCharacterUpdate
-) -> EventCharacter:
-    event = _character_event(db, slug)
-    character = _get_character(db, event, character_id)
-    for field, value in payload.model_dump(exclude_none=True).items():
-        setattr(character, field, value)
     db.commit()
     db.refresh(character)
     return character

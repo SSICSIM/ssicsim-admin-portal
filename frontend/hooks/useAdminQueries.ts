@@ -116,10 +116,11 @@ export function useUpdateDelegation() {
 }
 
 // Query hooks
-export function useDelegates() {
+export function useDelegates(enabled = true) {
   return useQuery({
     queryKey: queryKeys.delegates,
-    queryFn: () => adminService.fetchDelegates()
+    queryFn: () => adminService.fetchDelegates(),
+    enabled
   });
 }
 
@@ -366,11 +367,33 @@ export function useDeleteEventRegistration(slug: string) {
   });
 }
 
+// A new character isn't assigned yet, so only the character list changes.
 export function useCreateEventCharacter(slug: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: EventCharacterCreate) => adminService.createEventCharacter(slug, payload),
-    onSuccess: () => invalidateEvent(queryClient, slug)
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.eventCharacters(slug) })
+  });
+}
+
+// CSV upload: creates each character in turn (duplicates are skipped) and
+// refetches once at the end.
+export function useCreateEventCharacters(slug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (entries: EventCharacterCreate[]) => {
+      let added = 0;
+      for (const entry of entries) {
+        try {
+          await adminService.createEventCharacter(slug, entry);
+          added += 1;
+        } catch {
+          // already exists
+        }
+      }
+      return { added, skipped: entries.length - added };
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.eventCharacters(slug) })
   });
 }
 

@@ -155,16 +155,14 @@ def upgrade() -> None:
     )
 
     # Registration closes Saturday, October 17, 2026 @ 11:59 PM Toronto time.
-    op.execute(
-        """
+    op.execute("""
         INSERT INTO events (slug, name, capacity, registration_deadline, has_characters)
         VALUES
           ('midnight-crisis', 'Midnight Crisis', 20, '2026-10-17 23:59:59-04', true),
           ('delegate-social', 'Delegate Social', 120, '2026-10-17 23:59:59-04', false),
           ('delegate-training', 'Delegate Training', 140, '2026-10-17 23:59:59-04', false)
         ON CONFLICT (slug) DO NOTHING
-        """
-    )
+        """)
 
 
 def downgrade() -> None:

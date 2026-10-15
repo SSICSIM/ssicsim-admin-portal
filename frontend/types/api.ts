@@ -215,8 +215,7 @@ export type EventRegistrationStatus =
 export type EventSessionOut = {
   key: string;
   label: string;
-  // null = unlimited (online training)
-  capacity: number | null;
+  // Each session is capped at the event's capacity.
   filled: number;
 };
 
@@ -228,6 +227,8 @@ export type EventOut = {
   registration_open: boolean;
   registration_deadline: string | null;
   has_characters: boolean;
+  // An application (SEC accepts or rejects): no Registered or Waitlist status.
+  selective: boolean;
   counts: Partial<Record<EventRegistrationStatus, number>>;
   // Registered + Accepted — what counts toward capacity
   filled: number;

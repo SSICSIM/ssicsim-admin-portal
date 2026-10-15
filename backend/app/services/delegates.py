@@ -32,18 +32,18 @@ logger = logging.getLogger(__name__)
 _REGISTRATION_LOCK_KEY = 397_001
 
 
-def _assume_utc_if_naive(dt: datetime) -> datetime:
+def assume_utc_if_naive(dt: datetime) -> datetime:
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _compute_registration_period(applied_at: datetime) -> RegistrationPeriod:
-    applied_at = _assume_utc_if_naive(applied_at)
+    applied_at = assume_utc_if_naive(applied_at)
     early_bird_deadline = settings.registration_early_bird_deadline
     regular_deadline = settings.registration_regular_deadline
 
-    if early_bird_deadline and applied_at <= _assume_utc_if_naive(early_bird_deadline):
+    if early_bird_deadline and applied_at <= assume_utc_if_naive(early_bird_deadline):
         return RegistrationPeriod.EARLY_BIRD
-    if regular_deadline and applied_at <= _assume_utc_if_naive(regular_deadline):
+    if regular_deadline and applied_at <= assume_utc_if_naive(regular_deadline):
         return RegistrationPeriod.REGULAR
     if regular_deadline:
         return RegistrationPeriod.LATE
@@ -90,7 +90,9 @@ def _validate_delegation(db: Session, delegation_id: UUID | None) -> None:
 
 def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
     _validate_delegation(db, payload.delegation_id)
-    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": _REGISTRATION_LOCK_KEY})
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(:key)"), {"key": _REGISTRATION_LOCK_KEY}
+    )
     if (
         payload.delegate_status != DelegateStatus.WAITLIST
         and get_registration_capacity(db).is_full
@@ -140,15 +142,20 @@ def create_delegate(db: Session, payload: DelegateCreate) -> Delegate:
         raise HTTPException(status_code=409, detail="Delegate email already exists")
     db.refresh(delegate)
 
-    # Waitlisted delegates aren't on the roster, so they stay off the sheet
-    # until they're moved off the waitlist.
-    if delegate.delegate_status != DelegateStatus.WAITLIST:
-        _sync_to_sheet(db, delegate)
+    _sync_if_joined_roster(db, delegate, None)
 
     return delegate
 
 
-def _sync_to_sheet(db: Session, delegate: Delegate) -> None:
+# Waitlisted delegates aren't on the roster, so they stay off the sheet until
+# they're created as, or moved to, any other status.
+def _sync_if_joined_roster(
+    db: Session, delegate: Delegate, old_status: DelegateStatus | None
+) -> None:
+    if old_status not in (None, DelegateStatus.WAITLIST):
+        return
+    if delegate.delegate_status == DelegateStatus.WAITLIST:
+        return
     try:
         delegation = (
             db.get(Delegation, delegate.delegation_id)
@@ -199,11 +206,7 @@ def update_delegate(
         db.rollback()
         raise HTTPException(status_code=409, detail="Delegate email already exists")
     db.refresh(delegate)
-    if (
-        old_status == DelegateStatus.WAITLIST
-        and delegate.delegate_status != DelegateStatus.WAITLIST
-    ):
-        _sync_to_sheet(db, delegate)
+    _sync_if_joined_roster(db, delegate, old_status)
     return delegate
 
 
@@ -216,7 +219,7 @@ def bulk_edit_delegates(
     changed: list[Delegate] = []
     change_log: list[tuple[EventType, str, str]] = []
     seen_characters: set[UUID] = set()
-    was_waitlisted: set[UUID] = set()
+    original_statuses: dict[UUID, DelegateStatus] = {}
 
     for item in payload.items:
         delegate = db.get(Delegate, item.delegate_id)
@@ -228,8 +231,7 @@ def bulk_edit_delegates(
         # always records the delegate's true prior status — not a status an
         # earlier step in this same item already overwrote.
         original_status = delegate.delegate_status
-        if original_status == DelegateStatus.WAITLIST:
-            was_waitlisted.add(delegate.id)
+        original_statuses.setdefault(delegate.id, original_status)
 
         is_confirmed = original_status == DelegateStatus.CONFIRMED
         wants_change = item.delegate_status is not None or item.character_id is not None
@@ -380,11 +382,7 @@ def bulk_edit_delegates(
 
     for delegate in changed:
         db.refresh(delegate)
-        if (
-            delegate.id in was_waitlisted
-            and delegate.delegate_status != DelegateStatus.WAITLIST
-        ):
-            _sync_to_sheet(db, delegate)
+        _sync_if_joined_roster(db, delegate, original_statuses[delegate.id])
 
     return changed, warnings, batch_id
 

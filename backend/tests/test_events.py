@@ -191,10 +191,12 @@ def test_training_capacity_is_per_session(client, events, engine):
     )
     assert resp.status_code == 422
 
-    sessions = {s["key"]: s for s in client.get(f"/api/events/{TRAINING}").json()["sessions"]}
+    event = client.get(f"/api/events/{TRAINING}").json()
+    sessions = {s["key"]: s for s in event["sessions"]}
     assert sessions["session_1"]["filled"] == 1
     assert set(sessions) == {"session_1", "session_2"}
-    assert sessions["session_2"]["capacity"] == 1
+    # Each session is capped at the event's capacity.
+    assert event["capacity"] == 1
 
 
 def test_midnight_crisis_starts_pending(client, events):

@@ -390,8 +390,6 @@ class DelegateBulkEditResult(BaseModel):
 class EventSessionOut(BaseModel):
     key: str
     label: str
-    # Null = unlimited.
-    capacity: int | None = None
     # Registered/Accepted in this session; these are what count toward capacity.
     filled: int = 0
 
@@ -404,6 +402,8 @@ class EventOut(BaseModel):
     registration_open: bool
     registration_deadline: datetime | None = None
     has_characters: bool
+    # An application (SEC accepts or rejects): no Registered or Waitlist status.
+    selective: bool
     # Registrations per status, keyed by status value ("Registered", ...).
     counts: dict[str, int] = Field(default_factory=dict)
     # Registered/Accepted, i.e. what counts toward capacity.
@@ -425,12 +425,6 @@ class EventCharacterBase(BaseModel):
 
 class EventCharacterCreate(EventCharacterBase):
     pass
-
-
-class EventCharacterUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=255)
-    priority: int | None = Field(default=None, ge=1, le=5)
-    experience: list[CharacterExperience] | None = None
 
 
 class EventCharacterAssign(BaseModel):
