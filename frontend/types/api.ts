@@ -215,7 +215,8 @@ export type EventRegistrationStatus =
 export type EventSessionOut = {
   key: string;
   label: string;
-  // Each session is capped at the event's capacity.
+  // Same as the event's capacity: each session is capped at it.
+  capacity: number | null;
   filled: number;
 };
 

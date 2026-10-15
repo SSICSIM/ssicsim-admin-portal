@@ -136,6 +136,7 @@ def _event_out(db: Session, event: Event) -> EventOut:
             EventSessionOut(
                 key=key,
                 label=label,
+                capacity=event.capacity,
                 filled=filled_by_session[key],
             )
             for key, label in TRAINING_SESSIONS

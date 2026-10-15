@@ -390,6 +390,9 @@ class DelegateBulkEditResult(BaseModel):
 class EventSessionOut(BaseModel):
     key: str
     label: str
+    # Each session is capped at the event's capacity. The website reads this
+    # to show which sessions are full.
+    capacity: int | None = None
     # Registered/Accepted in this session; these are what count toward capacity.
     filled: int = 0
 

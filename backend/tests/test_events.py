@@ -196,7 +196,7 @@ def test_training_capacity_is_per_session(client, events, engine):
     assert sessions["session_1"]["filled"] == 1
     assert set(sessions) == {"session_1", "session_2"}
     # Each session is capped at the event's capacity.
-    assert event["capacity"] == 1
+    assert sessions["session_2"]["capacity"] == event["capacity"] == 1
 
 
 def test_midnight_crisis_starts_pending(client, events):
