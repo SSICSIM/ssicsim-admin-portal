@@ -36,6 +36,7 @@ const eventTypeFilters: { label: string; value: EventType | "all" }[] = [
   { label: "Unassignment", value: "Unassignment" },
   { label: "Committee Update", value: "Committee Update" },
   { label: "Batch Edit", value: "Batch Edit" },
+  { label: "Event Registration", value: "Event Registration" },
   { label: "Email", value: "Email" }
 ];
 
@@ -48,6 +49,7 @@ const eventTypeBadge: Record<
   "Status Change": "secondary",
   "Committee Update": "default",
   "Batch Edit": "info",
+  "Event Registration": "info",
   Email: "default"
 };
 

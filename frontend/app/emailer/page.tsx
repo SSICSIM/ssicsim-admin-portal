@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 
 import Link from "next/link";
 import { Check, ChevronDown } from "lucide-react";
@@ -11,16 +11,26 @@ import {
   useDelegates,
   useDelegations,
   useEmailTemplates,
+  useEventRegistrations,
+  useEvents,
   useQueueEmails,
   useUpdateDelegate,
   useValidateEmails
 } from "@/hooks/useAdminQueries";
-import type { DelegateOut, DelegateStatus, UUID } from "@/types/api";
+import type {
+  DelegateOut,
+  DelegateStatus,
+  EventRegistrationOut,
+  EventRegistrationStatus,
+  UUID
+} from "@/types/api";
 import {
   buildCharactersByCommittee,
   describeAssignmentForEmail,
   splitJccGroups
 } from "@/utils/committee";
+import { isOnRoster } from "@/utils/csv";
+import { isAttending, sessionLabel, statusesFor } from "@/utils/events";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -51,7 +61,10 @@ const PLACEHOLDERS = [
   { key: "assignment", label: "Assignment" },
   { key: "committee", label: "Committee" },
   { key: "character", label: "Character" },
-  { key: "delegation", label: "Delegation" }
+  { key: "delegation", label: "Delegation" },
+  // Only filled in when the audience is an event's registrants
+  { key: "event", label: "Event" },
+  { key: "event_session", label: "Event Session" }
 ];
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -71,6 +84,7 @@ export default function EmailerPage() {
   const validateEmails = useValidateEmails();
   const queueEmails = useQueueEmails();
   const updateDelegate = useUpdateDelegate();
+  const eventsQuery = useEvents();
 
   const committees = useMemo(() => committeesQuery.data ?? [], [committeesQuery.data]);
   const delegates = useMemo(() => delegatesQuery.data ?? [], [delegatesQuery.data]);
@@ -86,6 +100,15 @@ export default function EmailerPage() {
   // empty = all committees
   const [committeeFilter, setCommitteeFilter] = useState<Set<UUID>>(new Set());
   const [delegationFilter, setDelegationFilter] = useState<UUID | "all">("all");
+  // "none" = not limited to an event; otherwise the event slug
+  const [eventFilter, setEventFilter] = useState<string>("none");
+  // "attending" = Registered or Accepted
+  const [eventStatusFilter, setEventStatusFilter] = useState<
+    EventRegistrationStatus | "attending" | "all"
+  >("attending");
+  const eventRegistrationsQuery = useEventRegistrations(
+    eventFilter === "none" ? undefined : eventFilter
+  );
 
   // step 2 — template (selectedTemplateId is the DB template's UUID, or null for custom)
   const [selectedTemplateId, setSelectedTemplateId] = useState<UUID | null>(null);
@@ -135,22 +158,50 @@ export default function EmailerPage() {
     return map;
   }, [characters]);
 
+  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
+  const selectedEvent =
+    eventFilter === "none" ? undefined : events.find((e) => e.slug === eventFilter);
+
+  // The audience's registration per delegate, when limited to an event
+  const eventRegByDelegate = useMemo(() => {
+    const map = new Map<UUID, EventRegistrationOut>();
+    if (eventFilter === "none") return map;
+    (eventRegistrationsQuery.data ?? []).forEach((r) => {
+      const matches =
+        eventStatusFilter === "all" ||
+        (eventStatusFilter === "attending"
+          ? isAttending(r.status)
+          : r.status === eventStatusFilter);
+      if (matches) map.set(r.delegate_id, r);
+    });
+    return map;
+  }, [eventFilter, eventStatusFilter, eventRegistrationsQuery.data]);
+
   // ── filtered recipients ─────────────────────────────────────────────────────
 
   const selectedDelegates = useMemo(
     () =>
       delegates.filter((d) => {
         // "All delegates" means the roster; reach waitlisters via the Waitlist filter.
-        if (statusFilter === "all" && d.delegate_status === "Waitlist") return false;
+        if (statusFilter === "all" && !isOnRoster(d)) return false;
         if (statusFilter !== "all" && d.delegate_status !== statusFilter) return false;
         if (committeeFilter.size > 0) {
           const ch = charByDelegate.get(d.id);
           if (!ch || !committeeFilter.has(ch.committee_id)) return false;
         }
         if (delegationFilter !== "all" && d.delegation_id !== delegationFilter) return false;
+        if (eventFilter !== "none" && !eventRegByDelegate.has(d.id)) return false;
         return true;
       }),
-    [delegates, statusFilter, committeeFilter, delegationFilter, charByDelegate]
+    [
+      delegates,
+      statusFilter,
+      committeeFilter,
+      delegationFilter,
+      charByDelegate,
+      eventFilter,
+      eventRegByDelegate
+    ]
   );
 
   function toggleCommittee(id: UUID) {
@@ -181,16 +232,23 @@ export default function EmailerPage() {
 
   const activeTemplate = dbTemplates.find((t) => t.id === selectedTemplateId) ?? null;
 
+  // An event audience is emailed about the event, so it never promotes
+  // conference statuses — no promotion candidates below.
+  const promotable = useMemo(
+    () => (eventFilter === "none" ? selectedDelegates : []),
+    [eventFilter, selectedDelegates]
+  );
+
   // delegates in the audience that are "Assigned" (candidates for → Confirmed)
   const assignedInAudience = useMemo(
-    () => selectedDelegates.filter((d) => d.delegate_status === "Assigned"),
-    [selectedDelegates]
+    () => promotable.filter((d) => d.delegate_status === "Assigned"),
+    [promotable]
   );
 
   // delegates in the audience that are "Verify Payment" (candidates for → Awaiting Assignment)
   const verifyPaymentInAudience = useMemo(
-    () => selectedDelegates.filter((d) => d.delegate_status === "Verify Payment"),
-    [selectedDelegates]
+    () => promotable.filter((d) => d.delegate_status === "Verify Payment"),
+    [promotable]
   );
 
   // ── recipient data builder ──────────────────────────────────────────────────
@@ -204,6 +262,9 @@ export default function EmailerPage() {
       ch,
       ch ? (jccSideByCharacter.get(ch.id) ?? null) : null
     );
+    const reg = eventRegByDelegate.get(d.id);
+    // Midnight Crisis runs like a committee: {character} is the event character.
+    const eventCharacter = selectedEvent?.has_characters ? (reg?.character?.name ?? "") : undefined;
     return {
       first_name: d.first_name,
       last_name: d.last_name,
@@ -214,7 +275,13 @@ export default function EmailerPage() {
       committee: assignment.committee,
       character: assignment.character,
       assignment: assignment.assignment,
-      delegation: del?.name ?? "Independent Delegate"
+      delegation: del?.name ?? "Independent Delegate",
+      event: selectedEvent?.name ?? "",
+      event_session: reg ? sessionLabel(selectedEvent, reg.answers?.session) : "",
+      ...(eventCharacter !== undefined && {
+        character: eventCharacter,
+        assignment: eventCharacter ? `${eventCharacter} in ${selectedEvent?.name}` : ""
+      })
     };
   }
 
@@ -228,6 +295,29 @@ export default function EmailerPage() {
     setBody(tpl.body_template);
     setAdHocBody(tpl.ad_hoc_body_template ?? "");
   }
+
+  // Deep links from an event page (e.g. "Email accepted" on Midnight Crisis):
+  // /emailer?event=midnight-crisis&status=Accepted&template=<template name>
+  // pre-fill the audience and template; the sender still reviews and sends.
+  const [linkedTemplateName, setLinkedTemplateName] = useState<string | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const event = params.get("event");
+    if (!event) return;
+    setEventFilter(event);
+    const status = params.get("status");
+    if (status) setEventStatusFilter(status as EventRegistrationStatus);
+    setLinkedTemplateName(params.get("template"));
+  }, []);
+  useEffect(() => {
+    if (!linkedTemplateName) return;
+    const tpl = dbTemplates.find((t) => t.name === linkedTemplateName);
+    if (!tpl) return;
+    applyTemplate(tpl.id);
+    setLinkedTemplateName(null);
+    // applyTemplate only reads dbTemplates, which is already a dependency
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedTemplateName, dbTemplates]);
 
   // ── insert placeholder at cursor ────────────────────────────────────────────
 
@@ -285,9 +375,7 @@ export default function EmailerPage() {
 
     try {
       // Ad hoc delegates get their own job when there's an ad hoc body to send them.
-      const adHocIds = new Set(
-        adHocBody.trim() ? adHocInAudience.map((d) => d.id) : []
-      );
+      const adHocIds = new Set(adHocBody.trim() ? adHocInAudience.map((d) => d.id) : []);
       const jobs = [
         { delegates: selectedDelegates.filter((d) => !adHocIds.has(d.id)), body },
         { delegates: selectedDelegates.filter((d) => adHocIds.has(d.id)), body: adHocBody }
@@ -514,6 +602,51 @@ export default function EmailerPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="grid gap-5 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label>Event</Label>
+                    <Select value={eventFilter} onValueChange={setEventFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Not limited to an event" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Not limited to an event</SelectItem>
+                        {events.map((e) => (
+                          <SelectItem key={e.slug} value={e.slug}>
+                            {e.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {eventFilter !== "none" && (
+                    <div className="space-y-2">
+                      <Label>Event Registration Status</Label>
+                      <Select
+                        value={eventStatusFilter}
+                        onValueChange={(v) =>
+                          setEventStatusFilter(v as EventRegistrationStatus | "attending" | "all")
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="attending">
+                            Attending (Registered / Accepted)
+                          </SelectItem>
+                          <SelectItem value="all">All registrants</SelectItem>
+                          {statusesFor(selectedEvent).map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
 
                 {selectedDelegates.length > 0 ? (

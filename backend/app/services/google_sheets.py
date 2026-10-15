@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+from functools import cache
 from typing import TYPE_CHECKING
 
 from app.config import settings
@@ -44,6 +45,9 @@ HEADER = [
 ]
 
 
+# Cached so each sync skips the credentials exchange and spreadsheet lookups.
+# A failed setup raises and isn't cached, so the next sync retries.
+@cache
 def _get_worksheet() -> gspread.Worksheet:
     if not settings.google_service_account_json_b64 or not settings.google_sheet_id:
         raise RuntimeError(

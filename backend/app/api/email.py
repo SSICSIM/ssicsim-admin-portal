@@ -2,11 +2,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from redis import Redis
-from rq import Queue
 
 from app.config import settings
-from app.jobs.email import send_emails
+from app.jobs.email import enqueue_send_emails
 
 router = APIRouter(prefix="/email", tags=["email"])
 
@@ -45,16 +43,7 @@ def queue_email_job(payload: EmailQueueRequest) -> dict:
     if not payload.recipients:
         return {"error": "No recipients provided.", "queued": 0}
 
-    redis_conn = Redis.from_url(settings.redis_url)
-    q = Queue(connection=redis_conn)
-
-    job = q.enqueue(
-        send_emails,
-        payload.recipients,
-        payload.subject,
-        payload.body,
-        job_timeout=300,
-    )
+    job = enqueue_send_emails(payload.recipients, payload.subject, payload.body)
 
     return {
         "job_id": job.id,

@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronUp, MoreHorizontal } from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 
 import {
   useAssignDelegate,
@@ -81,13 +81,17 @@ import {
   buildDelegationRows,
   buildFinancialRows,
   buildFullDelegateRows,
+  delegateName,
+  delegationNameFor,
   downloadCsv,
+  isOnRoster,
   paymentStatusLabel,
   projectedDelegateCount,
   REGISTRATION_PRICES
 } from "@/utils/csv";
 import { buildCharactersByCommittee, sortCharactersByPriorityDesc } from "@/utils/committee";
 import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
+import { Field, SortableHead, delegateStatusBadge } from "@/components/DelegateTable";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -99,18 +103,6 @@ const statusFilters: { label: string; value: DelegateStatus | "all" }[] = [
   { label: "Assigned", value: "Assigned" },
   { label: "Confirmed", value: "Confirmed" }
 ];
-
-const statusBadge: Record<
-  DelegateStatus,
-  "success" | "warning" | "secondary" | "destructive" | "info" | "default"
-> = {
-  Waitlist: "secondary",
-  "Awaiting Payment": "destructive",
-  "Verify Payment": "default",
-  "Awaiting Assignment": "info",
-  Assigned: "warning",
-  Confirmed: "success"
-};
 
 const financialAidBadge: Record<
   FinancialAidStatus,
@@ -236,54 +228,9 @@ type SortKey =
   | "submitted"
   | "registration";
 
-function SortableHead({
-  label,
-  sortKeyName,
-  activeKey,
-  activeDir,
-  onSort
-}: {
-  label: string;
-  sortKeyName: SortKey;
-  activeKey: SortKey;
-  activeDir: "asc" | "desc";
-  onSort: (key: SortKey) => void;
-}) {
-  const isActive = activeKey === sortKeyName;
-  return (
-    <TableHead className="cursor-pointer select-none" onClick={() => onSort(sortKeyName)}>
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {isActive ? (
-          activeDir === "asc" ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )
-        ) : null}
-      </span>
-    </TableHead>
-  );
-}
-
 function formatDate(value: string | null): string {
   if (!value) return "--";
   return new Date(value).toLocaleDateString();
-}
-
-// ─── read-only field display (used by the View dialog) ────────────────────────
-
-function Field({ label, value, span }: { label: string; value: ReactNode; span?: boolean }) {
-  return (
-    <div className={span ? "space-y-1 sm:col-span-2" : "space-y-1"}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ssicsim-text-muted)]">
-        {label}
-      </p>
-      <p className="text-sm text-[var(--ssicsim-text)] whitespace-pre-wrap break-words">
-        {value ?? "--"}
-      </p>
-    </div>
-  );
 }
 
 // ─── shared table row ─────────────────────────────────────────────────────────
@@ -342,6 +289,8 @@ function DelegateRow({
       (c) => !c.delegate_id || c.id === assignedCharacterId
     )
   );
+  const unpaid =
+    delegate.delegate_status === "Awaiting Payment" || delegate.delegate_status === "Waitlist";
 
   return (
     <TableRow className={isPendingUnassign ? "opacity-40" : undefined}>
@@ -369,7 +318,9 @@ function DelegateRow({
             </SelectContent>
           </Select>
         ) : (
-          <Badge variant={statusBadge[delegate.delegate_status]}>{delegate.delegate_status}</Badge>
+          <Badge variant={delegateStatusBadge[delegate.delegate_status]}>
+            {delegate.delegate_status}
+          </Badge>
         )}
       </TableCell>
       <TableCell>{delegate.delegate_experience}</TableCell>
@@ -481,16 +432,8 @@ function DelegateRow({
                 e.preventDefault();
                 setTimeout(onAssign, 0);
               }}
-              disabled={
-                delegate.delegate_status === "Awaiting Payment" ||
-                delegate.delegate_status === "Waitlist"
-              }
-              title={
-                delegate.delegate_status === "Awaiting Payment" ||
-                delegate.delegate_status === "Waitlist"
-                  ? "Payment required before assignment"
-                  : undefined
-              }
+              disabled={unpaid}
+              title={unpaid ? "Payment required before assignment" : undefined}
             >
               {delegate.delegate_status === "Awaiting Assignment" ? "Assign" : "Reassign"}
             </DropdownMenuItem>
@@ -751,15 +694,12 @@ export default function DelegatesPage() {
   const charactersByCommittee = useMemo(() => buildCharactersByCommittee(characters), [characters]);
 
   // Waitlisted delegates get their own table below; the main table is the roster.
-  const rosterDelegates = useMemo(
-    () => delegates.filter((d) => d.delegate_status !== "Waitlist"),
-    [delegates]
-  );
+  const rosterDelegates = useMemo(() => delegates.filter(isOnRoster), [delegates]);
   // First come, first served: oldest waitlist submission first.
   const waitlistDelegates = useMemo(
     () =>
       delegates
-        .filter((d) => d.delegate_status === "Waitlist")
+        .filter((d) => !isOnRoster(d))
         .sort((a, b) => (a.date_applied ?? "").localeCompare(b.date_applied ?? "")),
     [delegates]
   );
@@ -1288,24 +1228,9 @@ export default function DelegatesPage() {
 
   // ── export ─────────────────────────────────────────────────────────────────
 
-  function exportDelegates() {
-    const { headers, rows } = buildFullDelegateRows(
-      rosterDelegates,
-      characters,
-      committeeMap,
-      delegationMap
-    );
-    downloadCsv("delegates-export.csv", headers, rows);
-  }
-
-  function exportWaitlist() {
-    const { headers, rows } = buildFullDelegateRows(
-      waitlistDelegates,
-      characters,
-      committeeMap,
-      delegationMap
-    );
-    downloadCsv("waitlist-export.csv", headers, rows);
+  function exportFullDelegates(list: DelegateOut[], filename: string) {
+    const { headers, rows } = buildFullDelegateRows(list, characters, committeeMap, delegationMap);
+    downloadCsv(filename, headers, rows);
   }
 
   function exportDelegations() {
@@ -1497,11 +1422,17 @@ export default function DelegatesPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onSelect={exportDelegates}>
+                    <DropdownMenuItem
+                      onSelect={() => exportFullDelegates(rosterDelegates, "delegates-export.csv")}
+                    >
                       Delegates (full, one row each)
                     </DropdownMenuItem>
                     <DropdownMenuItem onSelect={exportDelegations}>Delegations</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={exportWaitlist}>Waitlist</DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => exportFullDelegates(waitlistDelegates, "waitlist-export.csv")}
+                    >
+                      Waitlist
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => exportDelegationFinancial()}>
                       Financial only
@@ -1605,14 +1536,10 @@ export default function DelegatesPage() {
                     <TableRow key={d.id}>
                       <TableCell>{index + 1}</TableCell>
                       <TableCell>
-                        <div className="font-medium">
-                          {d.full_name || `${d.first_name} ${d.last_name}`}
-                        </div>
+                        <div className="font-medium">{delegateName(d)}</div>
                         <div className="text-xs text-[var(--ssicsim-text-muted)]">{d.email}</div>
                       </TableCell>
-                      <TableCell>
-                        {delegationMap.get(d.delegation_id ?? "")?.name ?? "Independent Delegate"}
-                      </TableCell>
+                      <TableCell>{delegationNameFor(d, delegationMap)}</TableCell>
                       <TableCell>{d.first_committee ?? "--"}</TableCell>
                       <TableCell>{d.second_committee ?? "--"}</TableCell>
                       <TableCell>{d.third_committee ?? "--"}</TableCell>
@@ -2112,7 +2039,7 @@ export default function DelegatesPage() {
                     <Field
                       label="Status"
                       value={
-                        <Badge variant={statusBadge[viewDelegate.delegate_status]}>
+                        <Badge variant={delegateStatusBadge[viewDelegate.delegate_status]}>
                           {viewDelegate.delegate_status}
                         </Badge>
                       }

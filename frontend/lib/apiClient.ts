@@ -44,6 +44,23 @@ async function requestEmpty(path: string, init?: RequestInit): Promise<void> {
   }
 }
 
+// Errors above look like `Request failed (409): {"detail": ...}`; detail is a
+// string or {code, message}.
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  const match = error.message.match(/\{.*\}$/);
+  if (match) {
+    try {
+      const detail = JSON.parse(match[0]).detail;
+      if (typeof detail === "string") return detail;
+      if (detail?.message) return detail.message;
+    } catch {
+      // fall through
+    }
+  }
+  return error.message || fallback;
+}
+
 export const apiClient = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body: unknown) =>

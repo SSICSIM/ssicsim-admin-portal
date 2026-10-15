@@ -38,9 +38,21 @@ class EventType(str, Enum):
     STATUS_CHANGE = "Status Change"
     UNASSIGNMENT = "Unassignment"
     BATCH_EDIT = "Batch Edit"
+    EVENT_REGISTRATION = "Event Registration"
 
 
 class CharacterExperience(str, Enum):
     BEGINNER = "Beginner"
     INTERMEDIATE = "Intermediate"
     ADVANCED = "Advanced"
+
+
+class EventRegistrationStatus(str, Enum):
+    # Selective events (Midnight Crisis) start here until SEC accepts/rejects.
+    PENDING = "Pending"
+    REGISTERED = "Registered"
+    # Signed up after the event (or training session) was full.
+    WAITLIST = "Waitlist"
+    ACCEPTED = "Accepted"
+    REJECTED = "Rejected"
+    WITHDRAWN = "Withdrawn"

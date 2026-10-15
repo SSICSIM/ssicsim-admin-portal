@@ -17,7 +17,14 @@ import type {
   EmailTemplateCreate,
   EmailTemplateOut,
   EmailTemplateUpdate,
+  EventCharacterCreate,
+  EventCharacterOut,
   EventLogOut,
+  EventOut,
+  EventRegistrationCreate,
+  EventRegistrationOut,
+  EventRegistrationUpdate,
+  EventUpdate,
   SecMemberOut,
   UUID
 } from "@/types/api";
@@ -80,6 +87,32 @@ export const adminService = {
   updateEmailTemplate: (id: UUID, payload: EmailTemplateUpdate) =>
     apiClient.patch<EmailTemplateOut>(`/api/email-templates/${id}`, payload),
   deleteEmailTemplate: (id: UUID) => apiClient.deleteEmpty(`/api/email-templates/${id}`),
+
+  // ─── events ─────────────────────────────────────────────────────────────────
+  fetchEvents: () => apiClient.get<EventOut[]>("/api/events"),
+  fetchEvent: (slug: string) => apiClient.get<EventOut>(`/api/events/${slug}`),
+  updateEvent: (slug: string, payload: EventUpdate) =>
+    apiClient.patch<EventOut>(`/api/events/${slug}`, payload),
+  fetchEventRegistrations: (slug: string) =>
+    apiClient.get<EventRegistrationOut[]>(`/api/events/${slug}/registrations`),
+  createEventRegistration: (slug: string, payload: EventRegistrationCreate) =>
+    apiClient.post<EventRegistrationOut>(`/api/events/${slug}/registrations`, payload),
+  updateEventRegistration: (slug: string, id: UUID, payload: EventRegistrationUpdate) =>
+    apiClient.patch<EventRegistrationOut>(`/api/events/${slug}/registrations/${id}`, payload),
+  deleteEventRegistration: (slug: string, id: UUID) =>
+    apiClient.deleteEmpty(`/api/events/${slug}/registrations/${id}`),
+  fetchEventCharacters: (slug: string) =>
+    apiClient.get<EventCharacterOut[]>(`/api/events/${slug}/characters`),
+  createEventCharacter: (slug: string, payload: EventCharacterCreate) =>
+    apiClient.post<EventCharacterOut>(`/api/events/${slug}/characters`, payload),
+  deleteEventCharacter: (slug: string, id: UUID) =>
+    apiClient.deleteEmpty(`/api/events/${slug}/characters/${id}`),
+  assignEventCharacter: (slug: string, characterId: UUID, registrationId: UUID) =>
+    apiClient.post<EventCharacterOut>(`/api/events/${slug}/characters/${characterId}/assign`, {
+      registration_id: registrationId
+    }),
+  unassignEventCharacter: (slug: string, characterId: UUID) =>
+    apiClient.delete<EventCharacterOut>(`/api/events/${slug}/characters/${characterId}/assign`),
 
   // ─── activity log ───────────────────────────────────────────────────────────
   fetchEventLogs: () => apiClient.get<EventLogOut[]>("/api/logs"),

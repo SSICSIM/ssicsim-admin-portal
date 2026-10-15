@@ -8,6 +8,10 @@ from email.mime.text import MIMEText
 from html import escape
 from pathlib import Path
 
+from redis import Redis
+from rq import Queue
+from rq.job import Job
+
 from app.config import settings
 
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "branding"
@@ -75,8 +79,6 @@ def _render_inline(text: str) -> str:
         rf'<a href="\2" style="{_LINK_STYLE}">\1</a>', escape(text)
     )
     return _BOLD_PATTERN.sub(r"<strong>\1</strong>", html)
-
-
 
 
 def _render_fields(lines: list[str]) -> str | None:
@@ -219,7 +221,9 @@ def send_emails(
                 if not addr:
                     continue
                 try:
-                    subject = _to_plain(_replace_placeholders(subject_template, recipient))
+                    subject = _to_plain(
+                        _replace_placeholders(subject_template, recipient)
+                    )
                     body = _replace_placeholders(body_template, recipient)
                     plain = _to_plain(body)
                     html = _render_html(body)
@@ -274,3 +278,11 @@ def send_emails(
         raise RuntimeError(f"{summary}. Failures: {details}")
     print(summary)
     return results
+
+
+def enqueue_send_emails(
+    recipients: list[dict[str, str]], subject: str, body: str
+) -> Job:
+    return Queue(connection=Redis.from_url(settings.redis_url)).enqueue(
+        send_emails, recipients, subject, body, job_timeout=300
+    )
