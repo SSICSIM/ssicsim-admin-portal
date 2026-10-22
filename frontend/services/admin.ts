@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/apiClient";
 import type {
+  CheckInOut,
   AssignmentCreate,
   AssignmentOut,
   CharacterCreate,
@@ -101,6 +102,9 @@ export const adminService = {
     apiClient.patch<EventRegistrationOut>(`/api/events/${slug}/registrations/${id}`, payload),
   deleteEventRegistration: (slug: string, id: UUID) =>
     apiClient.deleteEmpty(`/api/events/${slug}/registrations/${id}`),
+  fetchCheckIns: () => apiClient.get<CheckInOut[]>("/api/events/check-ins"),
+  undoCheckIn: (slug: string, id: UUID) =>
+    apiClient.deleteEmpty(`/api/events/${slug}/registrations/${id}/check-in`),
   fetchEventCharacters: (slug: string) =>
     apiClient.get<EventCharacterOut[]>(`/api/events/${slug}/characters`),
   createEventCharacter: (slug: string, payload: EventCharacterCreate) =>

@@ -10,9 +10,12 @@ from app.database import get_db
 from app.models.event import EventCharacter, EventRegistration
 from app.models.sec_member import SecMember
 from app.schemas import (
+    CheckInOut,
     EventCharacterAssign,
     EventCharacterCreate,
     EventCharacterOut,
+    EventCheckInRequest,
+    EventCheckInResult,
     EventOut,
     EventRegisterRequest,
     EventRegisterResult,
@@ -29,6 +32,12 @@ router = APIRouter(prefix="/events", tags=["events"])
 @router.get("", response_model=list[EventOut])
 def list_events(db: Session = Depends(get_db)) -> list[EventOut]:
     return events.list_events(db)
+
+
+# Declared before /{slug} so "check-ins" isn't read as an event slug.
+@router.get("/check-ins", response_model=list[CheckInOut])
+def list_check_ins(db: Session = Depends(get_db)) -> list[CheckInOut]:
+    return events.list_check_ins(db)
 
 
 @router.get("/{slug}", response_model=EventOut)
@@ -52,6 +61,30 @@ def register_for_event(
     slug: str, payload: EventRegisterRequest, db: Session = Depends(get_db)
 ) -> EventRegisterResult:
     return events.register_for_event(db, slug, payload)
+
+
+# Public day-of check-in, proxied by the check-in site.
+@router.post("/{slug}/check-in", response_model=EventCheckInResult)
+def check_in(
+    slug: str, payload: EventCheckInRequest, db: Session = Depends(get_db)
+) -> EventCheckInResult:
+    return events.check_in(db, slug, payload)
+
+
+@router.delete(
+    "/{slug}/registrations/{registration_id}/check-in",
+    status_code=204,
+    response_model=None,
+    response_class=Response,
+)
+def undo_check_in(
+    slug: str,
+    registration_id: UUID,
+    db: Session = Depends(get_db),
+    actor: SecMember | None = Depends(get_current_actor),
+) -> Response:
+    events.undo_check_in(db, slug, registration_id, actor)
+    return Response(status_code=204)
 
 
 # ─── registrations ────────────────────────────────────────────────────────────

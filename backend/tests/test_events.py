@@ -33,7 +33,9 @@ def events(client, engine):
     with Session(engine) as db:
         db.add_all(
             [
-                Event(slug=MC, name="Midnight Crisis", capacity=20, has_characters=True),
+                Event(
+                    slug=MC, name="Midnight Crisis", capacity=20, has_characters=True
+                ),
                 Event(slug=SOCIAL, name="Delegate Social", capacity=120),
                 Event(slug=TRAINING, name="Delegate Training", capacity=140),
             ]
@@ -78,7 +80,9 @@ def _make_delegate(
     return resp.json()
 
 
-def _register(client, slug, email="ada@example.com", first="Ada", last="Lovelace", answers=None):
+def _register(
+    client, slug, email="ada@example.com", first="Ada", last="Lovelace", answers=None
+):
     return client.post(
         f"/api/events/{slug}/register",
         json={
@@ -140,7 +144,9 @@ def test_duplicate_registration_rejected(client, events):
 
 def test_invalid_answers_rejected(client, events):
     _make_delegate(client)
-    resp = _register(client, SOCIAL, answers={**SOCIAL_ANSWERS, "withdrawal_policy_ack": False})
+    resp = _register(
+        client, SOCIAL, answers={**SOCIAL_ANSWERS, "withdrawal_policy_ack": False}
+    )
     assert resp.status_code == 422
     assert resp.json()["detail"]["code"] == "invalid_answers"
 
@@ -166,7 +172,12 @@ def test_social_capacity_rolls_to_waitlist(client, events, engine):
 
 def test_training_capacity_is_per_session(client, events, engine):
     _set_event(engine, TRAINING, capacity=1)
-    people = [("a", "A", "One"), ("b", "B", "Two"), ("c", "C", "Three"), ("d", "D", "Four")]
+    people = [
+        ("a", "A", "One"),
+        ("b", "B", "Two"),
+        ("c", "C", "Three"),
+        ("d", "D", "Four"),
+    ]
     for key, first, last in people:
         _make_delegate(client, email=f"{key}@example.com", first=first, last=last)
 
@@ -187,7 +198,12 @@ def test_training_capacity_is_per_session(client, events, engine):
     assert second["session_label"].startswith("Session 2")
     # There's no online option.
     resp = _register(
-        client, TRAINING, email="d@example.com", first="D", last="Four", answers={"session": "online"}
+        client,
+        TRAINING,
+        email="d@example.com",
+        first="D",
+        last="Four",
+        answers={"session": "online"},
     )
     assert resp.status_code == 422
 
@@ -241,15 +257,21 @@ def test_registration_list_embeds_delegate(client, events):
 def test_admin_add_update_delete_registration(client, events):
     delegate = _make_delegate(client, status="Waitlist")
     # Admin override skips the waitlist and name checks.
-    resp = client.post(f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"]})
+    resp = client.post(
+        f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"]}
+    )
     assert resp.status_code == 201, resp.text
     reg = resp.json()
     assert reg["status"] == "Accepted"
 
-    dup = client.post(f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"]})
+    dup = client.post(
+        f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"]}
+    )
     assert dup.status_code == 409
 
-    resp = client.patch(f"/api/events/{MC}/registrations/{reg['id']}", json={"status": "Rejected"})
+    resp = client.patch(
+        f"/api/events/{MC}/registrations/{reg['id']}", json={"status": "Rejected"}
+    )
     assert resp.json()["status"] == "Rejected"
 
     resp = client.delete(f"/api/events/{MC}/registrations/{reg['id']}")
@@ -260,21 +282,36 @@ def test_admin_add_update_delete_registration(client, events):
 def test_event_characters_and_assignment(client, events):
     a = _make_delegate(client, email="a@example.com", first="A", last="One")
     b = _make_delegate(client, email="b@example.com", first="B", last="Two")
-    reg_a = client.post(f"/api/events/{MC}/registrations", json={"delegate_id": a["id"]}).json()
-    reg_b = client.post(
-        f"/api/events/{MC}/registrations", json={"delegate_id": b["id"], "status": "Pending"}
+    reg_a = client.post(
+        f"/api/events/{MC}/registrations", json={"delegate_id": a["id"]}
     ).json()
-    social_reg = client.post(f"/api/events/{SOCIAL}/registrations", json={"delegate_id": a["id"]}).json()
+    reg_b = client.post(
+        f"/api/events/{MC}/registrations",
+        json={"delegate_id": b["id"], "status": "Pending"},
+    ).json()
+    social_reg = client.post(
+        f"/api/events/{SOCIAL}/registrations", json={"delegate_id": a["id"]}
+    ).json()
 
-    char = client.post(f"/api/events/{MC}/characters", json={"name": "The Mayor"}).json()
-    other = client.post(f"/api/events/{MC}/characters", json={"name": "The Pirate"}).json()
-    assert client.post(f"/api/events/{MC}/characters", json={"name": "The Mayor"}).status_code == 409
+    char = client.post(
+        f"/api/events/{MC}/characters", json={"name": "The Mayor"}
+    ).json()
+    other = client.post(
+        f"/api/events/{MC}/characters", json={"name": "The Pirate"}
+    ).json()
+    assert (
+        client.post(
+            f"/api/events/{MC}/characters", json={"name": "The Mayor"}
+        ).status_code
+        == 409
+    )
     # Social has no characters.
     assert client.get(f"/api/events/{SOCIAL}/characters").status_code == 400
 
     # Pending registrants can't be assigned; registrations from other events can't either.
     resp = client.post(
-        f"/api/events/{MC}/characters/{char['id']}/assign", json={"registration_id": reg_b["id"]}
+        f"/api/events/{MC}/characters/{char['id']}/assign",
+        json={"registration_id": reg_b["id"]},
     )
     assert resp.status_code == 400
     resp = client.post(
@@ -284,14 +321,16 @@ def test_event_characters_and_assignment(client, events):
     assert resp.status_code == 404
 
     resp = client.post(
-        f"/api/events/{MC}/characters/{char['id']}/assign", json={"registration_id": reg_a["id"]}
+        f"/api/events/{MC}/characters/{char['id']}/assign",
+        json={"registration_id": reg_a["id"]},
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["registration_id"] == reg_a["id"]
 
     # Reassigning to another character frees the first.
     client.post(
-        f"/api/events/{MC}/characters/{other['id']}/assign", json={"registration_id": reg_a["id"]}
+        f"/api/events/{MC}/characters/{other['id']}/assign",
+        json={"registration_id": reg_a["id"]},
     )
     chars = {c["name"]: c for c in client.get(f"/api/events/{MC}/characters").json()}
     assert chars["The Mayor"]["registration_id"] is None
@@ -302,13 +341,17 @@ def test_event_characters_and_assignment(client, events):
     assert by_id[reg_a["id"]]["character"]["name"] == "The Pirate"
 
     # Rejecting a registrant releases their character.
-    client.patch(f"/api/events/{MC}/registrations/{reg_a['id']}", json={"status": "Rejected"})
+    client.patch(
+        f"/api/events/{MC}/registrations/{reg_a['id']}", json={"status": "Rejected"}
+    )
     chars = {c["name"]: c for c in client.get(f"/api/events/{MC}/characters").json()}
     assert chars["The Pirate"]["registration_id"] is None
 
 
 def test_update_event(client, events):
-    resp = client.patch(f"/api/events/{SOCIAL}", json={"registration_open": False, "capacity": 100})
+    resp = client.patch(
+        f"/api/events/{SOCIAL}", json={"registration_open": False, "capacity": 100}
+    )
     assert resp.status_code == 200, resp.text
     assert resp.json()["registration_open"] is False
     assert resp.json()["capacity"] == 100
@@ -318,15 +361,22 @@ def test_update_event(client, events):
 def test_midnight_crisis_has_no_waitlist(client, events):
     delegate = _make_delegate(client)
     resp = client.post(
-        f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"], "status": "Waitlist"}
+        f"/api/events/{MC}/registrations",
+        json={"delegate_id": delegate["id"], "status": "Waitlist"},
     )
     assert resp.status_code == 400
 
-    reg = client.post(f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"]}).json()
+    reg = client.post(
+        f"/api/events/{MC}/registrations", json={"delegate_id": delegate["id"]}
+    ).json()
     for status in ("Waitlist", "Registered"):
-        resp = client.patch(f"/api/events/{MC}/registrations/{reg['id']}", json={"status": status})
+        resp = client.patch(
+            f"/api/events/{MC}/registrations/{reg['id']}", json={"status": status}
+        )
         assert resp.status_code == 400
-    resp = client.patch(f"/api/events/{MC}/registrations/{reg['id']}", json={"status": "Withdrawn"})
+    resp = client.patch(
+        f"/api/events/{MC}/registrations/{reg['id']}", json={"status": "Withdrawn"}
+    )
     assert resp.status_code == 200
 
 
@@ -335,7 +385,8 @@ def sent_emails(monkeypatch):
     sent = []
     monkeypatch.setattr(
         "app.services.events._enqueue_email",
-        lambda recipients, subject, body: sent.append((recipients, subject, body)) or True,
+        lambda recipients, subject, body: sent.append((recipients, subject, body))
+        or True,
     )
     return sent
 
@@ -343,16 +394,35 @@ def sent_emails(monkeypatch):
 def test_moving_off_waitlist_emails_the_delegate(client, events, engine, sent_emails):
     _set_event(engine, TRAINING, capacity=1)
     _make_delegate(client, email="a@example.com", first="A", last="One")
-    _make_delegate(client, email="b@example.com", first="Bea", last="Two", preferred="Bee (she/her)")
-    _register(client, TRAINING, email="a@example.com", first="A", last="One", answers={"session": "session_2"})
+    _make_delegate(
+        client,
+        email="b@example.com",
+        first="Bea",
+        last="Two",
+        preferred="Bee (she/her)",
+    )
+    _register(
+        client,
+        TRAINING,
+        email="a@example.com",
+        first="A",
+        last="One",
+        answers={"session": "session_2"},
+    )
     waitlisted = _register(
-        client, TRAINING, email="b@example.com", first="Bea", last="Two", answers={"session": "session_2"}
+        client,
+        TRAINING,
+        email="b@example.com",
+        first="Bea",
+        last="Two",
+        answers={"session": "session_2"},
     ).json()
     assert waitlisted["status"] == "Waitlist"
     assert sent_emails == []
 
     resp = client.patch(
-        f"/api/events/{TRAINING}/registrations/{waitlisted['id']}", json={"status": "Registered"}
+        f"/api/events/{TRAINING}/registrations/{waitlisted['id']}",
+        json={"status": "Registered"},
     )
     assert resp.status_code == 200, resp.text
     assert len(sent_emails) == 1
@@ -363,17 +433,247 @@ def test_moving_off_waitlist_emails_the_delegate(client, events, engine, sent_em
     assert "Session 2 (2:00 – 3:00 PM)" in body and "UC 179" in body
 
     # Only Waitlist -> Registered emails; other changes don't.
-    client.patch(f"/api/events/{TRAINING}/registrations/{waitlisted['id']}", json={"status": "Withdrawn"})
-    client.patch(f"/api/events/{TRAINING}/registrations/{waitlisted['id']}", json={"status": "Registered"})
+    client.patch(
+        f"/api/events/{TRAINING}/registrations/{waitlisted['id']}",
+        json={"status": "Withdrawn"},
+    )
+    client.patch(
+        f"/api/events/{TRAINING}/registrations/{waitlisted['id']}",
+        json={"status": "Registered"},
+    )
     assert len(sent_emails) == 1
 
 
-def test_social_off_waitlist_email_has_event_details(client, events, engine, sent_emails):
+def test_social_off_waitlist_email_has_event_details(
+    client, events, engine, sent_emails
+):
     _set_event(engine, SOCIAL, capacity=0)
     _make_delegate(client)
     reg = _register(client, SOCIAL).json()
     assert reg["status"] == "Waitlist"
-    client.patch(f"/api/events/{SOCIAL}/registrations/{reg['id']}", json={"status": "Registered"})
+    client.patch(
+        f"/api/events/{SOCIAL}/registrations/{reg['id']}", json={"status": "Registered"}
+    )
     _, subject, body = sent_emails[0]
     assert "Delegate Social" in subject
     assert "Saturday, October 24, 2026" in body and "Victoria College" in body
+
+
+# ─── day-of check-in walk-ins ─────────────────────────────────────────────────
+
+
+def _check_in(
+    client, slug, email="ada@example.com", first="Ada", last="Lovelace", **extra
+):
+    return client.post(
+        f"/api/events/{slug}/check-in",
+        json={"first_name": first, "last_name": last, "email": email, **extra},
+    )
+
+
+def test_walk_in_offered_then_confirmed(client, events):
+    _make_delegate(client)
+    offer = _check_in(client, SOCIAL)
+    assert offer.status_code == 409
+    assert offer.json()["detail"]["code"] == "walk_in_available"
+
+    resp = _check_in(client, SOCIAL, walk_in=True)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["walk_in"] is True
+
+    regs = client.get(f"/api/events/{SOCIAL}/registrations").json()
+    assert len(regs) == 1
+    assert regs[0]["status"] == "Registered"
+    assert regs[0]["walk_in"] is True
+    assert regs[0]["checked_in_at"]
+    feed = client.get("/api/events/check-ins").json()
+    assert feed[0]["walk_in"] is True
+
+    # Undoing a walk-in removes the registration, so the delegate can walk in again.
+    reg_id = regs[0]["id"]
+    assert (
+        client.delete(
+            f"/api/events/{SOCIAL}/registrations/{reg_id}/check-in"
+        ).status_code
+        == 204
+    )
+    assert client.get(f"/api/events/{SOCIAL}/registrations").json() == []
+    assert _check_in(client, SOCIAL, walk_in=True).status_code == 200
+
+    again = _check_in(client, SOCIAL)
+    assert again.status_code == 200
+    assert again.json()["already_checked_in"] is True
+
+
+def test_walk_in_refused_when_full(client, events, engine):
+    _set_event(engine, SOCIAL, capacity=1)
+    _make_delegate(client, email="first@example.com", first="First", last="One")
+    _register(client, SOCIAL, email="first@example.com", first="First", last="One")
+    _make_delegate(client)
+    resp = _check_in(client, SOCIAL, walk_in=True)
+    assert resp.status_code == 403
+    assert resp.json()["detail"]["code"] == "event_full"
+    assert len(client.get(f"/api/events/{SOCIAL}/registrations").json()) == 1
+
+
+def test_training_walk_in_picks_an_open_session(client, events, engine):
+    _set_event(engine, TRAINING, capacity=1)
+    _make_delegate(client, email="first@example.com", first="First", last="One")
+    _register(
+        client,
+        TRAINING,
+        email="first@example.com",
+        first="First",
+        last="One",
+        answers={"session": "session_1"},
+    )
+    _make_delegate(client)
+    # Confirming without a session (or with a full one) just repeats the offer.
+    offer = _check_in(client, TRAINING, walk_in=True)
+    assert offer.status_code == 409
+    sessions = offer.json()["detail"]["sessions"]
+    assert [(s["key"], s["unavailable"]) for s in sessions] == [
+        ("session_1", "Full"),
+        ("session_2", None),
+    ]
+    assert (
+        _check_in(client, TRAINING, walk_in=True, session="session_1").status_code
+        == 409
+    )
+
+    resp = _check_in(client, TRAINING, walk_in=True, session="session_2")
+    assert resp.status_code == 200, resp.text
+    regs = client.get(f"/api/events/{TRAINING}/registrations").json()
+    assert {r["answers"]["session"] for r in regs} == {"session_1", "session_2"}
+
+
+def test_training_walk_in_refused_when_both_sessions_full(client, events, engine):
+    _set_event(engine, TRAINING, capacity=1)
+    for key, first, session in [("a", "A", "session_1"), ("b", "B", "session_2")]:
+        _make_delegate(client, email=f"{key}@example.com", first=first, last="One")
+        _register(
+            client,
+            TRAINING,
+            email=f"{key}@example.com",
+            first=first,
+            last="One",
+            answers={"session": session},
+        )
+    _make_delegate(client)
+    assert _check_in(client, TRAINING).json()["detail"]["code"] == "event_full"
+
+
+def test_no_walk_in_for_midnight_crisis_or_waitlisted_delegates(client, events):
+    _make_delegate(client)
+    assert (
+        _check_in(client, MC, walk_in=True).json()["detail"]["code"] == "not_attending"
+    )
+    _make_delegate(
+        client, email="wait@example.com", first="Wai", last="Ting", status="Waitlist"
+    )
+    resp = _check_in(
+        client, SOCIAL, email="wait@example.com", first="Wai", last="Ting", walk_in=True
+    )
+    assert resp.json()["detail"]["code"] == "not_attending"
+
+
+def _at(monkeypatch, *args):
+    from app.services import events as events_service
+
+    now = datetime(2026, *args, tzinfo=events_service.CONFERENCE_TZ)
+    monkeypatch.setattr(events_service, "_now", lambda: now)
+
+
+def test_ended_training_session_is_greyed_out(client, events, monkeypatch):
+    _at(monkeypatch, 10, 23, 13, 30)
+    _make_delegate(client)
+    sessions = _check_in(client, TRAINING).json()["detail"]["sessions"]
+    assert [(s["key"], s["unavailable"]) for s in sessions] == [
+        ("session_1", "Ended"),
+        ("session_2", None),
+    ]
+    assert (
+        _check_in(client, TRAINING, walk_in=True, session="session_1").status_code
+        == 409
+    )
+    assert (
+        _check_in(client, TRAINING, walk_in=True, session="session_2").status_code
+        == 200
+    )
+
+
+def test_check_in_closes_when_the_event_ends(client, events, monkeypatch):
+    _make_delegate(client, email="early@example.com", first="Early", last="Bird")
+    _make_delegate(client, email="late@example.com", first="Late", last="Comer")
+    _register(client, SOCIAL, email="early@example.com", first="Early", last="Bird")
+    _register(client, SOCIAL, email="late@example.com", first="Late", last="Comer")
+    _at(monkeypatch, 10, 24, 21, 0)
+    assert (
+        _check_in(
+            client, SOCIAL, email="early@example.com", first="Early", last="Bird"
+        ).status_code
+        == 200
+    )
+
+    _at(monkeypatch, 10, 24, 22, 0)
+    late = _check_in(
+        client, SOCIAL, email="late@example.com", first="Late", last="Comer"
+    )
+    assert late.json()["detail"]["code"] == "check_in_closed"
+    assert "10:00 PM" in late.json()["detail"]["message"]
+    # Already checked in: the green screen still comes back.
+    again = _check_in(
+        client, SOCIAL, email="early@example.com", first="Early", last="Bird"
+    )
+    assert again.json()["already_checked_in"] is True
+    _make_delegate(client)
+    assert (
+        _check_in(client, SOCIAL, walk_in=True).json()["detail"]["code"]
+        == "check_in_closed"
+    )
+
+
+def test_registered_training_check_in_closes_with_their_session(
+    client, events, monkeypatch
+):
+    _make_delegate(client)
+    _register(client, TRAINING, answers={"session": "session_1"})
+    _at(monkeypatch, 10, 23, 13, 30)
+    assert _check_in(client, TRAINING).json()["detail"]["code"] == "check_in_closed"
+
+
+@pytest.mark.parametrize(
+    ("slug", "answers", "ends"),
+    [
+        (TRAINING, {"session": "session_1"}, (10, 23, 13, 0)),
+        (TRAINING, {"session": "session_2"}, (10, 23, 15, 0)),
+        (MC, {}, (10, 23, 23, 0)),
+        (SOCIAL, {}, (10, 24, 22, 0)),
+    ],
+)
+def test_check_in_closes_at_end_and_stays_closed(
+    client, events, monkeypatch, slug, answers, ends
+):
+    from app.services import events as events_service
+
+    delegate = _make_delegate(client)
+    resp = client.post(
+        f"/api/events/{slug}/registrations",
+        json={"delegate_id": delegate["id"], "answers": answers},
+    )
+    assert resp.status_code == 201, resp.text
+
+    end = datetime(2026, *ends, tzinfo=events_service.CONFERENCE_TZ)
+    for now in (
+        end,
+        end + timedelta(minutes=1),
+        end + timedelta(days=1),
+        end + timedelta(days=30),
+    ):
+        monkeypatch.setattr(events_service, "_now", lambda now=now: now)
+        assert (
+            _check_in(client, slug).json()["detail"]["code"] == "check_in_closed"
+        ), now
+
+    monkeypatch.setattr(events_service, "_now", lambda: end - timedelta(minutes=1))
+    assert _check_in(client, slug).status_code == 200

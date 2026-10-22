@@ -100,6 +100,13 @@ class EventRegistration(Base):
         default=datetime.utcnow,
         server_default=text("now()"),
     )
+    # Set when the delegate checks in at the door via the QR check-in form.
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Signed up at the door: not registered for the event beforehand, but it
+    # had space, so check-in registered them on the spot.
+    walk_in: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
 
     # Delegate details are read live from the delegate record, never copied.
     delegate: Mapped[Delegate] = relationship(lazy="joined")

@@ -7,6 +7,7 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from pydantic import BaseModel, ValidationError
@@ -20,9 +21,12 @@ from app.models.enums import DelegateStatus, EventRegistrationStatus, EventType
 from app.models.event import Event, EventCharacter, EventRegistration
 from app.models.sec_member import SecMember
 from app.schemas import (
+    CheckInOut,
     DelegateSocialAnswers,
     DelegateTrainingAnswers,
     EventCharacterCreate,
+    EventCheckInRequest,
+    EventCheckInResult,
     EventOut,
     EventRegisterRequest,
     EventRegisterResult,
@@ -55,6 +59,33 @@ TRAINING_SESSIONS: list[tuple[str, str]] = [
 ]
 _SESSION_LABELS = dict(TRAINING_SESSIONS)
 
+# Check-in closes when the event (or training session) ends. Times match the
+# public event schedule, in conference-local time.
+CONFERENCE_TZ = ZoneInfo("America/Toronto")
+SESSION_ENDS: dict[str, datetime] = {
+    "session_1": datetime(2026, 10, 23, 13, 0, tzinfo=CONFERENCE_TZ),
+    "session_2": datetime(2026, 10, 23, 15, 0, tzinfo=CONFERENCE_TZ),
+}
+EVENT_ENDS: dict[str, datetime] = {
+    DELEGATE_TRAINING: SESSION_ENDS["session_2"],
+    MIDNIGHT_CRISIS: datetime(2026, 10, 23, 23, 0, tzinfo=CONFERENCE_TZ),
+    DELEGATE_SOCIAL: datetime(2026, 10, 24, 22, 0, tzinfo=CONFERENCE_TZ),
+}
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _closed(event: Event, ends: datetime) -> HTTPException:
+    closed_at = ends.astimezone(CONFERENCE_TZ).strftime("%I:%M %p").lstrip("0")
+    return _error(
+        403,
+        "check_in_closed",
+        f"Check-in for {event.name} closed at {closed_at}. Please see an organizer.",
+    )
+
+
 # Shown in the "you're off the waitlist" email. Training's time comes from
 # the delegate's session.
 EVENT_DETAILS: dict[str, dict[str, str]] = {
@@ -83,9 +114,9 @@ SELECTIVE_STATUSES = {
 FILLED_STATUSES = (EventRegistrationStatus.REGISTERED, EventRegistrationStatus.ACCEPTED)
 
 
-def _error(status_code: int, code: str, message: str) -> HTTPException:
+def _error(status_code: int, code: str, message: str, **extra: Any) -> HTTPException:
     return HTTPException(
-        status_code=status_code, detail={"code": code, "message": message}
+        status_code=status_code, detail={"code": code, "message": message, **extra}
     )
 
 
@@ -101,6 +132,22 @@ def get_event(db: Session, slug: str) -> Event:
     if event is None:
         raise _error(404, "event_not_found", "This event doesn't exist.")
     return event
+
+
+def _delegate_by_email(db: Session, email: str) -> Delegate | None:
+    return db.scalar(select(Delegate).where(func.lower(Delegate.email) == email))
+
+
+def _registration_for(
+    db: Session, event: Event, delegate: Delegate, *, lock: bool = False
+) -> EventRegistration | None:
+    query = select(EventRegistration).where(
+        EventRegistration.event_id == event.id,
+        EventRegistration.delegate_id == delegate.id,
+    )
+    if lock:
+        query = query.with_for_update(of=EventRegistration)
+    return db.scalar(query)
 
 
 def _filled_count(db: Session, event: Event, session: str | None = None) -> int:
@@ -266,7 +313,7 @@ def register_for_event(
         )
 
     email = str(payload.email).strip().lower()
-    delegate = db.scalar(select(Delegate).where(func.lower(Delegate.email) == email))
+    delegate = _delegate_by_email(db, email)
     if delegate is None:
         db.rollback()
         raise _error(
@@ -295,12 +342,7 @@ def register_for_event(
             "delegate registration.",
         )
 
-    existing = db.scalar(
-        select(EventRegistration).where(
-            EventRegistration.event_id == event.id,
-            EventRegistration.delegate_id == delegate.id,
-        )
-    )
+    existing = _registration_for(db, event, delegate)
     if existing is not None:
         db.rollback()
         raise _error(
@@ -413,6 +455,223 @@ def _off_waitlist_email(
         "Sincerely,\nThe SSICSIM Secretariat"
     )
     return subject, body
+
+
+# ─── day-of check-in ──────────────────────────────────────────────────────────
+
+CHECK_IN_STATUSES = (
+    EventRegistrationStatus.REGISTERED,
+    EventRegistrationStatus.ACCEPTED,
+)
+
+
+def check_in(
+    db: Session, slug: str, payload: EventCheckInRequest
+) -> EventCheckInResult:
+    """Public check-in from the QR form: the email and name must match a
+    delegate holding a spot (Registered/Accepted) for this event. Checking in
+    twice is fine and returns the original time."""
+    event = get_event(db, slug)
+    email = str(payload.email).strip().lower()
+    delegate = _delegate_by_email(db, email)
+    if delegate is None or not name_matches(
+        delegate, payload.first_name, payload.last_name
+    ):
+        raise _error(
+            422,
+            "not_found",
+            "We couldn't find a delegate with that name and email. Use the name "
+            "and email you registered with, or see the registration desk.",
+        )
+
+    # Locked so a double tap can't check in (and log) twice.
+    registration = _registration_for(db, event, delegate, lock=True)
+    if (
+        registration is None
+        and event.slug not in SELECTIVE_EVENTS
+        and delegate.delegate_status != DelegateStatus.WAITLIST
+    ):
+        return _walk_in(db, event, delegate, payload)
+    if registration is None or registration.status not in CHECK_IN_STATUSES:
+        status = registration.status.value if registration else "not signed up"
+        raise _error(
+            403,
+            "not_attending",
+            f"You don't have a confirmed spot for {event.name} ({status}). Please see an organizer.",
+        )
+
+    already = registration.checked_in_at is not None
+    # Someone already checked in can still pull up their green screen.
+    ends = SESSION_ENDS.get(registration.answers.get("session")) or EVENT_ENDS.get(
+        event.slug
+    )
+    if not already and ends and _now() >= ends:
+        raise _closed(event, ends)
+    if not already:
+        registration.checked_in_at = datetime.now(UTC)
+        record_event(
+            db,
+            None,
+            EventType.EVENT_REGISTRATION,
+            "event_registration",
+            str(registration.id),
+            f"{_delegate_name(delegate)} checked in to {event.name}",
+        )
+        db.commit()
+
+    return _check_in_result(event, registration, already)
+
+
+def _check_in_result(
+    event: Event, registration: EventRegistration, already: bool
+) -> EventCheckInResult:
+    return EventCheckInResult(
+        event_slug=event.slug,
+        event_name=event.name,
+        delegate_name=_delegate_name(registration.delegate),
+        checked_in_at=registration.checked_in_at,
+        already_checked_in=already,
+        walk_in=registration.walk_in,
+    )
+
+
+def _walk_in(
+    db: Session, event: Event, delegate: Delegate, payload: EventCheckInRequest
+) -> EventCheckInResult:
+    """A conference delegate who never signed up for this event. If it has
+    space, offer to add them; once they confirm (walk_in=True, plus the
+    session they picked for Delegate Training), register and check them in
+    together."""
+    # Only a confirmed walk-in takes a spot, so only it locks the event row
+    # (two can't both take the last spot); the offer itself doesn't.
+    if payload.walk_in:
+        db.refresh(event, with_for_update=True)
+
+    def has_space(session: str | None = None) -> bool:
+        return (
+            event.capacity is None or _filled_count(db, event, session) < event.capacity
+        )
+
+    ends = EVENT_ENDS.get(event.slug)
+    if ends and _now() >= ends:
+        db.rollback()
+        raise _closed(event, ends)
+
+    # Training walk-ins pick a session; ones that have ended or are full are
+    # listed but greyed out.
+    if event.slug == DELEGATE_TRAINING:
+        sessions = []
+        for key, label in TRAINING_SESSIONS:
+            unavailable = None
+            if _now() >= SESSION_ENDS[key]:
+                unavailable = "Ended"
+            elif not has_space(key):
+                unavailable = "Full"
+            sessions.append({"key": key, "label": label, "unavailable": unavailable})
+        open_sessions = [s for s in sessions if not s["unavailable"]]
+        space = bool(open_sessions)
+        next_step = (
+            "Pick the session you're attending and we'll add you and check you in."
+        )
+    else:
+        sessions = open_sessions = []
+        space = has_space()
+        next_step = "We can add you and check you in now."
+    if not space:
+        db.rollback()
+        raise _error(
+            403,
+            "event_full",
+            f"You aren't signed up for {event.name}, and it's full. Please see an organizer.",
+        )
+
+    session = payload.session if open_sessions else None
+    if not payload.walk_in or (
+        open_sessions and session not in {s["key"] for s in open_sessions}
+    ):
+        db.rollback()
+        raise _error(
+            409,
+            "walk_in_available",
+            f"You aren't signed up for {event.name}, but there's still space. {next_step}",
+            sessions=sessions,
+        )
+
+    registration = EventRegistration(
+        event_id=event.id,
+        delegate_id=delegate.id,
+        status=EventRegistrationStatus.REGISTERED,
+        submitted_first_name=payload.first_name.strip(),
+        submitted_last_name=payload.last_name.strip(),
+        answers={"session": session} if session else {},
+        checked_in_at=datetime.now(UTC),
+        walk_in=True,
+    )
+    db.add(registration)
+    try:
+        db.flush()
+        record_event(
+            db,
+            None,
+            EventType.EVENT_REGISTRATION,
+            "event_registration",
+            str(registration.id),
+            f"{_delegate_name(delegate)} walked in and checked in to {event.name}",
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # A double tap already added them: check in that registration instead.
+        if _registration_for(db, event, delegate) is None:
+            raise
+        return check_in(db, event.slug, payload)
+
+    return _check_in_result(event, registration, already=False)
+
+
+def list_check_ins(db: Session) -> list[CheckInOut]:
+    rows = db.execute(
+        select(EventRegistration, Event)
+        .join(Event, Event.id == EventRegistration.event_id)
+        .where(EventRegistration.checked_in_at.is_not(None))
+        .order_by(EventRegistration.checked_in_at.desc())
+    ).unique()
+    return [
+        CheckInOut(
+            registration_id=registration.id,
+            event_slug=event.slug,
+            event_name=event.name,
+            delegate_name=_delegate_name(registration.delegate),
+            delegate_email=registration.delegate.email,
+            checked_in_at=registration.checked_in_at,
+            walk_in=registration.walk_in,
+        )
+        for registration, event in rows
+    ]
+
+
+def undo_check_in(
+    db: Session, slug: str, registration_id: UUID, actor: SecMember | None = None
+) -> None:
+    event = get_event(db, slug)
+    registration = _get_registration(db, event, registration_id)
+    # A walk-in only signed up by checking in, so undoing it removes the
+    # registration too and frees the spot.
+    if registration.walk_in:
+        db.delete(registration)
+        action = "Removed walk-in"
+    else:
+        registration.checked_in_at = None
+        action = "Undid check-in of"
+    record_event(
+        db,
+        actor,
+        EventType.EVENT_REGISTRATION,
+        "event_registration",
+        str(registration.id),
+        f"{action} {_delegate_name(registration.delegate)} for {event.name}",
+    )
+    db.commit()
 
 
 # ─── admin: registrations ─────────────────────────────────────────────────────
@@ -662,8 +921,7 @@ def unassign_character(
             EventType.UNASSIGNMENT,
             "Delegate",
             str(character.registration.delegate_id),
-            f"{_delegate_name(character.registration.delegate)} unassigned from "
-            f"{character.name} ({event.name})",
+            f"{_delegate_name(character.registration.delegate)} unassigned from {character.name} ({event.name})",
         )
     character.registration_id = None
     db.commit()
