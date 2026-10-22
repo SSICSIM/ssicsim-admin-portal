@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { MoreHorizontal } from "lucide-react";
+import { CheckCircle2, MoreHorizontal } from "lucide-react";
 
 import {
   useAssignEventCharacter,
@@ -91,7 +91,8 @@ import {
   statusesFor
 } from "@/utils/events";
 
-type SortKey = "name" | "grade" | "experience" | "delegation" | "eventStatus" | "registered";
+type SortKey =
+  "name" | "grade" | "experience" | "delegation" | "eventStatus" | "checkedIn" | "registered";
 
 // ─── event settings ───────────────────────────────────────────────────────────
 
@@ -352,6 +353,8 @@ function RegistrationViewDialog({
 
 // ─── registrations tab ────────────────────────────────────────────────────────
 
+type CheckInFilter = "all" | "in" | "out";
+
 function RegistrationsTab({
   event,
   registrations,
@@ -367,6 +370,7 @@ function RegistrationsTab({
   const deleteRegistration = useDeleteEventRegistration(event.slug);
   const [statusFilter, setStatusFilter] = useState<EventRegistrationStatus | "all">("all");
   const [sessionFilter, setSessionFilter] = useState<string>("all");
+  const [checkInFilter, setCheckInFilter] = useState<CheckInFilter>("all");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("registered");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -390,6 +394,8 @@ function RegistrationsTab({
     return registrations.filter((r) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (sessionFilter !== "all" && r.answers?.session !== sessionFilter) return false;
+      if (checkInFilter !== "all" && Boolean(r.checked_in_at) !== (checkInFilter === "in"))
+        return false;
       if (term) {
         const d = r.delegate;
         const haystack =
@@ -398,7 +404,7 @@ function RegistrationsTab({
       }
       return true;
     });
-  }, [registrations, statusFilter, sessionFilter, search]);
+  }, [registrations, statusFilter, sessionFilter, checkInFilter, search]);
 
   const sorted = useMemo(() => {
     const value = (r: EventRegistrationOut): string => {
@@ -414,6 +420,8 @@ function RegistrationsTab({
           return delegationName(r).toLowerCase();
         case "eventStatus":
           return r.status;
+        case "checkedIn":
+          return r.checked_in_at ?? "";
         case "registered":
           return r.created_at ?? "";
       }
@@ -508,6 +516,22 @@ function RegistrationsTab({
               </Select>
             </div>
           )}
+          <div className="w-40 space-y-2">
+            <Label>Check-in</Label>
+            <Select
+              value={checkInFilter}
+              onValueChange={(v) => setCheckInFilter(v as CheckInFilter)}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Everyone</SelectItem>
+                <SelectItem value="in">Checked in</SelectItem>
+                <SelectItem value="out">Not checked in</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label>Search</Label>
             <Input
@@ -575,6 +599,7 @@ function RegistrationsTab({
                   <SortableHead label="Experience" sortKeyName="experience" {...headProps} />
                   <SortableHead label="Delegation" sortKeyName="delegation" {...headProps} />
                   <SortableHead label="Event status" sortKeyName="eventStatus" {...headProps} />
+                  <SortableHead label="Checked in" sortKeyName="checkedIn" {...headProps} />
                   {tableFields.map((f) => (
                     <TableHead key={f.key}>{f.label}</TableHead>
                   ))}
@@ -610,6 +635,20 @@ function RegistrationsTab({
                             ))}
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {r.checked_in_at ? (
+                          <span className="inline-flex items-center gap-1.5 font-semibold text-green-700">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            {new Date(r.checked_in_at).toLocaleTimeString(undefined, {
+                              hour: "numeric",
+                              minute: "2-digit"
+                            })}
+                            {r.walk_in && <Badge variant="info">Walk-in</Badge>}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--ssicsim-text-muted)]">--</span>
+                        )}
                       </TableCell>
                       {tableFields.map((f) => {
                         const text = formatAnswer(event, r, f.key);

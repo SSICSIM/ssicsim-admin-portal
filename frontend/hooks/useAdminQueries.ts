@@ -33,7 +33,8 @@ export const queryKeys = {
   events: ["events"] as const,
   event: (slug: string) => ["event", slug] as const,
   eventRegistrations: (slug: string) => ["eventRegistrations", slug] as const,
-  eventCharacters: (slug: string) => ["eventCharacters", slug] as const
+  eventCharacters: (slug: string) => ["eventCharacters", slug] as const,
+  checkIns: ["checkIns"] as const
 };
 
 // Query hooks
@@ -294,10 +295,11 @@ export function useSecMembers() {
 }
 
 // Event hooks
-export function useEvents() {
+export function useEvents({ refetchInterval }: { refetchInterval?: number } = {}) {
   return useQuery({
     queryKey: queryKeys.events,
-    queryFn: () => adminService.fetchEvents()
+    queryFn: () => adminService.fetchEvents(),
+    refetchInterval
   });
 }
 
@@ -364,6 +366,26 @@ export function useDeleteEventRegistration(slug: string) {
   return useMutation({
     mutationFn: (id: UUID) => adminService.deleteEventRegistration(slug, id),
     onSuccess: () => invalidateEvent(queryClient, slug)
+  });
+}
+
+// Delegates check themselves in from the QR form, so poll for the live feed.
+export function useCheckIns() {
+  return useQuery({
+    queryKey: queryKeys.checkIns,
+    queryFn: () => adminService.fetchCheckIns(),
+    refetchInterval: 3000
+  });
+}
+
+export function useUndoCheckIn() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ slug, id }: { slug: string; id: UUID }) => adminService.undoCheckIn(slug, id),
+    onSuccess: (_data, { slug }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.checkIns });
+      invalidateEvent(queryClient, slug);
+    }
   });
 }
 

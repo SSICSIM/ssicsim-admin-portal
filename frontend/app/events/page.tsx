@@ -62,6 +62,11 @@ export default function EventsPage() {
       <PageHeader
         title="Events"
         description="Registrations for Midnight Crisis, Delegate Social, and Delegate Training. Only registered (non-waitlisted) delegates can sign up from the website."
+        action={
+          <Button asChild size="sm">
+            <Link href="/events/check-in">Check-in</Link>
+          </Button>
+        }
       />
 
       <StatRow stats={stats} />

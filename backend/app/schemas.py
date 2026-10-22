@@ -465,6 +465,8 @@ class EventRegistrationOut(BaseModel):
     submitted_last_name: str | None = None
     answers: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = None
+    checked_in_at: datetime | None = None
+    walk_in: bool = False
     delegate: DelegateOut
     character: EventCharacterOut | None = None
 
@@ -493,6 +495,42 @@ class EventRegisterResult(BaseModel):
     delegate_preferred_name: str | None = None
     delegate_email: str
     session_label: str | None = None
+
+
+class EventCheckInRequest(BaseModel):
+    """A day-of check-in from the QR code form."""
+
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
+    email: EmailStr
+    # Set once the delegate confirms they want to be added to an event they
+    # didn't sign up for; Delegate Training walk-ins also pick a session.
+    walk_in: bool = False
+    session: str | None = None
+
+
+class EventCheckInResult(BaseModel):
+    """Shown on the delegate's phone for an organizer to compare against
+    their lanyard, so it carries the registered name, not the typed one."""
+
+    event_slug: str
+    event_name: str
+    delegate_name: str
+    checked_in_at: datetime
+    already_checked_in: bool
+    walk_in: bool = False
+
+
+class CheckInOut(BaseModel):
+    """One row of the admin live check-in feed."""
+
+    registration_id: UUID
+    event_slug: str
+    event_name: str
+    delegate_name: str
+    delegate_email: str
+    checked_in_at: datetime
+    walk_in: bool = False
 
 
 # Per-event form answers, validated on public sign-up.

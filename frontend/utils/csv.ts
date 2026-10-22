@@ -490,6 +490,8 @@ export function buildEventRegistrationRows(
     "delegate_experience",
     "delegation",
     "event_status",
+    "checked_in_at",
+    "walk_in",
     "registered_at",
     "submitted_name",
     ...fields.map((f) => f.key)
@@ -508,6 +510,8 @@ export function buildEventRegistrationRows(
         d.delegate_experience,
         delegationNameFor(d, delegationsById),
         r.status,
+        r.checked_in_at ? formatDateTime(r.checked_in_at) : "",
+        r.walk_in ? "Yes" : "",
         formatDateTime(r.created_at),
         [r.submitted_first_name, r.submitted_last_name].filter(Boolean).join(" "),
         ...fields.map((f) => formatAnswer(event, r, f.key))

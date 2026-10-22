@@ -266,9 +266,23 @@ export type EventRegistrationOut = {
   submitted_last_name: string | null;
   answers: Record<string, unknown>;
   created_at: string | null;
+  checked_in_at: string | null;
+  // Added at the door by check-in, not signed up beforehand
+  walk_in: boolean;
   // Read live from the delegate record
   delegate: DelegateOut;
   character: EventCharacterOut | null;
+};
+
+// One row of the live day-of check-in feed.
+export type CheckInOut = {
+  registration_id: UUID;
+  event_slug: string;
+  event_name: string;
+  delegate_name: string;
+  delegate_email: string;
+  checked_in_at: string;
+  walk_in: boolean;
 };
 
 export type EventRegistrationCreate = {
