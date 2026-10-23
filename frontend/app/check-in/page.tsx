@@ -122,6 +122,7 @@ export default function ConferenceCheckInPage() {
   }
 
   const delegates = useMemo(() => delegatesQuery.data ?? [], [delegatesQuery.data]);
+  const delegateById = useMemo(() => new Map(delegates.map((d) => [d.id, d])), [delegates]);
   const delegations = useMemo(() => delegationsQuery.data ?? [], [delegationsQuery.data]);
   // Waitlisted delegates hold no spot, so they aren't expected at the desk.
   const attending = useMemo(() => delegates.filter(isOnRoster), [delegates]);
@@ -298,7 +299,7 @@ export default function ConferenceCheckInPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Delegation</TableHead>
-                    <TableHead>Faculty advisor</TableHead>
+                    <TableHead>Faculty Advisor/Head Delegate</TableHead>
                     <TableHead>Delegates checked in</TableHead>
                     <TableHead className="text-right">Check-in</TableHead>
                   </TableRow>
@@ -307,13 +308,23 @@ export default function ConferenceCheckInPage() {
                   {visibleDelegations.map((d) => {
                     const members = attendingByDelegation.get(d.id) ?? [];
                     const membersIn = members.filter((m) => m.checked_in_at).length;
+                    const headDelegate = d.head_delegate_id
+                      ? delegateById.get(d.head_delegate_id)
+                      : undefined;
                     return (
                       <TableRow key={d.id} className={cn(d.checked_in_at && "bg-green-50/60")}>
                         <TableCell className="font-semibold">{d.name}</TableCell>
                         <TableCell>
-                          {[d.faculty_advisor_first_name, d.faculty_advisor_last_name]
-                            .filter(Boolean)
-                            .join(" ") || "--"}
+                          <p>
+                            {[d.faculty_advisor_first_name, d.faculty_advisor_last_name]
+                              .filter(Boolean)
+                              .join(" ") || "--"}
+                          </p>
+                          {headDelegate ? (
+                            <p className="text-xs text-[var(--ssicsim-text-muted)]">
+                              Head delegate: {delegateName(headDelegate)}
+                            </p>
+                          ) : null}
                         </TableCell>
                         <TableCell className="tabular-nums">
                           {membersIn} / {members.length}

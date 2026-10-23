@@ -83,52 +83,29 @@ def test_delegate_check_in_and_undo(client):
     assert all(log["target_type"] == "Delegate" for log in logs)
 
 
-def test_delegation_check_in_checks_in_its_delegates(client):
+def test_delegation_check_in_leaves_its_delegates_alone(client):
+    """Checking in a delegation means its faculty advisor or head delegate
+    arrived; every delegate, the head delegate included, checks in on their own."""
     delegation = _make_delegation(client)
-    early = _make_delegate(
-        client, "early@example.com", "Early", delegation_id=delegation["id"]
-    )
-    early_at = client.post(f"/api/delegates/{early['id']}/check-in").json()[
-        "checked_in_at"
-    ]
-    _make_delegate(client, "bo@example.com", "Bo", delegation_id=delegation["id"])
-    _make_delegate(
-        client,
-        "pay@example.com",
-        "Pay",
-        status="Awaiting Payment",
-        delegation_id=delegation["id"],
-    )
-    _make_delegate(
-        client,
-        "wait@example.com",
-        "Wait",
-        status="Waitlist",
-        delegation_id=delegation["id"],
-    )
-    _make_delegate(client, "other@example.com", "Other")
+    bo = _make_delegate(client, "bo@example.com", "Bo", delegation_id=delegation["id"])
 
     resp = client.post(
         f"/api/delegations/{delegation['id']}/check-in", headers=ACTOR_HEADERS
     )
     assert resp.status_code == 200, resp.text
     assert resp.json()["checked_in_at"] is not None
-
-    by_first = {d["first_name"]: d for d in client.get("/api/delegates").json()}
-    assert by_first["Early"]["checked_in_at"] == early_at
-    assert by_first["Bo"]["checked_in_at"] is not None
-    assert by_first["Wait"]["checked_in_at"] is None
-    assert by_first["Pay"]["checked_in_at"] is not None
-    assert by_first["Other"]["checked_in_at"] is None
+    assert client.get(f"/api/delegates/{bo['id']}").json()["checked_in_at"] is None
     assert _check_in_logs(client)[0]["details"] == (
-        "Checked in Northview with 2 delegates (1 had already checked in)"
+        "Checked in Northview (faculty advisor/head delegate)"
     )
 
-    # Undoing the delegation leaves its delegates checked in.
+    # Checking in again changes nothing and logs nothing.
+    client.post(f"/api/delegations/{delegation['id']}/check-in")
+    assert len(_check_in_logs(client)) == 1
+
     resp = client.delete(f"/api/delegations/{delegation['id']}/check-in")
     assert resp.json()["checked_in_at"] is None
-    by_first = {d["first_name"]: d for d in client.get("/api/delegates").json()}
-    assert by_first["Bo"]["checked_in_at"] is not None
+    assert _check_in_logs(client)[0]["details"] == "Undid check-in of Northview"
 
 
 def test_check_in_unknown_delegate_is_404(client):

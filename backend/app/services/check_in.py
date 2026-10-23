@@ -6,7 +6,6 @@ from typing import TypeVar
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.delegate import Delegate
@@ -80,37 +79,15 @@ def undo_delegate_check_in(
 def check_in_delegation(
     db: Session, delegation_id: UUID, actor: SecMember | None = None
 ) -> Delegation:
-    """Checks in the delegation and all of its delegates. Anyone who already
-    checked in on their own keeps their original time. Waitlisted delegates
-    hold no spot, so they're skipped."""
+    """Checks in the delegation itself: its faculty advisor or head delegate
+    has arrived. Its delegates are checked in separately, one by one, and a
+    head delegate counts as one of them, so they need both check-ins."""
 
     def change(delegation: Delegation) -> str | None:
-        now = datetime.now(UTC)
-        members = db.scalars(
-            select(Delegate)
-            .where(
-                Delegate.delegation_id == delegation.id,
-                Delegate.delegate_status != DelegateStatus.WAITLIST,
-            )
-            .with_for_update()
-        ).all()
-        arriving = [d for d in members if d.checked_in_at is None]
-        for delegate in arriving:
-            delegate.checked_in_at = now
-
-        if delegation.checked_in_at is not None and not arriving:
+        if delegation.checked_in_at is not None:
             return None
-        if delegation.checked_in_at is None:
-            delegation.checked_in_at = now
-        already = len(members) - len(arriving)
-        if not members:
-            return f"Checked in {delegation.name}"
-        if not arriving:
-            return f"Checked in {delegation.name} (all {_count(already)} already in)"
-        details = f"Checked in {delegation.name} with {_count(len(arriving))}"
-        if already:
-            details += f" ({already} had already checked in)"
-        return details
+        delegation.checked_in_at = datetime.now(UTC)
+        return f"Checked in {delegation.name} (faculty advisor/head delegate)"
 
     return _update(db, Delegation, delegation_id, actor, change)
 
@@ -118,10 +95,5 @@ def check_in_delegation(
 def undo_delegation_check_in(
     db: Session, delegation_id: UUID, actor: SecMember | None = None
 ) -> Delegation:
-    """Undoes the delegation's own check-in. Its delegates stay checked in;
-    undo them one by one if they haven't arrived."""
+    """Undoes the delegation's own check-in. Its delegates aren't affected."""
     return _update(db, Delegation, delegation_id, actor, lambda d: _undo(d, d.name))
-
-
-def _count(n: int) -> str:
-    return f"{n} delegate{'' if n == 1 else 's'}"
