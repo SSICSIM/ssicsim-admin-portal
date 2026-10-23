@@ -5,4 +5,7 @@ export { StatCard, StatRow } from "./stat-card";
 export type { StatCardProps, StatRowProps } from "./stat-card";
 
 export { QueryState } from "./query-state";
+
+export { FilterChips } from "./filter-chips";
+export type { FilterChipsProps } from "./filter-chips";
 export type { QueryStateProps } from "./query-state";

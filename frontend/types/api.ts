@@ -70,6 +70,8 @@ export type DelegateOut = {
   payment_receipt_url: string | null;
   heard_about: string | null;
   notes: string | null;
+  // Set when the secretariat checks them in at the conference
+  checked_in_at: string | null;
 };
 
 export type DelegationOut = {
@@ -94,13 +96,18 @@ export type DelegationOut = {
   heard_about: string | null;
   notes: string | null;
   head_delegate_id: UUID | null;
+  checked_in_at: string | null;
 };
 
-export type DelegationUpdate = Partial<Omit<DelegationOut, "id">>;
+// Check-in has its own endpoints, so it isn't editable through updates.
+export type DelegationUpdate = Partial<Omit<DelegationOut, "id" | "checked_in_at">>;
 
-export type DelegateUpdate = Partial<Omit<DelegateOut, "id">>;
+export type DelegateUpdate = Partial<Omit<DelegateOut, "id" | "checked_in_at">>;
 
-export type DelegateCreate = Omit<DelegateOut, "id" | "date_applied" | "registration_period"> & {
+export type DelegateCreate = Omit<
+  DelegateOut,
+  "id" | "date_applied" | "registration_period" | "checked_in_at"
+> & {
   date_applied?: string | null;
 };
 
@@ -185,7 +192,8 @@ export type EventType =
   | "Status Change"
   | "Unassignment"
   | "Batch Edit"
-  | "Event Registration";
+  | "Event Registration"
+  | "Check In";
 
 export type EventLogOut = {
   id: UUID;

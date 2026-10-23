@@ -11,6 +11,7 @@ import type {
   DelegationUpdate,
   DelegateBulkEditRequest,
   DelegateCreate,
+  DelegateOut,
   DelegateUpdate,
   EmailTemplateCreate,
   EmailTemplateUpdate,
@@ -117,19 +118,54 @@ export function useUpdateDelegation() {
 }
 
 // Query hooks
-export function useDelegates(enabled = true) {
+export function useDelegates({
+  enabled = true,
+  refetchInterval
+}: { enabled?: boolean; refetchInterval?: number } = {}) {
   return useQuery({
     queryKey: queryKeys.delegates,
     queryFn: () => adminService.fetchDelegates(),
-    enabled
+    enabled,
+    refetchInterval
   });
 }
 
 // Query hooks
-export function useDelegations() {
+export function useDelegations({ refetchInterval }: { refetchInterval?: number } = {}) {
   return useQuery({
     queryKey: queryKeys.delegations,
-    queryFn: () => adminService.fetchDelegations()
+    queryFn: () => adminService.fetchDelegations(),
+    refetchInterval
+  });
+}
+
+// Conference check-in. `undo` reverses it. Checking in a delegation also
+// checks in its delegates, so both lists refresh, plus the log.
+export function useDelegateCheckIn() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, undo }: { id: UUID; undo?: boolean }) =>
+      undo ? adminService.undoDelegateCheckIn(id) : adminService.checkInDelegate(id),
+    onSuccess: (updated) => {
+      // Only this delegate changed, so patch it in rather than refetching all.
+      queryClient.setQueryData<DelegateOut[]>(queryKeys.delegates, (list) =>
+        list?.map((d) => (d.id === updated.id ? updated : d))
+      );
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventLogs });
+    }
+  });
+}
+
+export function useDelegationCheckIn() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, undo }: { id: UUID; undo?: boolean }) =>
+      undo ? adminService.undoDelegationCheckIn(id) : adminService.checkInDelegation(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.delegations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventLogs });
+    }
   });
 }
 
@@ -151,6 +187,7 @@ export function useUpdateDelegate() {
       adminService.updateDelegate(payload.delegateId, payload.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
+      queryClient.invalidateQueries({ queryKey: queryKeys.eventLogs });
     }
   });
 }
@@ -287,10 +324,21 @@ export function useEventLogs() {
   });
 }
 
-export function useSecMembers() {
+// Only the check-in entries, filtered on the server. Keyed under eventLogs so
+// invalidating the log refreshes this too.
+export function useCheckInLog({ refetchInterval }: { refetchInterval?: number } = {}) {
+  return useQuery({
+    queryKey: [...queryKeys.eventLogs, "Check In"],
+    queryFn: () => adminService.fetchEventLogs("Check In"),
+    refetchInterval
+  });
+}
+
+export function useSecMembers({ refetchInterval }: { refetchInterval?: number } = {}) {
   return useQuery({
     queryKey: queryKeys.secMembers,
-    queryFn: () => adminService.fetchSecMembers()
+    queryFn: () => adminService.fetchSecMembers(),
+    refetchInterval
   });
 }
 

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Undo2 } from "lucide-react";
 
 import { useCheckIns, useEvents, useUndoCheckIn } from "@/hooks/useAdminQueries";
-import { PageHeader, PageShell, QueryState } from "@/components/page";
+import { FilterChips, PageHeader, PageShell, QueryState } from "@/components/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,23 +143,14 @@ export default function CheckInPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="flex flex-wrap gap-2 pt-2">
-            {[{ slug: "all", name: "All events" }, ...events].map((e) => (
-              <button
-                key={e.slug}
-                type="button"
-                onClick={() => setEventFilter(e.slug)}
-                className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                  eventFilter === e.slug
-                    ? "border-[var(--ssicsim-brand-navy)] bg-[var(--ssicsim-brand-navy)] text-white"
-                    : "border-[var(--ssicsim-border)] bg-white text-[var(--ssicsim-text-muted)] hover:border-[var(--ssicsim-brand-navy)]"
-                )}
-              >
-                {e.name}
-              </button>
-            ))}
-          </div>
+          <FilterChips
+            options={[{ slug: "all", name: "All events" }, ...events].map((e) => ({
+              value: e.slug,
+              label: e.name
+            }))}
+            value={eventFilter}
+            onChange={setEventFilter}
+          />
         </CardHeader>
         <CardContent>
           <QueryState

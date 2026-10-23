@@ -120,7 +120,7 @@ def _error(status_code: int, code: str, message: str, **extra: Any) -> HTTPExcep
     )
 
 
-def _delegate_name(delegate: Delegate) -> str:
+def delegate_name(delegate: Delegate) -> str:
     return delegate.full_name or f"{delegate.first_name} {delegate.last_name}"
 
 
@@ -384,7 +384,7 @@ def register_for_event(
         EventType.EVENT_REGISTRATION,
         "Delegate",
         str(delegate.id),
-        f"{_delegate_name(delegate)} signed up for {event.name} ({status.value})",
+        f"{delegate_name(delegate)} signed up for {event.name} ({status.value})",
     )
     try:
         db.commit()
@@ -515,7 +515,7 @@ def check_in(
             EventType.EVENT_REGISTRATION,
             "event_registration",
             str(registration.id),
-            f"{_delegate_name(delegate)} checked in to {event.name}",
+            f"{delegate_name(delegate)} checked in to {event.name}",
         )
         db.commit()
 
@@ -528,7 +528,7 @@ def _check_in_result(
     return EventCheckInResult(
         event_slug=event.slug,
         event_name=event.name,
-        delegate_name=_delegate_name(registration.delegate),
+        delegate_name=delegate_name(registration.delegate),
         checked_in_at=registration.checked_in_at,
         already_checked_in=already,
         walk_in=registration.walk_in,
@@ -616,7 +616,7 @@ def _walk_in(
             EventType.EVENT_REGISTRATION,
             "event_registration",
             str(registration.id),
-            f"{_delegate_name(delegate)} walked in and checked in to {event.name}",
+            f"{delegate_name(delegate)} walked in and checked in to {event.name}",
         )
         db.commit()
     except IntegrityError:
@@ -641,7 +641,7 @@ def list_check_ins(db: Session) -> list[CheckInOut]:
             registration_id=registration.id,
             event_slug=event.slug,
             event_name=event.name,
-            delegate_name=_delegate_name(registration.delegate),
+            delegate_name=delegate_name(registration.delegate),
             delegate_email=registration.delegate.email,
             checked_in_at=registration.checked_in_at,
             walk_in=registration.walk_in,
@@ -669,7 +669,7 @@ def undo_check_in(
         EventType.EVENT_REGISTRATION,
         "event_registration",
         str(registration.id),
-        f"{action} {_delegate_name(registration.delegate)} for {event.name}",
+        f"{action} {delegate_name(registration.delegate)} for {event.name}",
     )
     db.commit()
 
@@ -736,7 +736,7 @@ def create_registration(
         EventType.EVENT_REGISTRATION,
         "Delegate",
         str(delegate.id),
-        f"{_delegate_name(delegate)} added to {event.name} ({status.value})",
+        f"{delegate_name(delegate)} added to {event.name} ({status.value})",
     )
     try:
         db.commit()
@@ -772,7 +772,7 @@ def update_registration(
             EventType.EVENT_REGISTRATION,
             "Delegate",
             str(registration.delegate_id),
-            f"{_delegate_name(registration.delegate)} {event.name} status: "
+            f"{delegate_name(registration.delegate)} {event.name} status: "
             f"{registration.status.value} → {payload.status.value}",
         )
         registration.status = payload.status
@@ -805,7 +805,7 @@ def delete_registration(
         EventType.EVENT_REGISTRATION,
         "Delegate",
         str(registration.delegate_id),
-        f"{_delegate_name(registration.delegate)} removed from {event.name}",
+        f"{delegate_name(registration.delegate)} removed from {event.name}",
     )
     db.delete(registration)
     db.commit()
@@ -898,7 +898,7 @@ def assign_character(
         EventType.ASSIGNMENT,
         "Delegate",
         str(registration.delegate_id),
-        f"{_delegate_name(registration.delegate)} assigned to {character.name} ({event.name})",
+        f"{delegate_name(registration.delegate)} assigned to {character.name} ({event.name})",
     )
     try:
         db.commit()
@@ -921,7 +921,7 @@ def unassign_character(
             EventType.UNASSIGNMENT,
             "Delegate",
             str(character.registration.delegate_id),
-            f"{_delegate_name(character.registration.delegate)} unassigned from {character.name} ({event.name})",
+            f"{delegate_name(character.registration.delegate)} unassigned from {character.name} ({event.name})",
         )
     character.registration_id = None
     db.commit()
