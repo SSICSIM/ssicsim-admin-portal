@@ -33,6 +33,13 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router)
 
+    # Unauthenticated liveness probe for Render's health check and the
+    # conference keep-alive pinger. Deliberately outside api_router (which
+    # requires the admin token) and doesn't touch the database.
+    @app.get("/healthz", include_in_schema=False)
+    def healthz() -> dict[str, bool]:
+        return {"ok": True}
+
     # Serve local uploads if Supabase is not used
     app.mount(
         settings.upload_base_url,

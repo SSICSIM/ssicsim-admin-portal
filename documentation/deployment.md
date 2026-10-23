@@ -55,6 +55,8 @@ openssl rand -hex 32
 
 1. **New → Web Service** → connect your GitHub repo → set **Root Directory** to `/` (uses `backend/Dockerfile`).
 2. Set **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+   Under **Advanced**, set **Health Check Path** to `/healthz` (no token needed;
+   `/api/health` requires the admin token, so Render can't use it).
 3. Set **Pre-Deploy Command**: `alembic upgrade heads`
 4. Add environment variables:
 
