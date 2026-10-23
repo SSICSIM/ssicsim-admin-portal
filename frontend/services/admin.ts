@@ -21,6 +21,7 @@ import type {
   EventCharacterCreate,
   EventCharacterOut,
   EventLogOut,
+  EventType,
   EventOut,
   EventRegistrationCreate,
   EventRegistrationOut,
@@ -56,11 +57,19 @@ export const adminService = {
   deleteDelegate: (delegateId: UUID) => apiClient.deleteEmpty(`/api/delegates/${delegateId}`),
   bulkEditDelegates: (payload: DelegateBulkEditRequest) =>
     apiClient.post<DelegateBulkEditResult>("/api/delegates/bulk-edit", payload),
+  checkInDelegate: (delegateId: UUID) =>
+    apiClient.post<DelegateOut>(`/api/delegates/${delegateId}/check-in`, {}),
+  undoDelegateCheckIn: (delegateId: UUID) =>
+    apiClient.delete<DelegateOut>(`/api/delegates/${delegateId}/check-in`),
 
   // ─── delegations ────────────────────────────────────────────────────────────
   fetchDelegations: () => apiClient.get<DelegationOut[]>("/api/delegations"),
   updateDelegation: (id: UUID, payload: DelegationUpdate) =>
     apiClient.patch<DelegationOut>(`/api/delegations/${id}`, payload),
+  checkInDelegation: (id: UUID) =>
+    apiClient.post<DelegationOut>(`/api/delegations/${id}/check-in`, {}),
+  undoDelegationCheckIn: (id: UUID) =>
+    apiClient.delete<DelegationOut>(`/api/delegations/${id}/check-in`),
 
   // ─── assignments ────────────────────────────────────────────────────────────
   createAssignment: (payload: AssignmentCreate) =>
@@ -119,6 +128,9 @@ export const adminService = {
     apiClient.delete<EventCharacterOut>(`/api/events/${slug}/characters/${characterId}/assign`),
 
   // ─── activity log ───────────────────────────────────────────────────────────
-  fetchEventLogs: () => apiClient.get<EventLogOut[]>("/api/logs"),
+  fetchEventLogs: (eventType?: EventType) =>
+    apiClient.get<EventLogOut[]>(
+      eventType ? `/api/logs?event_type=${encodeURIComponent(eventType)}` : "/api/logs"
+    ),
   fetchSecMembers: () => apiClient.get<SecMemberOut[]>("/api/sec-members")
 };

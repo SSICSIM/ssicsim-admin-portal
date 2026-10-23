@@ -37,7 +37,8 @@ const eventTypeFilters: { label: string; value: EventType | "all" }[] = [
   { label: "Committee Update", value: "Committee Update" },
   { label: "Batch Edit", value: "Batch Edit" },
   { label: "Event Registration", value: "Event Registration" },
-  { label: "Email", value: "Email" }
+  { label: "Email", value: "Email" },
+  { label: "Check In", value: "Check In" }
 ];
 
 const eventTypeBadge: Record<
@@ -50,7 +51,8 @@ const eventTypeBadge: Record<
   "Committee Update": "default",
   "Batch Edit": "info",
   "Event Registration": "info",
-  Email: "default"
+  Email: "default",
+  "Check In": "success"
 };
 
 export default function ActivityPage() {

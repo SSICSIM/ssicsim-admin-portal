@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import text
@@ -14,6 +14,10 @@ from app.models.enums import EventType
 
 class EventLog(Base):
     __tablename__ = "event_logs"
+    # The check-in page polls the log filtered to one event type.
+    __table_args__ = (
+        Index("ix_event_logs_event_type_timestamp", "event_type", "timestamp"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -5,10 +5,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
+from app.auth import get_current_actor
 from app.database import get_db
 from app.models.delegation import Delegation
+from app.models.sec_member import SecMember
 from app.schemas import DelegationCreate, DelegationOut, DelegationUpdate
-from app.services import delegations
+from app.services import check_in, delegations
 
 router = APIRouter(prefix="/delegations", tags=["delegations"])
 
@@ -43,3 +45,21 @@ def update_delegation(
 def delete_delegation(delegation_id: UUID, db: Session = Depends(get_db)) -> Response:
     delegations.delete_delegation(db, delegation_id)
     return Response(status_code=204)
+
+
+@router.post("/{delegation_id}/check-in", response_model=DelegationOut)
+def check_in_delegation(
+    delegation_id: UUID,
+    db: Session = Depends(get_db),
+    actor: SecMember | None = Depends(get_current_actor),
+) -> Delegation:
+    return check_in.check_in_delegation(db, delegation_id, actor)
+
+
+@router.delete("/{delegation_id}/check-in", response_model=DelegationOut)
+def undo_delegation_check_in(
+    delegation_id: UUID,
+    db: Session = Depends(get_db),
+    actor: SecMember | None = Depends(get_current_actor),
+) -> Delegation:
+    return check_in.undo_delegation_check_in(db, delegation_id, actor)

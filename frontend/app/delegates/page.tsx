@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { CheckCircle2, ChevronDown, MoreHorizontal } from "lucide-react";
 
 import {
   useAssignDelegate,
@@ -90,8 +90,9 @@ import {
   REGISTRATION_PRICES
 } from "@/utils/csv";
 import { buildCharactersByCommittee, sortCharactersByPriorityDesc } from "@/utils/committee";
+import { formatEventDateTime } from "@/utils/events";
 import { CharacterOptionLabel } from "@/components/CharacterOptionLabel";
-import { Field, SortableHead, delegateStatusBadge } from "@/components/DelegateTable";
+import { ALL_STATUSES, Field, SortableHead, delegateStatusBadge } from "@/components/DelegateTable";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 
@@ -128,15 +129,6 @@ const registrationPeriodBadge: Record<
   Regular: "default",
   Late: "warning"
 };
-
-const ALL_STATUSES: DelegateStatus[] = [
-  "Waitlist",
-  "Awaiting Payment",
-  "Verify Payment",
-  "Awaiting Assignment",
-  "Assigned",
-  "Confirmed"
-];
 
 // ─── inline edit-table mode ─────────────────────────────────────────────────
 
@@ -233,6 +225,16 @@ function formatDate(value: string | null): string {
   return new Date(value).toLocaleDateString();
 }
 
+// Conference check-in time, set from the Check-in page.
+function CheckedIn({ at }: { at: string | null }) {
+  if (!at) return <span className="text-[var(--ssicsim-text-muted)]">--</span>;
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-green-700">
+      <CheckCircle2 className="h-3.5 w-3.5" /> {formatEventDateTime(at)}
+    </span>
+  );
+}
+
 // ─── shared table row ─────────────────────────────────────────────────────────
 
 function DelegateRow({
@@ -322,6 +324,9 @@ function DelegateRow({
             {delegate.delegate_status}
           </Badge>
         )}
+      </TableCell>
+      <TableCell>
+        <CheckedIn at={delegate.checked_in_at} />
       </TableCell>
       <TableCell>{delegate.delegate_experience}</TableCell>
       <TableCell>{delegationName}</TableCell>
@@ -510,6 +515,7 @@ function DelegateTableHead({
           activeDir={sortDir}
           onSort={onSort}
         />
+        <TableHead>Checked in</TableHead>
         <SortableHead
           label="Experience"
           sortKeyName="experience"
@@ -1598,6 +1604,7 @@ export default function DelegatesPage() {
                     <TableHead>Size (projected)</TableHead>
                     <TableHead>Attended Before</TableHead>
                     <TableHead>Delegates</TableHead>
+                    <TableHead>Checked in</TableHead>
                     <TableHead></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1631,6 +1638,9 @@ export default function DelegatesPage() {
                               : "No"}
                         </TableCell>
                         <TableCell>{count}</TableCell>
+                        <TableCell>
+                          <CheckedIn at={delegation.checked_in_at} />
+                        </TableCell>
                         <TableCell>
                           <Button
                             size="sm"

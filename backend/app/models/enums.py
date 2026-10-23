@@ -39,6 +39,7 @@ class EventType(str, Enum):
     UNASSIGNMENT = "Unassignment"
     BATCH_EDIT = "Batch Edit"
     EVENT_REGISTRATION = "Event Registration"
+    CHECK_IN = "Check In"
 
 
 class CharacterExperience(str, Enum):

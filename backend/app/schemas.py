@@ -134,6 +134,7 @@ class DelegationUpdate(BaseModel):
 
 class DelegationOut(DelegationBase):
     id: UUID
+    checked_in_at: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -211,6 +212,7 @@ class RegistrationCapacity(BaseModel):
 class DelegateOut(DelegateBase):
     id: UUID
     registration_period: RegistrationPeriod | None = None
+    checked_in_at: datetime | None = None
 
     class Config:
         from_attributes = True

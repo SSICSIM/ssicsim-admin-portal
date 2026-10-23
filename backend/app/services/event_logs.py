@@ -12,8 +12,11 @@ from app.models.sec_member import SecMember
 from app.schemas import EventLogCreate, EventLogUpdate
 
 
-def list_event_logs(db: Session) -> list[EventLog]:
-    return db.scalars(select(EventLog).order_by(EventLog.timestamp.desc())).all()
+def list_event_logs(db: Session, event_type: EventType | None = None) -> list[EventLog]:
+    query = select(EventLog).order_by(EventLog.timestamp.desc())
+    if event_type is not None:
+        query = query.where(EventLog.event_type == event_type)
+    return db.scalars(query).all()
 
 
 def record_event(

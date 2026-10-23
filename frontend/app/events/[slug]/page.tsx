@@ -161,7 +161,7 @@ function AddDelegateDialog({
   registeredDelegateIds: Set<UUID>;
 }) {
   // Every delegate is a big download; only needed once the dialog is open.
-  const delegatesQuery = useDelegates(open);
+  const delegatesQuery = useDelegates({ enabled: open });
   const createRegistration = useCreateEventRegistration(event.slug);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<EventRegistrationStatus>(

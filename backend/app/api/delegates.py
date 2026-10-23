@@ -17,7 +17,7 @@ from app.schemas import (
     DelegateUpdate,
     RegistrationCapacity,
 )
-from app.services import delegates
+from app.services import check_in, delegates
 
 router = APIRouter(prefix="/delegates", tags=["delegates"])
 
@@ -68,3 +68,21 @@ def update_delegate(
 def delete_delegate(delegate_id: UUID, db: Session = Depends(get_db)) -> Response:
     delegates.delete_delegate(db, delegate_id)
     return Response(status_code=204)
+
+
+@router.post("/{delegate_id}/check-in", response_model=DelegateOut)
+def check_in_delegate(
+    delegate_id: UUID,
+    db: Session = Depends(get_db),
+    actor: SecMember | None = Depends(get_current_actor),
+) -> Delegate:
+    return check_in.check_in_delegate(db, delegate_id, actor)
+
+
+@router.delete("/{delegate_id}/check-in", response_model=DelegateOut)
+def undo_delegate_check_in(
+    delegate_id: UUID,
+    db: Session = Depends(get_db),
+    actor: SecMember | None = Depends(get_current_actor),
+) -> Delegate:
+    return check_in.undo_delegate_check_in(db, delegate_id, actor)

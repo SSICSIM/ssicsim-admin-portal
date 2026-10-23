@@ -19,6 +19,15 @@ export const delegateStatusBadge: Record<
   Confirmed: "success"
 };
 
+export const ALL_STATUSES: DelegateStatus[] = [
+  "Waitlist",
+  "Awaiting Payment",
+  "Verify Payment",
+  "Awaiting Assignment",
+  "Assigned",
+  "Confirmed"
+];
+
 // Read-only label/value pair for the View dialogs.
 export function Field({ label, value, span }: { label: string; value: ReactNode; span?: boolean }) {
   return (

@@ -5,7 +5,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 from sqlalchemy.sql import text
 
 from app.database import Base
@@ -68,3 +68,15 @@ class Delegate(Base):
     payment_receipt_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     heard_about: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set when the secretariat checks them in at the conference
+    checked_in_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    @validates("delegate_status")
+    def _clear_check_in_on_waitlist(self, _key: str, status: DelegateStatus):
+        # A waitlisted delegate holds no spot, so they can't stay checked in.
+        # Done here so every path that changes status (edits, bulk edits) does it.
+        if status == DelegateStatus.WAITLIST:
+            self.checked_in_at = None
+        return status

@@ -41,6 +41,7 @@ function delegate(overrides: Partial<DelegateOut>): DelegateOut {
     payment_receipt_url: null,
     heard_about: null,
     notes: null,
+    checked_in_at: null,
     ...overrides
   };
 }
@@ -68,6 +69,7 @@ function delegation(overrides: Partial<DelegationOut>): DelegationOut {
     heard_about: null,
     notes: null,
     head_delegate_id: null,
+    checked_in_at: null,
     ...overrides
   };
 }

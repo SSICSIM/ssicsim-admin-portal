@@ -11,6 +11,7 @@ const links = [
   { href: "/committees", label: "Committees" },
   { href: "/delegates", label: "Delegates" },
   { href: "/events", label: "Events" },
+  { href: "/check-in", label: "Check-in" },
   { href: "/emailer", label: "Emailer" },
   { href: "/activity", label: "Activity" }
 ];

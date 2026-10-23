@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.enums import EventType
 from app.models.event_log import EventLog
 from app.schemas import EventLogCreate, EventLogOut, EventLogUpdate
 from app.services import event_logs
@@ -14,8 +15,10 @@ router = APIRouter(prefix="/logs", tags=["logs"])
 
 
 @router.get("", response_model=list[EventLogOut])
-def list_event_logs(db: Session = Depends(get_db)) -> list[EventLog]:
-    return event_logs.list_event_logs(db)
+def list_event_logs(
+    event_type: EventType | None = None, db: Session = Depends(get_db)
+) -> list[EventLog]:
+    return event_logs.list_event_logs(db, event_type)
 
 
 @router.post("", response_model=EventLogOut, status_code=201)
