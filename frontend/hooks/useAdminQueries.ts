@@ -139,8 +139,8 @@ export function useDelegations({ refetchInterval }: { refetchInterval?: number }
   });
 }
 
-// Conference check-in. `undo` reverses it. Checking in a delegation also
-// checks in its delegates, so both lists refresh, plus the log.
+// Conference check-in. `undo` reverses it. Each refreshes its own list and
+// the log; a delegation's check-in doesn't touch its delegates.
 export function useDelegateCheckIn() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -163,7 +163,6 @@ export function useDelegationCheckIn() {
       undo ? adminService.undoDelegationCheckIn(id) : adminService.checkInDelegation(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.delegations });
-      queryClient.invalidateQueries({ queryKey: queryKeys.delegates });
       queryClient.invalidateQueries({ queryKey: queryKeys.eventLogs });
     }
   });
